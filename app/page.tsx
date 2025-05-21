@@ -9,6 +9,9 @@ import ReviewsSection from "@/components/reviews-section"
 import Footer from "@/components/footer"
 import LoonecaFormInline from "@/components/looneca-form-inline"
 import { Loader2 } from "lucide-react"
+import Header from "@/components/header"
+import { useCart } from "@/contexts/cart-context"
+import { useRouter } from "next/navigation"
 
 // Define a animação de flutuação
 const floatingAnimation = `
@@ -37,6 +40,22 @@ export default function Home() {
   const [isFormValid, setIsFormValid] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [orderSuccess, setOrderSuccess] = useState(false)
+  const router = useRouter()
+  const { addItem } = useCart()
+
+  // Preços base por quantidade de pets
+  const PRECOS = {
+    1: 169.9,
+    2: 197.8,
+    3: 225.7,
+  }
+
+  // Preços originais (riscados) por quantidade de pets
+  const PRECOS_ORIGINAIS = {
+    1: 229.0,
+    2: 267.0,
+    3: 305.0,
+  }
 
   const formRef = useRef<{ handleSubmit: () => Promise<boolean> } | null>(null)
 
@@ -121,13 +140,25 @@ export default function Home() {
     try {
       const success = await formRef.current.handleSubmit()
       if (success) {
-        setOrderSuccess(true)
-        // Reset form state
-        setSelectedPetCount(1)
-        setQuantity(1)
+        // Adicionar ao carrinho
+        const currentItem = carouselItems.find((item) => item.variant === selectedColor) || carouselItems[0]
+
+        addItem({
+          id: `looneca-${Date.now()}`,
+          name: "Caneca Personalizada Looneca Prisma",
+          color: selectedColor,
+          petCount: selectedPetCount,
+          quantity: quantity,
+          price: PRECOS[selectedPetCount as keyof typeof PRECOS],
+          imageSrc: currentItem.src,
+        })
+
+        // Redirecionar para o carrinho
+        router.push("/carrinho")
       }
     } catch (error) {
       console.error("Erro ao processar pedido:", error)
+      setOrderSuccess(true)
     } finally {
       setIsSubmitting(false)
     }
@@ -138,26 +169,8 @@ export default function Home() {
       <style jsx global>
         {floatingAnimation}
       </style>
-      {/* Header - Sticky */}
-      <header className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-sm z-50 shadow-md">
-        <div className="flex justify-between items-center py-3 px-4 max-w-6xl mx-auto">
-          <div className="h-12">
-            <Image
-              src="/images/petloo-logo-new.png"
-              alt="Petloo Logo"
-              width={96}
-              height={48}
-              className="h-full w-auto"
-            />
-          </div>
-          <Link
-            href="#order"
-            className="bg-[#F1542E] text-white px-6 py-3 rounded-lg font-bold hover:bg-[#e04020] transition-colors"
-          >
-            Pedir agora
-          </Link>
-        </div>
-      </header>
+
+      <Header />
 
       <div className="pt-16"></div>
 
@@ -232,11 +245,26 @@ export default function Home() {
               {/* Preço */}
               <div className="mb-4">
                 <div className="flex items-center">
-                  <span className="text-2xl font-bold text-[#F1542E]">R$ 169,90</span>
-                  <span className="ml-2 text-sm line-through text-gray-500">R$ 229,00</span>
-                  <span className="ml-2 text-xs bg-[#F1542E] text-white px-2 py-1 rounded">Economize R$ 59,10</span>
+                  <span className="text-2xl font-bold text-[#F1542E]">
+                    R$ {PRECOS[selectedPetCount as keyof typeof PRECOS].toFixed(2).replace(".", ",")}
+                  </span>
+                  <span className="ml-2 text-sm line-through text-gray-500">
+                    R${" "}
+                    {PRECOS_ORIGINAIS[selectedPetCount as keyof typeof PRECOS_ORIGINAIS].toFixed(2).replace(".", ",")}
+                  </span>
+                  <span className="ml-2 text-xs bg-[#F1542E] text-white px-2 py-1 rounded">
+                    Economize R${" "}
+                    {(
+                      PRECOS_ORIGINAIS[selectedPetCount as keyof typeof PRECOS_ORIGINAIS] -
+                      PRECOS[selectedPetCount as keyof typeof PRECOS]
+                    )
+                      .toFixed(2)
+                      .replace(".", ",")}
+                  </span>
                 </div>
-                <p className="text-sm text-gray-600 mt-1">Em até 12x de 17,27</p>
+                <p className="text-sm text-gray-600 mt-1">
+                  Em até 12x de {(PRECOS[selectedPetCount as keyof typeof PRECOS] / 12).toFixed(2).replace(".", ",")}
+                </p>
               </div>
 
               {/* Seleção de cor */}
@@ -344,7 +372,7 @@ export default function Home() {
           <div className="max-w-2xl mx-auto">
             <div className="shadow-xl rounded-lg overflow-hidden border border-gray-200 transform translate-y-0 hover:translate-y-[-2px] transition-all duration-300">
               <Image
-                src="/images/carousel/featured-catalog-image.webp"
+                src="/images/carousel/cat1.png"
                 alt="Caneca Looneca personalizada"
                 width={800}
                 height={800}

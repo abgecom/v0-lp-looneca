@@ -2,6 +2,7 @@ import type React from "react"
 import "./globals.css"
 import type { Metadata } from "next"
 import { Anek_Bangla } from "next/font/google"
+import { CartProvider } from "@/contexts/cart-context"
 
 const anekBangla = Anek_Bangla({
   subsets: ["latin"],
@@ -23,7 +24,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <body className={`${anekBangla.variable} font-anek`}>{children}</body>
+      <body className={`${anekBangla.variable} font-anek`}>
+        <CartProvider>{children}</CartProvider>
+      </body>
     </html>
   )
 }
