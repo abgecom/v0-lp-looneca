@@ -38,10 +38,10 @@ export default function CartPage() {
       name: "App Petloo",
       description: "Aplicativo completo para cuidar do seu pet",
       benefits: [
-        "Mais de 1000 exercícios de adestramento para a Frida",
         "Tag de rastreamento para coleira",
         "Cartão de vacina digital",
-        "Truques novos para ensinar em 5 minutos",
+        "Descontos exclusivos",
+        "Registro do pet",
       ],
       originalPrice: 30.0,
       currentPrice: 0,
@@ -52,10 +52,10 @@ export default function CartPage() {
       name: "Livro digital Loobook",
       description: "Guia completo para cuidar do seu pet",
       benefits: [
-        "Mais de 1000 exercícios de adestramento para a Frida",
-        "Tag de rastreamento para coleira",
-        "Cartão de vacina digital",
-        "Truques novos para ensinar em 5 minutos",
+        "Dicas de alimentação",
+        "Exercícios interativos",
+        "Como melhorar comportamentos ruins",
+        "Hábitos saudáveis e muito mais",
       ],
       originalPrice: 79.9,
       currentPrice: 0,
@@ -226,7 +226,12 @@ export default function CartPage() {
 
                 {/* Ofertas adicionais */}
                 <div className="space-y-4">
-                  <h2 className="text-xl font-bold">Ofertas especiais para você</h2>
+                  <h2 className="text-xl font-bold">Parabéns, você ganhou dois bônus grátis</h2>
+                  <p className="text-[#4A4A4A] text-[0.9rem] mb-4">
+                    Você terá acesso vip ao App Petloo, onde você encontrará funcionalidades exclusivas 100% gratuitas e
+                    também receberá o nosso Loobook, um guia sobre alimentação, hábitos, saúde e comportamento do seu
+                    pet.
+                  </p>
 
                   {additionalOffers.map((offer) => (
                     <div

@@ -87,7 +87,10 @@ export default function Home() {
     },
     { type: "image" as const, src: "/images/carousel/cat3.webp", alt: "Caneca Looneca personalizada" },
     { type: "image" as const, src: "/images/carousel/cat4.webp", alt: "Caneca Looneca personalizada" },
-    { type: "image" as const, src: "/images/carousel/cat5.webp", alt: "Caneca Looneca personalizada" },
+    {
+      type: "video" as const,
+      src: "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Fotos%20de%20cat%C3%A1logo/a567599a638944649101a6b83817c05a.HD-1080p-7.2Mbps-37410711-r66K6zltHXhHuT2VvnMeIQIDSTLT4E.mp4",
+    },
     { type: "image" as const, src: "/images/carousel/cat6.webp", alt: "Caneca Looneca personalizada" },
     { type: "image" as const, src: "/images/carousel/cat7.webp", alt: "Caneca Looneca personalizada" },
     { type: "image" as const, src: "/images/carousel/cat8.webp", alt: "Caneca Looneca personalizada" },
