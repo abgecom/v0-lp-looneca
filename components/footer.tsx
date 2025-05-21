@@ -1,4 +1,3 @@
-import Image from "next/image"
 import Link from "next/link"
 import { Instagram, ArrowRight } from "lucide-react"
 
@@ -154,24 +153,6 @@ export default function Footer() {
               <path d="M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0z"></path>
             </svg>
           </Link>
-        </div>
-
-        {/* Copyright e Métodos de Pagamento */}
-        <div className="mt-8 pt-8 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-xs text-gray-500 mb-4 md:mb-0">© 2025, Petloo. Com tecnologia da Shopify</p>
-          <div className="flex space-x-2">
-            {paymentMethods.map((method) => (
-              <div key={method.name} className="w-10 h-6 flex items-center justify-center">
-                <Image
-                  src={method.image || "/placeholder.svg"}
-                  alt={method.name}
-                  width={40}
-                  height={25}
-                  className="w-full h-auto"
-                />
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </footer>
