@@ -178,9 +178,9 @@ export default function Home() {
       <div className="pt-16"></div>
 
       {/* Hero Section */}
-      <section className="max-w-6xl mx-auto p-4 md:p-6 flex flex-col md:flex-row items-start justify-between gap-8 mt-2 pb-8">
+      <section className="max-w-6xl mx-auto p-4 md:p-6 flex flex-col md:flex-row items-start justify-between gap-4 mt-2 pb-8">
         {/* Carrossel à esquerda */}
-        <div className="md:w-1/2 order-1 md:order-1">
+        <div className="md:w-3/5 order-1 md:order-1">
           <MediaCarousel
             items={carouselItems}
             className="w-full"
@@ -193,7 +193,7 @@ export default function Home() {
         </div>
 
         {/* Informações do produto à direita */}
-        <div className="md:w-1/2 order-2 md:order-2 bg-[#F1E9DB] font-anek">
+        <div className="md:w-2/5 order-2 md:order-2 bg-[#F1E9DB] font-anek">
           {orderSuccess ? (
             <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
               <div className="flex justify-center mb-4">

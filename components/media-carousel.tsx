@@ -56,7 +56,7 @@ export default function MediaCarousel({
     <div className={`relative overflow-hidden max-w-full ${className}`}>
       <div className="flex items-center">
         {/* Main slide container */}
-        <div className="w-[85%] border border-gray-300 relative">
+        <div className="w-[90%] relative">
           <div className="aspect-square relative">
             {items.map((item, index) => (
               <div
@@ -66,7 +66,7 @@ export default function MediaCarousel({
                 }`}
               >
                 {item.type === "image" ? (
-                  <div className="w-full h-full flex items-center justify-center bg-white p-2">
+                  <div className="w-full h-full flex items-center justify-center">
                     <Image
                       src={item.src || "/placeholder.svg"}
                       alt={item.alt || `Slide ${index + 1}`}
@@ -77,7 +77,7 @@ export default function MediaCarousel({
                     />
                   </div>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-white p-2">
+                  <div className="w-full h-full flex items-center justify-center">
                     <video
                       ref={(el) => (videoRefs.current[index] = el)}
                       src={item.src}
@@ -95,10 +95,10 @@ export default function MediaCarousel({
         </div>
 
         {/* Preview of next slide */}
-        <div className="w-[15%] overflow-hidden">
+        <div className="w-[10%] overflow-hidden">
           <div className="aspect-square relative">
             {items[nextIndex].type === "image" ? (
-              <div className="w-full h-full flex items-center justify-center bg-white p-1">
+              <div className="w-full h-full flex items-center justify-center">
                 <Image
                   src={items[nextIndex].src || "/placeholder.svg"}
                   alt={items[nextIndex].alt || `Next slide`}
@@ -108,7 +108,7 @@ export default function MediaCarousel({
                 />
               </div>
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-white p-1">
+              <div className="w-full h-full flex items-center justify-center">
                 <video
                   src={items[nextIndex].src}
                   muted
@@ -132,7 +132,7 @@ export default function MediaCarousel({
       </button>
 
       <button
-        className="absolute right-[17%] top-1/2 -translate-y-1/2 bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-full z-20 w-10 h-10 flex items-center justify-center"
+        className="absolute right-[12%] top-1/2 -translate-y-1/2 bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-full z-20 w-10 h-10 flex items-center justify-center"
         onClick={goToNext}
         aria-label="Next slide"
       >
