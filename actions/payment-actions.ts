@@ -59,67 +59,78 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
     // Format amount to cents (Pagar.me requires amount in cents)
     const amountInCents = Math.round(request.amount * 100)
 
-    // Common payment data
-    const paymentData: any = {
-      amount: amountInCents,
+    // Calcular quantidade e preço unitário
+    // Assumindo que o preço total é dividido igualmente entre os itens
+    const quantity = 1 // Podemos ajustar conforme necessário
+    const unitPrice = amountInCents
+
+    // Preparar o payload para o endpoint /orders
+    const orderPayload: any = {
+      items: [
+        {
+          name: "Caneca Personalizada Looneca",
+          quantity: quantity,
+          unit_price: unitPrice,
+        },
+      ],
       customer: {
         name: request.customer.name,
         email: request.customer.email,
         document: request.customer.cpf.replace(/\D/g, ""),
         type: "individual",
       },
+      payments: [
+        {
+          payment_method: request.paymentMethod,
+        },
+      ],
       metadata: {
         recurringAppPetloo: request.recurringProducts.appPetloo,
         recurringLoobook: request.recurringProducts.loobook,
       },
     }
 
-    // Add payment method specific data
+    // Adicionar dados específicos do método de pagamento
     if (request.paymentMethod === "credit_card") {
       if (!request.card) {
         return { success: false, error: "Dados do cartão não fornecidos" }
       }
 
-      // For credit card payments
-      paymentData.payment = {
-        payment_method: "credit_card",
-        credit_card: {
-          installments: request.installments,
-          statement_descriptor: "PETLOO",
-          card: {
-            number: request.card.number,
-            holder_name: request.card.holderName,
-            exp_month: request.card.expirationDate.split("/")[0],
-            exp_year: `20${request.card.expirationDate.split("/")[1]}`,
-            cvv: request.card.cvv,
-          },
+      // Para pagamentos com cartão de crédito
+      orderPayload.payments[0].credit_card = {
+        installments: request.installments,
+        statement_descriptor: "PETLOO",
+        card: {
+          number: request.card.number,
+          holder_name: request.card.holderName,
+          exp_month: request.card.expirationDate.split("/")[0],
+          exp_year: `20${request.card.expirationDate.split("/")[1]}`,
+          cvv: request.card.cvv,
         },
       }
     } else {
-      // For PIX payments
-      paymentData.payment_method = "pix"
-      paymentData.pix = {
-        expires_in: 3600, // Expires in 1 hour
+      // Para pagamentos PIX
+      orderPayload.payments[0].pix = {
+        expires_in: 3600, // Expira em 1 hora
       }
     }
 
-    // Adicionar logo após a definição do paymentData e antes do fetch
-    console.log("Enviando payload para Pagar.me:", JSON.stringify(paymentData, null, 2))
+    console.log("Enviando payload para Pagar.me (orders):", JSON.stringify(orderPayload, null, 2))
 
-    // Make API request to Pagar.me
-    const response = await fetch("https://api.pagar.me/core/v5/charges", {
+    // Fazer requisição para a API da Pagar.me usando o endpoint /orders
+    const response = await fetch("https://api.pagar.me/core/v5/orders", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Basic ${Buffer.from(PAGARME_API_KEY + ":").toString("base64")}`,
         "X-Account-Id": PAGARME_ACCOUNT_ID,
       },
-      body: JSON.stringify(paymentData),
+      body: JSON.stringify(orderPayload),
     })
 
     if (!response.ok) {
       const errorData = await response.json()
-      console.error("Pagar.me API error:", errorData)
+      console.error("Pagar.me API error (orders):", errorData)
       return {
         success: false,
         error: errorData.message || "Erro ao processar pagamento. Verifique os dados e tente novamente.",
@@ -127,34 +138,46 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
     }
 
     const data = await response.json()
+    console.log("Resposta da API Pagar.me (orders):", JSON.stringify(data, null, 2))
 
     // Extrair os IDs necessários para a assinatura
     let customerId = ""
     let cardId = ""
+    let paymentId = ""
+    let paymentStatus = ""
+    let pixCode = null
+    let pixQrCodeUrl = null
 
     // Extrair o customerId da resposta
     if (data.customer && data.customer.id) {
       customerId = data.customer.id
-    } else {
-      // Fallback para um ID simulado
-      customerId = `cus_${Math.random().toString(36).substring(2, 15)}`
     }
 
-    // Extrair o cardId da resposta - CORREÇÃO AQUI
-    if (request.paymentMethod === "credit_card" && data.last_transaction && data.last_transaction.card) {
-      cardId = data.last_transaction.card.id
-    } else if (request.paymentMethod === "credit_card") {
-      // Fallback para um ID simulado
-      cardId = `card_${Math.random().toString(36).substring(2, 15)}`
+    // Extrair informações de pagamento
+    if (data.charges && data.charges.length > 0) {
+      const charge = data.charges[0]
+      paymentId = charge.id
+      paymentStatus = charge.status
+
+      // Extrair o cardId para pagamentos com cartão
+      if (request.paymentMethod === "credit_card" && charge.last_transaction && charge.last_transaction.card) {
+        cardId = charge.last_transaction.card.id
+      }
+
+      // Extrair informações do PIX
+      if (request.paymentMethod === "pix" && charge.last_transaction && charge.last_transaction.qr_code) {
+        pixCode = charge.last_transaction.qr_code
+        pixQrCodeUrl = charge.last_transaction.qr_code_url
+      }
     }
 
     // Verificar se o pagamento foi bem-sucedido
-    if (data.status === "paid" || data.status === "pending") {
+    if (paymentStatus === "paid" || paymentStatus === "pending") {
       // Verificar se o cliente selecionou produtos recorrentes e se o método de pagamento é cartão de crédito
       const clienteSelecionouProdutosRecorrentes =
         request.recurringProducts.appPetloo || request.recurringProducts.loobook
 
-      if (request.paymentMethod === "credit_card" && clienteSelecionouProdutosRecorrentes) {
+      if (request.paymentMethod === "credit_card" && clienteSelecionouProdutosRecorrentes && cardId) {
         // Criar assinatura apenas se o pagamento foi com cartão e o cliente selecionou produtos recorrentes
         const assinatura = await createPetlooSubscription(customerId, cardId, supabase)
 
@@ -170,10 +193,10 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
       if (request.paymentMethod === "pix") {
         return {
           success: true,
-          paymentId: data.id,
-          status: data.status,
-          pixCode: data.pix?.qr_code,
-          pixQrCodeUrl: data.pix?.qr_code_url,
+          paymentId,
+          status: paymentStatus,
+          pixCode,
+          pixQrCodeUrl,
           customerId,
           cardId,
         }
@@ -181,8 +204,8 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
         // Para pagamentos com cartão de crédito
         return {
           success: true,
-          paymentId: data.id,
-          status: data.status,
+          paymentId,
+          status: paymentStatus,
           customerId,
           cardId,
         }
@@ -190,7 +213,7 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
     } else {
       return {
         success: false,
-        error: "Pagamento não aprovado. Status: " + data.status,
+        error: "Pagamento não aprovado. Status: " + paymentStatus,
       }
     }
   } catch (error) {

@@ -27,12 +27,21 @@ export async function createPetlooSubscription(
       }
     }
 
+    // Verificar se o cardId foi fornecido
+    if (!cardId) {
+      console.error("Card ID não fornecido para criação da assinatura")
+      return {
+        success: false,
+        error: "ID do cartão não fornecido para criação da assinatura.",
+      }
+    }
+
     // Calcular a data de vencimento (30 dias a partir de hoje)
     const firstDueDate = new Date()
     firstDueDate.setDate(firstDueDate.getDate() + 30)
     const formattedDueDate = firstDueDate.toISOString().split("T")[0] // Formato YYYY-MM-DD
 
-    // Payload corrigido para a criação da assinatura
+    // Payload para a criação da assinatura
     const subscriptionPayload = {
       customer_id: customerId,
       plan_id: PETLOO_PLAN_ID,
@@ -40,6 +49,8 @@ export async function createPetlooSubscription(
       billing_type: "prepaid",
       first_due_date: formattedDueDate,
     }
+
+    console.log("Enviando payload para criação de assinatura:", JSON.stringify(subscriptionPayload, null, 2))
 
     // Criar a assinatura na Pagar.me
     const response = await fetch("https://api.pagar.me/core/v5/subscriptions", {
@@ -54,7 +65,7 @@ export async function createPetlooSubscription(
 
     if (!response.ok) {
       const errorData = await response.json()
-      console.error("Pagar.me API error:", errorData)
+      console.error("Pagar.me API error (subscriptions):", errorData)
       return {
         success: false,
         error: errorData.message || "Erro ao criar assinatura.",
