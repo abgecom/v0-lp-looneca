@@ -17,6 +17,8 @@ interface PaymentRequest {
   paymentMethod: "credit_card" | "pix"
   amount: number
   installments: number
+  quantity?: number // Quantidade de Loonecas
+  petCount?: number // Número de pets em cada Looneca
   customer: {
     name: string
     email: string
@@ -59,18 +61,22 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
     // Format amount to cents (Pagar.me requires amount in cents)
     const amountInCents = Math.round(request.amount * 100)
 
+    // Modificar a parte onde o quantity e unitPrice são calculados para usar os valores corretos do carrinho
+    // Substituir o bloco de código que calcula quantity e unitPrice por:
+
     // Calcular quantidade e preço unitário
-    // Assumindo que o preço total é dividido igualmente entre os itens
-    const quantity = 1 // Podemos ajustar conforme necessário
-    const unitPrice = amountInCents
+    const quantity = request.quantity || 1 // Usar a quantidade do pedido ou 1 como padrão
+    const unitPrice = amountInCents / quantity // Calcular o preço unitário baseado no total
+    const petCount = request.petCount || 1 // Número de pets na Looneca
 
     // Preparar o payload para o endpoint /orders
     const orderPayload: any = {
       items: [
         {
-          name: "Caneca Personalizada Looneca",
+          name: "Looneca",
           quantity: quantity,
           unit_price: unitPrice,
+          description: `Looneca - ${petCount} pets`,
         },
       ],
       customer: {
@@ -88,6 +94,15 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
         recurringAppPetloo: request.recurringProducts.appPetloo,
         recurringLoobook: request.recurringProducts.loobook,
       },
+    }
+
+    // Garantir que os valores sejam válidos
+    if (unitPrice <= 0) {
+      return { success: false, error: "Valor do produto inválido" }
+    }
+
+    if (quantity < 1) {
+      return { success: false, error: "Quantidade de produtos inválida" }
     }
 
     // Adicionar dados específicos do método de pagamento

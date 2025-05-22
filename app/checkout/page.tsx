@@ -374,6 +374,8 @@ export default function CheckoutPage() {
         paymentMethod,
         amount: totalWithShipping,
         installments: Number(formData.installments),
+        quantity: cart.totalItems, // Adicionar quantidade total de itens
+        petCount: cart.items.length > 0 ? cart.items[0].petCount : 1, // Adicionar número de pets (assumindo que todos os itens têm o mesmo número de pets)
         customer: {
           name: formData.name,
           email: formData.email,
