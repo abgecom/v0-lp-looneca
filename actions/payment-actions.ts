@@ -79,10 +79,15 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
       return { success: false, error: "Quantidade de produtos inválida (menor que 1)" }
     }
 
+    // Verificar se o cliente selecionou produtos recorrentes
+    const clienteSelecionouProdutosRecorrentes =
+      request.recurringProducts.appPetloo || request.recurringProducts.loobook
+
     // Log para debug
     console.log(
       `Processando pagamento: ${quantidadeDePets} pets, ${quantidadeDeLoonecas} loonecas, valor total: R$ ${request.amount}, preço unitário: ${precoUnitarioEmCentavos} centavos, valor total em centavos: ${valorTotalEmCentavos}`,
     )
+    console.log(`Cliente selecionou produtos recorrentes: ${clienteSelecionouProdutosRecorrentes}`)
 
     // Gerar um código único para o item
     const itemCode = `LOONECA-${Date.now()}-${Math.floor(Math.random() * 1000)}`
@@ -181,6 +186,7 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
     // Extrair o customerId da resposta
     if (data.customer && data.customer.id) {
       customerId = data.customer.id
+      console.log(`Customer ID extraído: ${customerId}`)
     }
 
     // Extrair informações de pagamento
@@ -189,9 +195,18 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
       paymentId = charge.id
       paymentStatus = charge.status
 
+      console.log(`Payment ID: ${paymentId}, Status: ${paymentStatus}`)
+
       // Extrair o cardId para pagamentos com cartão
-      if (request.paymentMethod === "credit_card" && charge.last_transaction && charge.last_transaction.card) {
-        cardId = charge.last_transaction.card.id
+      if (request.paymentMethod === "credit_card" && charge.last_transaction) {
+        console.log("Last transaction:", JSON.stringify(charge.last_transaction, null, 2))
+
+        if (charge.last_transaction.card && charge.last_transaction.card.id) {
+          cardId = charge.last_transaction.card.id
+          console.log(`Card ID extraído: ${cardId}`)
+        } else {
+          console.log("Card ID não encontrado na transação")
+        }
       }
 
       // Extrair informações do PIX
@@ -203,20 +218,34 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
 
     // Verificar se o pagamento foi bem-sucedido
     if (paymentStatus === "paid" || paymentStatus === "pending") {
-      // Verificar se o cliente selecionou produtos recorrentes e se o método de pagamento é cartão de crédito
-      const clienteSelecionouProdutosRecorrentes =
-        request.recurringProducts.appPetloo || request.recurringProducts.loobook
+      console.log(`Pagamento aprovado com status: ${paymentStatus}`)
 
-      if (request.paymentMethod === "credit_card" && clienteSelecionouProdutosRecorrentes && cardId) {
-        // Criar assinatura apenas se o pagamento foi com cartão e o cliente selecionou produtos recorrentes
-        const assinatura = await createPetlooSubscription(customerId, cardId, supabase)
+      // Criar assinatura se o cliente selecionou produtos recorrentes
+      if (clienteSelecionouProdutosRecorrentes) {
+        console.log("Cliente selecionou produtos recorrentes, verificando condições para criar assinatura...")
 
-        if (!assinatura.success) {
-          console.error("Falha ao criar assinatura Petloo:", assinatura.error)
-          // Não interrompemos o fluxo do cliente, apenas logamos o erro
+        if (request.paymentMethod === "credit_card") {
+          if (customerId && cardId) {
+            console.log(`Criando assinatura com Customer ID: ${customerId} e Card ID: ${cardId}`)
+
+            // Criar assinatura
+            const assinatura = await createPetlooSubscription(customerId, cardId, supabase)
+
+            if (!assinatura.success) {
+              console.error("Falha ao criar assinatura Petloo:", assinatura.error)
+              // Não interrompemos o fluxo do cliente, apenas logamos o erro
+            } else {
+              console.log("Assinatura criada com sucesso:", assinatura.subscriptionId)
+            }
+          } else {
+            console.error(`Não foi possível criar assinatura - Customer ID: ${customerId}, Card ID: ${cardId}`)
+          }
         } else {
-          console.log("Assinatura criada com sucesso:", assinatura.subscriptionId)
+          console.log("Pagamento via PIX - assinatura não pode ser criada automaticamente")
+          // Para PIX, podemos implementar uma lógica diferente no futuro
         }
+      } else {
+        console.log("Cliente não selecionou produtos recorrentes - assinatura não será criada")
       }
 
       // Retornar a resposta apropriada com base no método de pagamento

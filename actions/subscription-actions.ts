@@ -18,9 +18,14 @@ export async function createPetlooSubscription(
   supabase: any,
 ): Promise<{ success: boolean; subscriptionId?: string; error?: any }> {
   try {
+    console.log(`Iniciando criação de assinatura para Customer: ${customerId}, Card: ${cardId}`)
+
     // Verificar se as variáveis de ambiente estão definidas
     if (!PAGARME_API_KEY || !PAGARME_ACCOUNT_ID || !PETLOO_PLAN_ID) {
       console.error("Pagar.me environment variables are not properly configured")
+      console.error(`PAGARME_API_KEY: ${!!PAGARME_API_KEY}`)
+      console.error(`PAGARME_ACCOUNT_ID: ${!!PAGARME_ACCOUNT_ID}`)
+      console.error(`PETLOO_PLAN_ID: ${!!PETLOO_PLAN_ID}`)
       return {
         success: false,
         error: "Configuração de pagamento incompleta.",
@@ -36,6 +41,15 @@ export async function createPetlooSubscription(
       }
     }
 
+    // Verificar se o customerId foi fornecido
+    if (!customerId) {
+      console.error("Customer ID não fornecido para criação da assinatura")
+      return {
+        success: false,
+        error: "ID do cliente não fornecido para criação da assinatura.",
+      }
+    }
+
     // Calcular a data de vencimento (30 dias a partir de hoje)
     const firstDueDate = new Date()
     firstDueDate.setDate(firstDueDate.getDate() + 30)
@@ -48,6 +62,11 @@ export async function createPetlooSubscription(
       card_id: cardId,
       billing_type: "prepaid",
       first_due_date: formattedDueDate,
+      metadata: {
+        created_by: "looneca_checkout",
+        plan_name: "Petloo Monthly Subscription",
+        amount_cents: 3090, // R$ 30,90
+      },
     }
 
     console.log("Enviando payload para criação de assinatura:", JSON.stringify(subscriptionPayload, null, 2))
@@ -73,22 +92,30 @@ export async function createPetlooSubscription(
     }
 
     const data = await response.json()
-    console.log("Assinatura criada com sucesso:", data.id)
+    console.log("Assinatura criada com sucesso:", JSON.stringify(data, null, 2))
 
     // Armazenar a assinatura no Supabase
     if (supabase) {
       const { error: supabaseError } = await supabase.from("subscriptions").insert({
         subscription_id: data.id,
         customer_id: customerId,
+        card_id: cardId,
+        plan_id: PETLOO_PLAN_ID,
         status: data.status,
         first_due_date: formattedDueDate,
         amount: 3090, // Valor em centavos (R$ 30,90)
         created_at: new Date().toISOString(),
+        metadata: {
+          plan_name: "Petloo Monthly Subscription",
+          created_by: "looneca_checkout",
+        },
       })
 
       if (supabaseError) {
         console.error("Erro ao armazenar assinatura no Supabase:", supabaseError)
         // Não interrompemos o fluxo, apenas logamos o erro
+      } else {
+        console.log("Assinatura armazenada no Supabase com sucesso")
       }
     }
 
