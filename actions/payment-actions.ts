@@ -2,7 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js"
 import { createPetlooSubscription } from "./subscription-actions"
-import { calcularPrecoUnitarioEmCentavos } from "../utils/price-calculator"
+import { calcularPrecoLoonecaEmCentavos } from "../utils/price-calculator"
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL!
@@ -63,12 +63,26 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
     const quantidadeDeLoonecas = Math.max(request.quantity || 1, 1) // Garantir que seja pelo menos 1
     const quantidadeDePets = Math.max(request.petCount || 1, 1) // Garantir que seja pelo menos 1
 
-    // Calcular o preço unitário em centavos usando a função utilitária
-    const precoUnitarioEmCentavos = calcularPrecoUnitarioEmCentavos(quantidadeDePets)
+    // Calcular o preço total em centavos usando a função utilitária
+    const precoTotalEmCentavos = calcularPrecoLoonecaEmCentavos(quantidadeDePets, quantidadeDeLoonecas)
+
+    // Calcular o preço unitário em centavos (por Looneca)
+    const precoUnitarioEmCentavos = precoTotalEmCentavos / quantidadeDeLoonecas
+
+    // Validar os valores calculados
+    if (precoUnitarioEmCentavos < 1) {
+      console.error("Erro de validação: unit_price não pode ser menor que 1")
+      return { success: false, error: "Valor do produto inválido (menor que 1 centavo)" }
+    }
+
+    if (quantidadeDeLoonecas < 1) {
+      console.error("Erro de validação: quantity não pode ser menor que 1")
+      return { success: false, error: "Quantidade de produtos inválida (menor que 1)" }
+    }
 
     // Log para debug
     console.log(
-      `Calculando preço: ${quantidadeDePets} pets, ${quantidadeDeLoonecas} loonecas, preço unitário: ${precoUnitarioEmCentavos} centavos`,
+      `Calculando preço: ${quantidadeDePets} pets, ${quantidadeDeLoonecas} loonecas, preço unitário: ${precoUnitarioEmCentavos} centavos, preço total: ${precoTotalEmCentavos} centavos`,
     )
 
     // Preparar o payload para o endpoint /orders
@@ -77,7 +91,7 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
         {
           name: "Looneca",
           quantity: quantidadeDeLoonecas,
-          unit_price: precoUnitarioEmCentavos, // Preço unitário por Looneca
+          unit_price: Math.round(precoUnitarioEmCentavos), // Arredondar para garantir número inteiro
           description: `Looneca - ${quantidadeDePets} pets`,
         },
       ],
@@ -98,15 +112,6 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
         quantidadeDePets: quantidadeDePets,
         quantidadeDeLoonecas: quantidadeDeLoonecas,
       },
-    }
-
-    // Garantir que os valores sejam válidos
-    if (precoUnitarioEmCentavos <= 0) {
-      return { success: false, error: "Valor do produto inválido" }
-    }
-
-    if (quantidadeDeLoonecas < 1) {
-      return { success: false, error: "Quantidade de produtos inválida" }
     }
 
     // Adicionar dados específicos do método de pagamento
@@ -134,6 +139,7 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
       }
     }
 
+    // Validar o payload antes de enviar
     console.log("Enviando payload para Pagar.me (orders):", JSON.stringify(orderPayload, null, 2))
 
     // Fazer requisição para a API da Pagar.me usando o endpoint /orders
