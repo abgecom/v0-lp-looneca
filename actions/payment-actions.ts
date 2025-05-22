@@ -2,6 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js"
 import { createPetlooSubscription } from "./subscription-actions"
+import { calcularPrecoUnitarioEmCentavos } from "../utils/price-calculator"
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL!
@@ -58,25 +59,26 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
       }
     }
 
-    // Format amount to cents (Pagar.me requires amount in cents)
-    const amountInCents = Math.round(request.amount * 100)
+    // Obter a quantidade de Loonecas e pets do request
+    const quantidadeDeLoonecas = Math.max(request.quantity || 1, 1) // Garantir que seja pelo menos 1
+    const quantidadeDePets = Math.max(request.petCount || 1, 1) // Garantir que seja pelo menos 1
 
-    // Modificar a parte onde o quantity e unitPrice são calculados para usar os valores corretos do carrinho
-    // Substituir o bloco de código que calcula quantity e unitPrice por:
+    // Calcular o preço unitário em centavos usando a função utilitária
+    const precoUnitarioEmCentavos = calcularPrecoUnitarioEmCentavos(quantidadeDePets)
 
-    // Calcular quantidade e preço unitário
-    const quantity = request.quantity || 1 // Usar a quantidade do pedido ou 1 como padrão
-    const unitPrice = amountInCents / quantity // Calcular o preço unitário baseado no total
-    const petCount = request.petCount || 1 // Número de pets na Looneca
+    // Log para debug
+    console.log(
+      `Calculando preço: ${quantidadeDePets} pets, ${quantidadeDeLoonecas} loonecas, preço unitário: ${precoUnitarioEmCentavos} centavos`,
+    )
 
     // Preparar o payload para o endpoint /orders
     const orderPayload: any = {
       items: [
         {
           name: "Looneca",
-          quantity: quantity,
-          unit_price: unitPrice,
-          description: `Looneca - ${petCount} pets`,
+          quantity: quantidadeDeLoonecas,
+          unit_price: precoUnitarioEmCentavos, // Preço unitário por Looneca
+          description: `Looneca - ${quantidadeDePets} pets`,
         },
       ],
       customer: {
@@ -93,15 +95,17 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
       metadata: {
         recurringAppPetloo: request.recurringProducts.appPetloo,
         recurringLoobook: request.recurringProducts.loobook,
+        quantidadeDePets: quantidadeDePets,
+        quantidadeDeLoonecas: quantidadeDeLoonecas,
       },
     }
 
     // Garantir que os valores sejam válidos
-    if (unitPrice <= 0) {
+    if (precoUnitarioEmCentavos <= 0) {
       return { success: false, error: "Valor do produto inválido" }
     }
 
-    if (quantity < 1) {
+    if (quantidadeDeLoonecas < 1) {
       return { success: false, error: "Quantidade de produtos inválida" }
     }
 
