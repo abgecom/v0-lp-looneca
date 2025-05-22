@@ -67,7 +67,7 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
     const precoTotalEmCentavos = calcularPrecoLoonecaEmCentavos(quantidadeDePets, quantidadeDeLoonecas)
 
     // Calcular o preço unitário em centavos (por Looneca)
-    const precoUnitarioEmCentavos = precoTotalEmCentavos / quantidadeDeLoonecas
+    const precoUnitarioEmCentavos = Math.round(precoTotalEmCentavos / quantidadeDeLoonecas)
 
     // Validar os valores calculados
     if (precoUnitarioEmCentavos < 1) {
@@ -91,8 +91,9 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
         {
           name: "Looneca",
           quantity: quantidadeDeLoonecas,
-          unit_price: Math.round(precoUnitarioEmCentavos), // Arredondar para garantir número inteiro
+          unit_price: precoUnitarioEmCentavos,
           description: `Looneca - ${quantidadeDePets} pets`,
+          amount: precoUnitarioEmCentavos * quantidadeDeLoonecas, // Adicionar campo amount explicitamente
         },
       ],
       customer: {
