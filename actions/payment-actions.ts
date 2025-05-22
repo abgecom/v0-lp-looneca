@@ -62,7 +62,6 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
     // Common payment data
     const paymentData: any = {
       amount: amountInCents,
-      payment_method: request.paymentMethod === "credit_card" ? "credit_card" : "pix",
       customer: {
         name: request.customer.name,
         email: request.customer.email,
@@ -82,23 +81,30 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
       }
 
       // For credit card payments
-      paymentData.credit_card = {
-        installments: request.installments,
-        statement_descriptor: "PETLOO",
-        card: {
-          number: request.card.number,
-          holder_name: request.card.holderName,
-          exp_month: request.card.expirationDate.split("/")[0],
-          exp_year: `20${request.card.expirationDate.split("/")[1]}`,
-          cvv: request.card.cvv,
+      paymentData.payment = {
+        payment_method: "credit_card",
+        credit_card: {
+          installments: request.installments,
+          statement_descriptor: "PETLOO",
+          card: {
+            number: request.card.number,
+            holder_name: request.card.holderName,
+            exp_month: request.card.expirationDate.split("/")[0],
+            exp_year: `20${request.card.expirationDate.split("/")[1]}`,
+            cvv: request.card.cvv,
+          },
         },
       }
     } else {
       // For PIX payments
+      paymentData.payment_method = "pix"
       paymentData.pix = {
         expires_in: 3600, // Expires in 1 hour
       }
     }
+
+    // Adicionar logo após a definição do paymentData e antes do fetch
+    console.log("Enviando payload para Pagar.me:", JSON.stringify(paymentData, null, 2))
 
     // Make API request to Pagar.me
     const response = await fetch("https://api.pagar.me/core/v5/charges", {
