@@ -23,6 +23,7 @@ interface PaymentRequest {
     name: string
     email: string
     cpf: string
+    phone?: string
   }
   card?: {
     number: string
@@ -109,6 +110,13 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
         email: request.customer.email,
         document: request.customer.cpf.replace(/\D/g, ""),
         type: "individual",
+        phones: {
+          mobile_phone: {
+            country_code: "55",
+            area_code: request.customer.phone?.substring(1, 3) || "11",
+            number: request.customer.phone?.replace(/\D/g, "").substring(2) || "999999999",
+          },
+        },
       },
       payments: [
         {
