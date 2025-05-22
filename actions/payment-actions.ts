@@ -126,8 +126,7 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
     let customerId = ""
     let cardId = ""
 
-    // Em um cenário real, esses IDs viriam da resposta da API
-    // Aqui estamos simulando para fins de demonstração
+    // Extrair o customerId da resposta
     if (data.customer && data.customer.id) {
       customerId = data.customer.id
     } else {
@@ -135,6 +134,7 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
       customerId = `cus_${Math.random().toString(36).substring(2, 15)}`
     }
 
+    // Extrair o cardId da resposta - CORREÇÃO AQUI
     if (request.paymentMethod === "credit_card" && data.last_transaction && data.last_transaction.card) {
       cardId = data.last_transaction.card.id
     } else if (request.paymentMethod === "credit_card") {
@@ -172,6 +172,7 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
           cardId,
         }
       } else {
+        // Para pagamentos com cartão de crédito
         return {
           success: true,
           paymentId: data.id,
