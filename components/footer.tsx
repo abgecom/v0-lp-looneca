@@ -22,7 +22,10 @@ export default function Footer() {
             <h3 className="font-bold text-sm mb-4">CENTRAL DE ATENDIMENTO</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="#" className="text-gray-600 hover:text-[#F1542E]">
+                <Link
+                  href="https://petloosupport.zendesk.com/hc/pt-br/requests/new"
+                  className="text-gray-600 hover:text-[#F1542E]"
+                >
                   Contato
                 </Link>
               </li>
@@ -30,7 +33,10 @@ export default function Footer() {
                 Horário de Atendimento:
                 <br />
                 Seg. a Sex. 9:00h às 17:00h através{" "}
-                <Link href="#" className="text-gray-600 hover:text-[#F1542E] underline">
+                <Link
+                  href="https://petloosupport.zendesk.com/hc/pt-br/requests/new"
+                  className="text-gray-600 hover:text-[#F1542E] underline"
+                >
                   deste formulário
                 </Link>
               </li>
@@ -42,53 +48,82 @@ export default function Footer() {
             <h3 className="font-bold text-sm mb-4">INFORMAÇÕES AO CLIENTE</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="#" className="text-gray-600 hover:text-[#F1542E]">
+                <Link href="https://petloo.com.br/pages/sobre-nos" className="text-gray-600 hover:text-[#F1542E]">
                   Sobre nós
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-600 hover:text-[#F1542E]">
+                <Link
+                  href="https://petloo.com.br/pages/politicas-de-privacidade"
+                  className="text-gray-600 hover:text-[#F1542E]"
+                >
                   Políticas de Privacidade
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-600 hover:text-[#F1542E]">
+                <Link
+                  href="https://petloo.com.br/pages/politicas-de-devolucao-e-troca"
+                  className="text-gray-600 hover:text-[#F1542E]"
+                >
                   Políticas de trocas, devoluções e Reembolsos
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-600 hover:text-[#F1542E]">
+                <Link
+                  href="https://petloo.com.br/pages/entrega-e-prazos"
+                  className="text-gray-600 hover:text-[#F1542E]"
+                >
                   Políticas de entrega e prazos
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-600 hover:text-[#F1542E]">
+                <Link href="https://petloo.com.br/pages/aviso-legal" className="text-gray-600 hover:text-[#F1542E]">
                   Aviso legal
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-600 hover:text-[#F1542E]">
+                <Link
+                  href="https://petloo.com.br/pages/termos-de-servico"
+                  className="text-gray-600 hover:text-[#F1542E]"
+                >
                   Termos de serviço e uso
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-600 hover:text-[#F1542E]">
+                <Link
+                  href="https://petloosupport.zendesk.com/hc/pt-br/requests/new"
+                  className="text-gray-600 hover:text-[#F1542E]"
+                >
                   Contato
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-600 hover:text-[#F1542E]">
+                <Link href="https://petloo.com.br/pages/rastreio-1" className="text-gray-600 hover:text-[#F1542E]">
                   Rastrear pedido
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-600 hover:text-[#F1542E]">
+                <Link
+                  href="https://petloo.com.br/account/login?return_url=%2Faccount"
+                  className="text-gray-600 hover:text-[#F1542E]"
+                >
                   Acompanhe o seu pedido
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-600 hover:text-[#F1542E]">
+                <Link
+                  href="https://petloo.com.br/account/login?return_url=%2Faccount"
+                  className="text-gray-600 hover:text-[#F1542E]"
+                >
                   Editar Cadastro
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="https://petloo.com.br/pages/politicas-de-assinatura"
+                  className="text-gray-600 hover:text-[#F1542E]"
+                >
+                  Políticas de Assinatura
                 </Link>
               </li>
             </ul>
