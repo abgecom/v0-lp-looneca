@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -21,15 +21,38 @@ interface AdditionalOffer {
 }
 
 export default function CartPage() {
-  const { items, removeItem, updateQuantity, totalPrice, totalItems } = useCart()
   const router = useRouter()
+  const [isClient, setIsClient] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
 
+  // Estado para armazenar os dados do carrinho
+  const [cartItems, setCartItems] = useState<any[]>([])
+  const [cartTotalPrice, setCartTotalPrice] = useState(0)
+  const [cartTotalItems, setCartTotalItems] = useState(0)
+
   // Estado para controlar as ofertas adicionais selecionadas
-  const [selectedOffers, setSelectedOffers] = useState<{ [key: string]: boolean }>({
-    "app-petloo": true,
-    loobook: true,
-  })
+  // Remover o estado local selectedOffers
+  // Remover:
+  // const [selectedOffers, setSelectedOffers] = useState<{ [key: string]: boolean }>({
+  //   "app-petloo": true,
+  //   loobook: true,
+  // })
+
+  const cart = useCart() // Call the hook at the top level
+
+  // Usar useEffect para acessar o contexto do carrinho apenas no cliente
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  // Atualizar os estados locais quando o carrinho mudar
+  useEffect(() => {
+    if (isClient) {
+      setCartItems(cart.items)
+      setCartTotalPrice(cart.totalPrice)
+      setCartTotalItems(cart.totalItems)
+    }
+  }, [isClient, cart.items, cart.totalPrice, cart.totalItems])
 
   // Dados das ofertas adicionais
   const additionalOffers: AdditionalOffer[] = [
@@ -43,7 +66,7 @@ export default function CartPage() {
         "Descontos exclusivos",
         "Registro do pet",
       ],
-      originalPrice: 30.0,
+      originalPrice: 30.0, // Use the declared variable here
       currentPrice: 0,
       imageSrc: "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/imgapp1-VnnOgP7stsRZkKIeJkojR2Grh3ILVy.png",
     },
@@ -67,42 +90,30 @@ export default function CartPage() {
   const handleCheckout = () => {
     setIsProcessing(true)
 
-    // Preparar os itens para o checkout, incluindo as ofertas selecionadas
-    const checkoutItems = [...items]
-
-    // Adicionar ofertas gratuitas selecionadas
-    Object.entries(selectedOffers).forEach(([offerId, isSelected]) => {
-      if (isSelected) {
-        const offer = additionalOffers.find((o) => o.id === offerId)
-        if (offer) {
-          checkoutItems.push({
-            id: offer.id,
-            name: offer.name,
-            color: "N/A",
-            petCount: 0,
-            quantity: 1,
-            price: 0, // Grátis
-            imageSrc: offer.imageSrc,
-          })
-        }
-      }
-    })
-
-    // Simulação de redirecionamento para checkout
-    setTimeout(() => {
-      // Aqui seria o redirecionamento para a página de checkout com os itens
-      console.log("Itens para checkout:", checkoutItems)
-      alert("Redirecionando para o checkout...")
+    // Verificar se o carrinho tem itens
+    if (cartItems.length === 0) {
       setIsProcessing(false)
-    }, 1500)
+      alert("Seu carrinho está vazio. Adicione produtos antes de finalizar a compra.")
+      return
+    }
+
+    // Salvar o estado do carrinho no localStorage para garantir que esteja disponível na página de checkout
+    localStorage.setItem("looneca-cart", JSON.stringify(cartItems))
+
+    // Redirect to checkout page after a short delay
+    setTimeout(() => {
+      router.push("/checkout")
+      setIsProcessing(false)
+    }, 500)
   }
 
-  // Função para alternar a seleção de uma oferta
+  // Atualizar a função toggleOffer para usar o contexto do carrinho
   const toggleOffer = (offerId: string) => {
-    setSelectedOffers((prev) => ({
-      ...prev,
-      [offerId]: !prev[offerId],
-    }))
+    if (offerId === "app-petloo") {
+      cart.toggleRecurringProduct("appPetloo")
+    } else if (offerId === "loobook") {
+      cart.toggleRecurringProduct("loobook")
+    }
   }
 
   // Formatar preço para o padrão brasileiro
@@ -125,7 +136,11 @@ export default function CartPage() {
 
           <h1 className="text-2xl md:text-3xl font-bold mb-8">Seu Carrinho</h1>
 
-          {items.length === 0 ? (
+          {!isClient ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F1542E]"></div>
+            </div>
+          ) : cartItems.length === 0 ? (
             <div className="bg-white rounded-lg shadow-md p-8 text-center">
               <div className="flex justify-center mb-4">
                 <ShoppingBag className="w-16 h-16 text-gray-300" />
@@ -151,7 +166,7 @@ export default function CartPage() {
                     <div className="w-1/5 text-center font-semibold">Total</div>
                   </div>
 
-                  {items.map((item) => (
+                  {cartItems.map((item) => (
                     <div key={item.id} className="p-4 border-b border-gray-200 flex flex-col md:flex-row">
                       {/* Produto - Mobile e Desktop */}
                       <div className="w-full md:w-2/5 flex items-center mb-4 md:mb-0">
@@ -169,7 +184,7 @@ export default function CartPage() {
                           <p className="text-sm text-gray-600">Cor: {item.color}</p>
                           <p className="text-sm text-gray-600">Pets: {item.petCount}</p>
                           <button
-                            onClick={() => removeItem(item.id)}
+                            onClick={() => cart.removeItem(item.id)}
                             className="text-red-500 text-sm flex items-center mt-2 md:hidden"
                           >
                             <Trash2 className="w-4 h-4 mr-1" />
@@ -189,14 +204,14 @@ export default function CartPage() {
                         <span className="md:hidden font-semibold">Quantidade:</span>
                         <div className="flex items-center">
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            onClick={() => cart.updateQuantity(item.id, item.quantity - 1)}
                             className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white"
                           >
                             <Minus className="w-3 h-3" />
                           </button>
                           <span className="mx-2 w-8 text-center">{item.quantity}</span>
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            onClick={() => cart.updateQuantity(item.id, item.quantity + 1)}
                             className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white"
                           >
                             <Plus className="w-3 h-3" />
@@ -213,7 +228,7 @@ export default function CartPage() {
                       {/* Botão Remover - Apenas Desktop */}
                       <div className="hidden md:flex md:items-center md:justify-end">
                         <button
-                          onClick={() => removeItem(item.id)}
+                          onClick={() => cart.removeItem(item.id)}
                           className="text-gray-500 hover:text-red-500"
                           aria-label="Remover item"
                         >
@@ -237,7 +252,10 @@ export default function CartPage() {
                     <div
                       key={offer.id}
                       className={`bg-white rounded-lg shadow-md overflow-hidden transition-all duration-200 ${
-                        selectedOffers[offer.id] ? "border-2 border-green-500" : "border border-gray-200"
+                        (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
+                        (offer.id === "loobook" && cart.recurringProducts.loobook)
+                          ? "border-2 border-green-500"
+                          : "border border-gray-200"
                       }`}
                     >
                       <div className="p-4 flex flex-col md:flex-row">
@@ -256,9 +274,7 @@ export default function CartPage() {
                             <h3 className="font-semibold">{offer.name}</h3>
                             <p className="text-sm text-gray-600">{offer.description}</p>
                             <div className="mt-1 flex items-center">
-                              <span className="line-through text-gray-500 mr-2 text-sm">
-                                R$ {formatPrice(offer.originalPrice)}
-                              </span>
+                              <span className="line-through text-gray-500 mr-2 text-sm">R$30,00/mês</span>
                               <span className="font-bold text-green-600">GRÁTIS</span>
                             </div>
                           </div>
@@ -282,11 +298,24 @@ export default function CartPage() {
                             <button
                               onClick={() => toggleOffer(offer.id)}
                               className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                                selectedOffers[offer.id] ? "bg-green-500 text-white" : "bg-gray-200 text-gray-500"
+                                (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
+                                (offer.id === "loobook" && cart.recurringProducts.loobook)
+                                  ? "bg-green-500 text-white"
+                                  : "bg-gray-200 text-gray-500"
                               }`}
-                              aria-label={selectedOffers[offer.id] ? "Remover oferta" : "Adicionar oferta"}
+                              aria-label={
+                                (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
+                                (offer.id === "loobook" && cart.recurringProducts.loobook)
+                                  ? "Remover oferta"
+                                  : "Adicionar oferta"
+                              }
                             >
-                              {selectedOffers[offer.id] ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
+                              {(offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
+                              (offer.id === "loobook" && cart.recurringProducts.loobook) ? (
+                                <Check className="w-5 h-5" />
+                              ) : (
+                                <X className="w-5 h-5" />
+                              )}
                             </button>
                           </div>
                         </div>
@@ -304,23 +333,27 @@ export default function CartPage() {
                   <div className="space-y-3 mb-6">
                     <div className="flex justify-between">
                       <span>
-                        Subtotal ({totalItems} {totalItems === 1 ? "item" : "itens"})
+                        Subtotal ({cartTotalItems} {cartTotalItems === 1 ? "item" : "itens"})
                       </span>
-                      <span>R$ {formatPrice(totalPrice)}</span>
+                      <span>R$ {formatPrice(cartTotalPrice)}</span>
                     </div>
 
                     {/* Mostrar ofertas gratuitas selecionadas */}
-                    {Object.entries(selectedOffers).map(([offerId, isSelected]) => {
+                    {additionalOffers.map((offer) => {
+                      const isSelected =
+                        offer.id === "app-petloo"
+                          ? cart.recurringProducts.appPetloo
+                          : offer.id === "loobook"
+                            ? cart.recurringProducts.loobook
+                            : false
+
                       if (isSelected) {
-                        const offer = additionalOffers.find((o) => o.id === offerId)
-                        if (offer) {
-                          return (
-                            <div key={offerId} className="flex justify-between text-sm">
-                              <span>{offer.name}</span>
-                              <span className="text-green-600">Grátis</span>
-                            </div>
-                          )
-                        }
+                        return (
+                          <div key={offer.id} className="flex justify-between text-sm">
+                            <span>{offer.name}</span>
+                            <span className="text-green-600">Grátis</span>
+                          </div>
+                        )
                       }
                       return null
                     })}
@@ -328,9 +361,11 @@ export default function CartPage() {
                     <div className="border-t border-gray-200 pt-3 mt-3">
                       <div className="flex justify-between font-bold">
                         <span>Total</span>
-                        <span>R$ {formatPrice(totalPrice)}</span>
+                        <span>R$ {formatPrice(cartTotalPrice)}</span>
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">Em até 12x de R$ {formatPrice(totalPrice / 12)}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Em até 12x de R$ {formatPrice(cartTotalPrice / 12)}
+                      </div>
                     </div>
                   </div>
 

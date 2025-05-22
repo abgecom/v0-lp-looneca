@@ -21,30 +21,103 @@ interface CartContextType {
   clearCart: () => void
   totalItems: number
   totalPrice: number
+  isEmpty: boolean
+  isInitialized: boolean
+  recurringProducts: {
+    appPetloo: boolean
+    loobook: boolean
+  }
+  toggleRecurringProduct: (product: "appPetloo" | "loobook") => void
 }
 
-const CartContext = createContext<CartContextType | undefined>(undefined)
+// Valor inicial do contexto
+const initialCartContext: CartContextType = {
+  items: [],
+  addItem: () => {},
+  removeItem: () => {},
+  updateQuantity: () => {},
+  clearCart: () => {},
+  totalItems: 0,
+  totalPrice: 0,
+  isEmpty: true,
+  isInitialized: false,
+  recurringProducts: {
+    appPetloo: true,
+    loobook: true,
+  },
+  toggleRecurringProduct: () => {},
+}
+
+const CartContext = createContext<CartContextType>(initialCartContext)
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>([])
+  const [isInitialized, setIsInitialized] = useState(false)
+  const [recurringProducts, setRecurringProducts] = useState({
+    appPetloo: true,
+    loobook: true,
+  })
 
-  // Carregar itens do localStorage quando o componente montar
+  // Carregar itens e configurações do localStorage quando o componente montar
   useEffect(() => {
-    const savedItems = localStorage.getItem("looneca-cart")
-    if (savedItems) {
-      try {
-        setItems(JSON.parse(savedItems))
-      } catch (error) {
-        console.error("Erro ao carregar carrinho:", error)
-        localStorage.removeItem("looneca-cart")
+    try {
+      // Verificar se estamos no cliente
+      if (typeof window !== "undefined") {
+        const savedItems = localStorage.getItem("looneca-cart")
+        if (savedItems) {
+          const parsedItems = JSON.parse(savedItems)
+          if (Array.isArray(parsedItems)) {
+            setItems(parsedItems)
+            console.log("Carrinho carregado do localStorage:", parsedItems)
+          }
+        }
+
+        // Carregar configurações de produtos recorrentes
+        const savedRecurringProducts = localStorage.getItem("looneca-recurring-products")
+        if (savedRecurringProducts) {
+          try {
+            const parsedRecurringProducts = JSON.parse(savedRecurringProducts)
+            setRecurringProducts(parsedRecurringProducts)
+            console.log("Produtos recorrentes carregados:", parsedRecurringProducts)
+          } catch (e) {
+            console.error("Erro ao carregar produtos recorrentes:", e)
+          }
+        }
+
+        // Marcar como inicializado mesmo se não houver itens
+        setIsInitialized(true)
       }
+    } catch (error) {
+      console.error("Erro ao carregar carrinho:", error)
+      localStorage.removeItem("looneca-cart")
+      setIsInitialized(true) // Marcar como inicializado mesmo em caso de erro
     }
   }, [])
 
   // Salvar itens no localStorage quando mudar
   useEffect(() => {
-    localStorage.setItem("looneca-cart", JSON.stringify(items))
-  }, [items])
+    // Só salvar se já estiver inicializado para evitar sobrescrever dados
+    if (isInitialized && typeof window !== "undefined") {
+      localStorage.setItem("looneca-cart", JSON.stringify(items))
+      console.log("Carrinho salvo no localStorage:", items)
+    }
+  }, [items, isInitialized])
+
+  // Salvar configurações de produtos recorrentes quando mudarem
+  useEffect(() => {
+    if (isInitialized && typeof window !== "undefined") {
+      localStorage.setItem("looneca-recurring-products", JSON.stringify(recurringProducts))
+      console.log("Produtos recorrentes salvos:", recurringProducts)
+    }
+  }, [recurringProducts, isInitialized])
+
+  // Função para alternar produtos recorrentes
+  const toggleRecurringProduct = (product: "appPetloo" | "loobook") => {
+    setRecurringProducts((prev) => ({
+      ...prev,
+      [product]: !prev[product],
+    }))
+  }
 
   const addItem = (newItem: CartItem) => {
     setItems((prevItems) => {
@@ -80,11 +153,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearCart = () => {
     setItems([])
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("looneca-cart")
+    }
   }
 
   // Calcular totais
   const totalItems = items.reduce((total, item) => total + item.quantity, 0)
   const totalPrice = items.reduce((total, item) => total + item.price * item.quantity, 0)
+
+  // Verificar se o carrinho está vazio
+  const isEmpty = items.length === 0
 
   return (
     <CartContext.Provider
@@ -96,6 +175,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearCart,
         totalItems,
         totalPrice,
+        isEmpty,
+        isInitialized,
+        recurringProducts,
+        toggleRecurringProduct,
       }}
     >
       {children}
@@ -104,9 +187,5 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 }
 
 export const useCart = () => {
-  const context = useContext(CartContext)
-  if (context === undefined) {
-    throw new Error("useCart must be used within a CartProvider")
-  }
-  return context
+  return useContext(CartContext)
 }
