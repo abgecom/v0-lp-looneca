@@ -85,6 +85,9 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
       `Calculando preço: ${quantidadeDePets} pets, ${quantidadeDeLoonecas} loonecas, preço unitário: ${precoUnitarioEmCentavos} centavos, preço total: ${precoTotalEmCentavos} centavos`,
     )
 
+    // Gerar um código único para o item
+    const itemCode = `LOONECA-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+
     // Preparar o payload para o endpoint /orders
     const orderPayload: any = {
       items: [
@@ -93,7 +96,8 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
           quantity: quantidadeDeLoonecas,
           unit_price: precoUnitarioEmCentavos,
           description: `Looneca - ${quantidadeDePets} pets`,
-          amount: precoUnitarioEmCentavos * quantidadeDeLoonecas, // Adicionar campo amount explicitamente
+          amount: precoUnitarioEmCentavos * quantidadeDeLoonecas,
+          code: itemCode, // Adicionando o campo code obrigatório
         },
       ],
       customer: {
