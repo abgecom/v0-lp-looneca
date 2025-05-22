@@ -188,7 +188,7 @@ export default function Home() {
             onIndexChange={handleCarouselIndexChange}
           />
           <p className="text-sm text-gray-600 mt-2 text-center italic">
-            Arraste para o lado e veja algumas loonecas já entregues
+            Arraste para o lado e veja algumas loonecas já entregues.
           </p>
         </div>
 

@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@supabase/supabase-js"
+import { createPetlooSubscription } from "./subscription-actions"
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL!
@@ -40,6 +41,8 @@ interface PaymentResponse {
   pixCode?: string
   pixQrCodeUrl?: string
   error?: string
+  customerId?: string
+  cardId?: string
 }
 
 export async function processPayment(request: PaymentRequest): Promise<PaymentResponse> {
@@ -126,21 +129,72 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
 
     const data = await response.json()
 
-    // Handle response based on payment method
-    if (request.paymentMethod === "credit_card") {
-      return {
-        success: true,
-        paymentId: data.id,
-        status: data.status,
+    const paymentResult = {
+      success: true,
+      paymentId: data.id,
+      status: data.status,
+      customerId: "mocked_customer_id", // Mocked customer ID
+      cardId: "mocked_card_id", // Mocked card ID
+    }
+
+    if (paymentResult.success) {
+      // Save order to database
+      // await saveOrderToDatabase({
+      //   ...orderData,
+      //   paymentId: paymentResult.paymentId || "",
+      //   paymentStatus: paymentResult.status || "pending",
+      // });
+
+      const paymentMethod = request.paymentMethod
+
+      // Adicionar este bloco para criar a assinatura quando o cliente selecionou produtos recorrentes
+      // e o método de pagamento é cartão de crédito
+      if (
+        paymentMethod === "credit_card" &&
+        (request.recurringProducts.appPetloo || request.recurringProducts.loobook)
+      ) {
+        // Inicializar o cliente Supabase
+        const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+        // Assumindo que temos o customerId e cardId da resposta do pagamento
+        // Em um cenário real, você precisaria obter ou criar esses IDs
+        const customerId = paymentResult.customerId || ""
+        const cardId = paymentResult.cardId || ""
+
+        if (customerId && cardId) {
+          const assinatura = await createPetlooSubscription(customerId, cardId, supabase)
+
+          if (!assinatura.success) {
+            console.error("Falha ao criar assinatura Petloo:", assinatura.error)
+            // Não interrompemos o fluxo do cliente, apenas logamos o erro
+          }
+        } else {
+          console.error("Não foi possível criar assinatura: customerId ou cardId não disponíveis")
+        }
+      }
+
+      if (paymentMethod === "pix") {
+        // For PIX payments, return the QR code and copy-paste code
+        return {
+          success: true,
+          paymentId: data.id,
+          status: data.status,
+          pixCode: data.pix?.qr_code,
+          pixQrCodeUrl: data.pix?.qr_code_url,
+        }
+      } else {
+        return {
+          success: true,
+          paymentId: data.id,
+          status: data.status,
+          customerId: "mocked_customer_id", // Mocked customer ID
+          cardId: "mocked_card_id", // Mocked card ID
+        }
       }
     } else {
-      // For PIX payments, return the QR code and copy-paste code
       return {
-        success: true,
-        paymentId: data.id,
-        status: data.status,
-        pixCode: data.pix?.qr_code,
-        pixQrCodeUrl: data.pix?.qr_code_url,
+        success: false,
+        error: "Erro ao processar pagamento.",
       }
     }
   } catch (error) {
