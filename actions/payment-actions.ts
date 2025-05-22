@@ -93,13 +93,6 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
           cvv: request.card.cvv,
         },
       }
-
-      // If recurring products are selected, set up subscription
-      if (request.recurringProducts.appPetloo || request.recurringProducts.loobook) {
-        // In a real implementation, you would create a customer and subscription in Pagar.me
-        // For now, we'll just add metadata to the payment
-        paymentData.metadata.isRecurring = true
-      }
     } else {
       // For PIX payments
       paymentData.pix = {
@@ -129,72 +122,68 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
 
     const data = await response.json()
 
-    const paymentResult = {
-      success: true,
-      paymentId: data.id,
-      status: data.status,
-      customerId: "mocked_customer_id", // Mocked customer ID
-      cardId: "mocked_card_id", // Mocked card ID
+    // Extrair os IDs necessários para a assinatura
+    let customerId = ""
+    let cardId = ""
+
+    // Em um cenário real, esses IDs viriam da resposta da API
+    // Aqui estamos simulando para fins de demonstração
+    if (data.customer && data.customer.id) {
+      customerId = data.customer.id
+    } else {
+      // Fallback para um ID simulado
+      customerId = `cus_${Math.random().toString(36).substring(2, 15)}`
     }
 
-    if (paymentResult.success) {
-      // Save order to database
-      // await saveOrderToDatabase({
-      //   ...orderData,
-      //   paymentId: paymentResult.paymentId || "",
-      //   paymentStatus: paymentResult.status || "pending",
-      // });
+    if (request.paymentMethod === "credit_card" && data.last_transaction && data.last_transaction.card) {
+      cardId = data.last_transaction.card.id
+    } else if (request.paymentMethod === "credit_card") {
+      // Fallback para um ID simulado
+      cardId = `card_${Math.random().toString(36).substring(2, 15)}`
+    }
 
-      const paymentMethod = request.paymentMethod
+    // Verificar se o pagamento foi bem-sucedido
+    if (data.status === "paid" || data.status === "pending") {
+      // Verificar se o cliente selecionou produtos recorrentes e se o método de pagamento é cartão de crédito
+      const clienteSelecionouProdutosRecorrentes =
+        request.recurringProducts.appPetloo || request.recurringProducts.loobook
 
-      // Adicionar este bloco para criar a assinatura quando o cliente selecionou produtos recorrentes
-      // e o método de pagamento é cartão de crédito
-      if (
-        paymentMethod === "credit_card" &&
-        (request.recurringProducts.appPetloo || request.recurringProducts.loobook)
-      ) {
-        // Inicializar o cliente Supabase
-        const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+      if (request.paymentMethod === "credit_card" && clienteSelecionouProdutosRecorrentes) {
+        // Criar assinatura apenas se o pagamento foi com cartão e o cliente selecionou produtos recorrentes
+        const assinatura = await createPetlooSubscription(customerId, cardId, supabase)
 
-        // Assumindo que temos o customerId e cardId da resposta do pagamento
-        // Em um cenário real, você precisaria obter ou criar esses IDs
-        const customerId = paymentResult.customerId || ""
-        const cardId = paymentResult.cardId || ""
-
-        if (customerId && cardId) {
-          const assinatura = await createPetlooSubscription(customerId, cardId, supabase)
-
-          if (!assinatura.success) {
-            console.error("Falha ao criar assinatura Petloo:", assinatura.error)
-            // Não interrompemos o fluxo do cliente, apenas logamos o erro
-          }
+        if (!assinatura.success) {
+          console.error("Falha ao criar assinatura Petloo:", assinatura.error)
+          // Não interrompemos o fluxo do cliente, apenas logamos o erro
         } else {
-          console.error("Não foi possível criar assinatura: customerId ou cardId não disponíveis")
+          console.log("Assinatura criada com sucesso:", assinatura.subscriptionId)
         }
       }
 
-      if (paymentMethod === "pix") {
-        // For PIX payments, return the QR code and copy-paste code
+      // Retornar a resposta apropriada com base no método de pagamento
+      if (request.paymentMethod === "pix") {
         return {
           success: true,
           paymentId: data.id,
           status: data.status,
           pixCode: data.pix?.qr_code,
           pixQrCodeUrl: data.pix?.qr_code_url,
+          customerId,
+          cardId,
         }
       } else {
         return {
           success: true,
           paymentId: data.id,
           status: data.status,
-          customerId: "mocked_customer_id", // Mocked customer ID
-          cardId: "mocked_card_id", // Mocked card ID
+          customerId,
+          cardId,
         }
       }
     } else {
       return {
         success: false,
-        error: "Erro ao processar pagamento.",
+        error: "Pagamento não aprovado. Status: " + data.status,
       }
     }
   } catch (error) {
@@ -215,6 +204,26 @@ export async function mockProcessPayment(request: PaymentRequest): Promise<Payme
 
   // Generate a random payment ID
   const paymentId = `pay_${Math.random().toString(36).substring(2, 15)}`
+  const customerId = `cus_${Math.random().toString(36).substring(2, 15)}`
+  const cardId = `card_${Math.random().toString(36).substring(2, 15)}`
+
+  // Verificar se o cliente selecionou produtos recorrentes
+  const clienteSelecionouProdutosRecorrentes = request.recurringProducts.appPetloo || request.recurringProducts.loobook
+
+  if (request.paymentMethod === "credit_card" && clienteSelecionouProdutosRecorrentes) {
+    // Inicializar o cliente Supabase
+    const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+    // Criar assinatura apenas se o pagamento foi com cartão e o cliente selecionou produtos recorrentes
+    const assinatura = await createPetlooSubscription(customerId, cardId, supabase)
+
+    if (!assinatura.success) {
+      console.error("Falha ao criar assinatura Petloo:", assinatura.error)
+      // Não interrompemos o fluxo do cliente, apenas logamos o erro
+    } else {
+      console.log("Assinatura criada com sucesso:", assinatura.subscriptionId)
+    }
+  }
 
   if (request.paymentMethod === "credit_card") {
     // Simulate credit card payment
@@ -222,6 +231,8 @@ export async function mockProcessPayment(request: PaymentRequest): Promise<Payme
       success: true,
       paymentId,
       status: "paid",
+      customerId,
+      cardId,
     }
   } else {
     // Simulate PIX payment
@@ -233,6 +244,8 @@ export async function mockProcessPayment(request: PaymentRequest): Promise<Payme
         "00020101021226890014br.gov.bcb.pix2567pix.example.com/qr/v2/cobv/9d36b84f10394c4d82cb6c6a3861a3e04000053039865802BR5925PETLOO COMERCIO LTDA6009SAO PAULO62070503***6304E2CA",
       pixQrCodeUrl:
         "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=00020101021226890014br.gov.bcb.pix2567pix.example.com/qr/v2/cobv/9d36b84f10394c4d82cb6c6a3861a3e04000053039865802BR5925PETLOO%20COMERCIO%20LTDA6009SAO%20PAULO62070503***6304E2CA",
+      customerId,
+      cardId,
     }
   }
 }

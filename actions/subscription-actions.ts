@@ -1,73 +1,9 @@
 "use server"
 
-// Inicializar o cliente Supabase
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
 // Pagar.me API keys - usando variáveis de ambiente de forma segura
 const PAGARME_API_KEY = process.env.PAGARME_API_KEY!
 const PAGARME_ACCOUNT_ID = process.env.PAGARME_ACCOUNT_ID!
-
-/**
- * Cria um plano na Pagar.me
- * Esta função deve ser executada apenas uma vez para criar o plano
- * O ID do plano deve ser armazenado para uso futuro
- */
-export async function createPetlooPlan(): Promise<{ success: boolean; planId?: string; error?: any }> {
-  try {
-    // Verificar se as variáveis de ambiente estão definidas
-    if (!PAGARME_API_KEY || !PAGARME_ACCOUNT_ID) {
-      console.error("Pagar.me environment variables are not properly configured")
-      return {
-        success: false,
-        error: "Configuração de pagamento incompleta.",
-      }
-    }
-
-    const response = await fetch("https://api.pagar.me/core/v5/plans", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${Buffer.from(PAGARME_API_KEY + ":").toString("base64")}`,
-        "X-Account-Id": PAGARME_ACCOUNT_ID,
-      },
-      body: JSON.stringify({
-        name: "Assinatura Mensal - App Petloo + Loobook",
-        billing_type: "prepaid",
-        payment_methods: ["credit_card"],
-        interval: "month",
-        interval_count: 1,
-        installments: 1,
-        pricing_scheme: {
-          price: 3090,
-        },
-      }),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      console.error("Pagar.me API error:", errorData)
-      return {
-        success: false,
-        error: errorData.message || "Erro ao criar plano.",
-      }
-    }
-
-    const data = await response.json()
-    console.log("Plano criado com sucesso:", data.id)
-
-    return {
-      success: true,
-      planId: data.id,
-    }
-  } catch (error) {
-    console.error("Error creating plan:", error)
-    return {
-      success: false,
-      error: "Ocorreu um erro ao criar o plano.",
-    }
-  }
-}
+const PETLOO_PLAN_ID = process.env.PETLOO_PLAN_ID! // ID do plano armazenado em variável de ambiente
 
 /**
  * Cria uma assinatura na Pagar.me
@@ -83,7 +19,7 @@ export async function createPetlooSubscription(
 ): Promise<{ success: boolean; subscriptionId?: string; error?: any }> {
   try {
     // Verificar se as variáveis de ambiente estão definidas
-    if (!PAGARME_API_KEY || !PAGARME_ACCOUNT_ID) {
+    if (!PAGARME_API_KEY || !PAGARME_ACCOUNT_ID || !PETLOO_PLAN_ID) {
       console.error("Pagar.me environment variables are not properly configured")
       return {
         success: false,
@@ -96,9 +32,14 @@ export async function createPetlooSubscription(
     firstDueDate.setDate(firstDueDate.getDate() + 30)
     const formattedDueDate = firstDueDate.toISOString().split("T")[0] // Formato YYYY-MM-DD
 
-    // ID do plano criado anteriormente - em produção, este valor deve ser armazenado em uma variável de ambiente
-    // ou recuperado de um banco de dados
-    const PLAN_ID = "plan_XXXXXXXXXXXXXXXX" // Substitua pelo ID real do plano criado
+    // Payload corrigido para a criação da assinatura
+    const subscriptionPayload = {
+      customer_id: customerId,
+      plan_id: PETLOO_PLAN_ID,
+      card_id: cardId,
+      billing_type: "prepaid",
+      first_due_date: formattedDueDate,
+    }
 
     // Criar a assinatura na Pagar.me
     const response = await fetch("https://api.pagar.me/core/v5/subscriptions", {
@@ -108,14 +49,7 @@ export async function createPetlooSubscription(
         Authorization: `Basic ${Buffer.from(PAGARME_API_KEY + ":").toString("base64")}`,
         "X-Account-Id": PAGARME_ACCOUNT_ID,
       },
-      body: JSON.stringify({
-        customer_id: customerId,
-        card_id: cardId,
-        plan_id: PLAN_ID,
-        payment_method: "credit_card",
-        billing_type: "prepaid",
-        first_due_date: formattedDueDate,
-      }),
+      body: JSON.stringify(subscriptionPayload),
     })
 
     if (!response.ok) {
