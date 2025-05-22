@@ -2,7 +2,6 @@
 
 import { createClient } from "@supabase/supabase-js"
 import { createPetlooSubscription } from "./subscription-actions"
-import { calcularPrecoLoonecaEmCentavos } from "../utils/price-calculator"
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL!
@@ -63,11 +62,11 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
     const quantidadeDeLoonecas = Math.max(request.quantity || 1, 1) // Garantir que seja pelo menos 1
     const quantidadeDePets = Math.max(request.petCount || 1, 1) // Garantir que seja pelo menos 1
 
-    // Calcular o preço total em centavos usando a função utilitária
-    const precoTotalEmCentavos = calcularPrecoLoonecaEmCentavos(quantidadeDePets, quantidadeDeLoonecas)
+    // Usar o valor real do carrinho (já em reais) e converter para centavos
+    const valorTotalEmCentavos = Math.round(request.amount * 100)
 
-    // Calcular o preço unitário em centavos (por Looneca)
-    const precoUnitarioEmCentavos = Math.round(precoTotalEmCentavos / quantidadeDeLoonecas)
+    // Calcular o preço unitário em centavos (por Looneca) baseado no valor real do carrinho
+    const precoUnitarioEmCentavos = Math.round(valorTotalEmCentavos / quantidadeDeLoonecas)
 
     // Validar os valores calculados
     if (precoUnitarioEmCentavos < 1) {
@@ -82,7 +81,7 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
 
     // Log para debug
     console.log(
-      `Calculando preço: ${quantidadeDePets} pets, ${quantidadeDeLoonecas} loonecas, preço unitário: ${precoUnitarioEmCentavos} centavos, preço total: ${precoTotalEmCentavos} centavos`,
+      `Processando pagamento: ${quantidadeDePets} pets, ${quantidadeDeLoonecas} loonecas, valor total: R$ ${request.amount}, preço unitário: ${precoUnitarioEmCentavos} centavos, valor total em centavos: ${valorTotalEmCentavos}`,
     )
 
     // Gerar um código único para o item
@@ -96,8 +95,8 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
           quantity: quantidadeDeLoonecas,
           unit_price: precoUnitarioEmCentavos,
           description: `Looneca - ${quantidadeDePets} pets`,
-          amount: precoUnitarioEmCentavos * quantidadeDeLoonecas,
-          code: itemCode, // Adicionando o campo code obrigatório
+          amount: valorTotalEmCentavos, // Usar o valor total real do carrinho
+          code: itemCode,
         },
       ],
       customer: {
@@ -116,6 +115,7 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
         recurringLoobook: request.recurringProducts.loobook,
         quantidadeDePets: quantidadeDePets,
         quantidadeDeLoonecas: quantidadeDeLoonecas,
+        valorOriginalReais: request.amount,
       },
     }
 
