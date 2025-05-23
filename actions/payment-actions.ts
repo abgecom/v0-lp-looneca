@@ -35,10 +35,11 @@ interface PaymentRequest {
     appPetloo: boolean
     loobook: boolean
   }
-  // Adicionar o campo shipping opcional
   shipping?: {
     address?: string
+    number?: string
     complement?: string
+    neighborhood?: string
     cep?: string
     city?: string
     state?: string
@@ -126,16 +127,16 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
           },
         },
       },
-      // Adicionar o campo billing com os mesmos dados do customer
       billing: {
         name: request.customer.name,
         address: {
-          line_1: request.shipping?.address || "Endereço não informado",
+          line_1: `${request.shipping?.address || "Endereço não informado"}, ${request.shipping?.number || "S/N"}`,
           line_2: request.shipping?.complement || "",
           zip_code: request.shipping?.cep?.replace(/\D/g, "") || "00000000",
           city: request.shipping?.city || "São Paulo",
           state: request.shipping?.state || "SP",
           country: "BR",
+          neighborhood: request.shipping?.neighborhood || "",
         },
       },
       payments: [

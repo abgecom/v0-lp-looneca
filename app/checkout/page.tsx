@@ -392,10 +392,12 @@ export default function CheckoutPage() {
               }
             : undefined,
         recurringProducts: cart.recurringProducts,
-        // Adicionar os dados de shipping
+        // Adicionar os dados de shipping completos
         shipping: {
           address: formData.address,
+          number: formData.number,
           complement: formData.complement,
+          neighborhood: formData.neighborhood,
           cep: formData.cep,
           city: formData.city,
           state: formData.state,
