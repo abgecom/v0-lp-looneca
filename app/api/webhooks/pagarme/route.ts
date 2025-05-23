@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     // Store the webhook event in Supabase for audit purposes
     try {
       await supabase.from("pagarme_webhooks").insert({
-        event_type: payload.event,
+        event_type: payload.type,
         event_data: payload,
         created_at: new Date().toISOString(),
       })
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     }
 
     // Check if the event is charge.paid
-    if (payload.event === "charge.paid") {
+    if (payload.type === "charge.paid") {
       console.log("Processing charge.paid event")
 
       // Extract customer ID and card ID from the payload
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
         })
       }
     } else {
-      console.log(`Ignoring event type: ${payload.event} - no action required`)
+      console.log(`Ignoring event type: ${payload.type} - no action required`)
     }
 
     // Return success response
