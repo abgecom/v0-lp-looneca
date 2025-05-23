@@ -380,6 +380,7 @@ export default function CheckoutPage() {
           name: formData.name,
           email: formData.email,
           cpf: formData.cpf,
+          phone: formData.phone,
         },
         card:
           paymentMethod === "credit_card"
@@ -391,6 +392,14 @@ export default function CheckoutPage() {
               }
             : undefined,
         recurringProducts: cart.recurringProducts,
+        // Adicionar os dados de shipping
+        shipping: {
+          address: formData.address,
+          complement: formData.complement,
+          cep: formData.cep,
+          city: formData.city,
+          state: formData.state,
+        },
       })
 
       if (paymentResult.success) {
