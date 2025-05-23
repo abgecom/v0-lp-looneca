@@ -59,12 +59,14 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
     // Common payment data
     const paymentData: any = {
       amount: amountInCents,
-      payment_method: request.paymentMethod === "credit_card" ? "credit_card" : "pix",
       customer: {
         name: request.customer.name,
         email: request.customer.email,
         document: request.customer.cpf.replace(/\D/g, ""),
         type: "individual",
+      },
+      payment: {
+        payment_method: request.paymentMethod === "credit_card" ? "credit_card" : "pix",
       },
       metadata: {
         recurringAppPetloo: request.recurringProducts.appPetloo,
@@ -82,7 +84,7 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
       }
 
       // For credit card payments
-      paymentData.credit_card = {
+      paymentData.payment.credit_card = {
         installments: request.installments,
         statement_descriptor: "PETLOO",
         card: {
@@ -102,7 +104,7 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
       }
     } else {
       // For PIX payments
-      paymentData.pix = {
+      paymentData.payment.pix = {
         expires_in: 3600, // Expires in 1 hour
       }
     }
