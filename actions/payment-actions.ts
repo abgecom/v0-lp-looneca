@@ -139,6 +139,19 @@ export async function processPayment(request: PaymentRequest): Promise<PaymentRe
           neighborhood: request.shipping?.neighborhood || "",
         },
       },
+      shipping: {
+        name: request.customer.name,
+        address: {
+          line_1: `${request.shipping?.address || "Endereço não informado"}, ${request.shipping?.number || "S/N"}`,
+          line_2: request.shipping?.complement || "",
+          zip_code: request.shipping?.cep?.replace(/\D/g, "") || "00000000",
+          city: request.shipping?.city || "São Paulo",
+          state: request.shipping?.state || "SP",
+          country: "BR",
+          neighborhood: request.shipping?.neighborhood || "",
+        },
+        amount: 0,
+      },
       payments: [
         {
           payment_method: request.paymentMethod,
