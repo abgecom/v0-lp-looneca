@@ -1,75 +1,86 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { createPetlooSubscription } from "@/actions/subscription-actions"
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-// Pagar.me API keys - usando variáveis de ambiente de forma segura
-const PAGARME_API_KEY = process.env.PAGARME_API_KEY!
-
 export async function POST(request: Request) {
   try {
-    // Verificar se as variáveis de ambiente estão definidas
-    if (!PAGARME_API_KEY) {
-      console.error("Pagar.me API key is not properly configured")
-      return NextResponse.json({ error: "Payment configuration incomplete" }, { status: 500 })
-    }
-
     // Get the webhook payload
     const payload = await request.json()
 
-    // Verificar a assinatura do webhook (implementação simplificada)
-    // Em produção, você deve verificar a assinatura usando o HMAC
-    const signature = request.headers.get("X-Hub-Signature")
-    if (!signature) {
-      console.warn("Webhook signature verification skipped - signature header missing")
+    // Log the received event for monitoring
+    console.log("Received Pagar.me webhook event:", JSON.stringify(payload, null, 2))
+
+    // Store the webhook event in Supabase for audit purposes
+    try {
+      await supabase.from("pagarme_webhooks").insert({
+        event_type: payload.event,
+        event_data: payload,
+        created_at: new Date().toISOString(),
+      })
+    } catch (error) {
+      // Log error but continue processing
+      console.error("Error storing webhook event in database:", error)
     }
 
-    // Store the webhook event
-    const { data, error } = await supabase.from("pagarme_webhooks").insert({
-      event_type: payload.type,
-      event_data: payload,
-      created_at: new Date().toISOString(),
-    })
+    // Check if the event is charge.paid
+    if (payload.event === "charge.paid") {
+      console.log("Processing charge.paid event")
 
-    if (error) {
-      console.error("Error storing webhook event:", error)
-      return NextResponse.json({ error: "Failed to store webhook event" }, { status: 500 })
-    }
+      // Extract customer ID and card ID from the payload
+      const customerId = payload.data?.customer?.id
+      const cardId = payload.data?.last_transaction?.card?.id
 
-    // Process the webhook based on event type
-    if (payload.type === "charge.paid" || payload.type === "charge.pending" || payload.type === "charge.failed") {
-      const paymentId = payload.data?.id
-      const newStatus =
-        payload.type === "charge.paid" ? "paid" : payload.type === "charge.pending" ? "pending" : "failed"
+      // Validate that we have the required IDs
+      if (customerId && cardId) {
+        console.log(`Creating subscription for customer: ${customerId} with card: ${cardId}`)
 
-      if (paymentId) {
-        // Update the order status
-        const { error: updateError } = await supabase
-          .from("looneca_orders")
-          .update({ payment_status: newStatus })
-          .eq("payment_id", paymentId)
+        // Call the function to create a subscription
+        const result = await createPetlooSubscription(customerId, cardId, supabase)
 
-        if (updateError) {
-          console.error("Error updating order status:", updateError)
-          return NextResponse.json({ error: "Failed to update order status" }, { status: 500 })
+        if (result.success) {
+          console.log(`Subscription created successfully: ${result.subscriptionId}`)
+        } else {
+          console.error(`Failed to create subscription: ${result.error}`)
         }
-
-        // Also update the payment record if it exists
-        try {
-          await supabase.from("payments").update({ status: newStatus }).eq("payment_id", paymentId)
-        } catch (error) {
-          // If the payments table doesn't exist or has a different structure, log the error but continue
-          console.error("Error updating payment record:", error)
-        }
+      } else {
+        console.warn("Missing required IDs for subscription creation", {
+          customerId,
+          cardId,
+          payload,
+        })
       }
+    } else {
+      console.log(`Ignoring event type: ${payload.event} - no action required`)
     }
 
-    return NextResponse.json({ success: true })
+    // Return success response
+    return NextResponse.json({ received: true })
   } catch (error) {
-    console.error("Error processing webhook:", error)
-    return NextResponse.json({ error: "Failed to process webhook" }, { status: 500 })
+    // Log the error but still return 200 to acknowledge receipt
+    // This prevents Pagar.me from retrying the webhook unnecessarily
+    console.error("Error processing Pagar.me webhook:", error)
+    return NextResponse.json({ received: true, error: "Error processing webhook" })
   }
+}
+
+// Handle other HTTP methods
+export async function GET(request: Request) {
+  return NextResponse.json({ error: "Method not allowed" }, { status: 405 })
+}
+
+export async function PUT(request: Request) {
+  return NextResponse.json({ error: "Method not allowed" }, { status: 405 })
+}
+
+export async function DELETE(request: Request) {
+  return NextResponse.json({ error: "Method not allowed" }, { status: 405 })
+}
+
+export async function PATCH(request: Request) {
+  return NextResponse.json({ error: "Method not allowed" }, { status: 405 })
 }
