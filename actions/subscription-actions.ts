@@ -60,7 +60,7 @@ export async function createPetlooSubscription(
       customer_id: customerId,
       plan_id: PETLOO_PLAN_ID,
       card_id: cardId,
-      billing_type: "prepaid",
+      billing_type: "postpaid",
       first_due_date: formattedDueDate,
       metadata: {
         created_by: "looneca_checkout",
