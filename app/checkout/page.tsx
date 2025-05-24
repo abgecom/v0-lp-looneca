@@ -6,10 +6,10 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useCart } from "@/contexts/cart-context"
-import { processPayment } from "@/actions/payment-actions"
 import { saveOrderToDatabase } from "@/actions/order-actions"
 import { Loader2, Info, Check } from "lucide-react"
 import Link from "next/link"
+import { processPayment, calculatePaymentAmount } from "@/actions/payment-actions"
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -69,6 +69,15 @@ export default function CheckoutPage() {
     loading: false,
   })
 
+  // Payment calculation state
+  const [paymentCalculation, setPaymentCalculation] = useState<{
+    originalAmount: number
+    finalAmount: number
+    interestAmount: number
+    rate: number
+    installmentAmount: number
+  } | null>(null)
+
   // Verificar se o carrinho está vazio e redirecionar para a página inicial
   useEffect(() => {
     // Aguardar a inicialização do carrinho
@@ -85,6 +94,21 @@ export default function CheckoutPage() {
 
   // Verificar se o frete deve ser grátis (subtotal >= 249.90)
   const isShippingFree = cart.totalPrice >= 249.9
+
+  // Calculate payment amounts when payment method or installments change
+  useEffect(() => {
+    if (totalWithShipping > 0) {
+      const calculateAsync = async () => {
+        const calculation = await calculatePaymentAmount(
+          totalWithShipping,
+          paymentMethod,
+          Number(formData.installments),
+        )
+        setPaymentCalculation(calculation)
+      }
+      calculateAsync()
+    }
+  }, [totalWithShipping, paymentMethod, formData.installments])
 
   // Calcular o preço do frete com base na regra de frete grátis
   const getShippingPrice = () => {
@@ -371,14 +395,27 @@ export default function CheckoutPage() {
 
       // Process payment
       const paymentResult = await processPayment({
-        paymentMethod,
         amount: totalWithShipping,
+        paymentMethod,
         installments: Number(formData.installments),
         customer: {
           name: formData.name,
           email: formData.email,
           cpf: formData.cpf,
+          phone: formData.phone,
         },
+        shipping: {
+          cep: formData.cep,
+          address: formData.address,
+          number: formData.number,
+          complement: formData.complement,
+          neighborhood: formData.neighborhood,
+          city: formData.city,
+          state: formData.state,
+          method: shippingOption.name,
+          price: getShippingPrice(),
+        },
+        items: cart.items,
         card:
           paymentMethod === "credit_card"
             ? {
@@ -1038,18 +1075,23 @@ export default function CheckoutPage() {
                             onChange={handleInputChange}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]"
                           >
-                            <option value="1">1x de R$ {formatPrice(totalWithShipping)} à vista</option>
-                            <option value="2">2x de R$ {formatPrice(totalWithShipping / 2)} sem juros</option>
-                            <option value="3">3x de R$ {formatPrice(totalWithShipping / 3)} sem juros</option>
-                            <option value="4">4x de R$ {formatPrice(totalWithShipping / 4)} sem juros</option>
-                            <option value="5">5x de R$ {formatPrice(totalWithShipping / 5)} sem juros</option>
-                            <option value="6">6x de R$ {formatPrice(totalWithShipping / 6)} sem juros</option>
-                            <option value="7">7x de R$ {formatPrice(totalWithShipping / 7)} sem juros</option>
-                            <option value="8">8x de R$ {formatPrice(totalWithShipping / 8)} sem juros</option>
-                            <option value="9">9x de R$ {formatPrice(totalWithShipping / 9)} sem juros</option>
-                            <option value="10">10x de R$ {formatPrice(totalWithShipping / 10)} sem juros</option>
-                            <option value="11">11x de R$ {formatPrice(totalWithShipping / 11)} sem juros</option>
-                            <option value="12">12x de R$ {formatPrice(totalWithShipping / 12)} sem juros</option>
+                            <option value="1">
+                              1x de R${" "}
+                              {paymentCalculation
+                                ? formatPrice(paymentCalculation.finalAmount)
+                                : formatPrice(totalWithShipping)}
+                              {paymentMethod === "credit_card" && " (com juros de 5,59%)"}
+                              {paymentMethod === "pix" && " (com taxa de 1,19%)"}
+                            </option>
+                            {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((installment) => (
+                              <option key={installment} value={installment}>
+                                {installment}x de R${" "}
+                                {paymentCalculation
+                                  ? formatPrice(paymentCalculation.installmentAmount)
+                                  : formatPrice(totalWithShipping / installment)}{" "}
+                                com juros
+                              </option>
+                            ))}
                           </select>
                         </div>
                       </div>
@@ -1117,6 +1159,26 @@ export default function CheckoutPage() {
                   </label>
                 </div>
               </div>
+
+              {paymentCalculation && paymentCalculation.interestAmount > 0 && (
+                <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                  <h3 className="font-medium mb-2">Resumo do Pagamento</h3>
+                  <div className="text-sm space-y-1">
+                    <div className="flex justify-between">
+                      <span>Subtotal + Frete:</span>
+                      <span>R$ {formatPrice(paymentCalculation.originalAmount)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Taxa ({paymentCalculation.rate.toFixed(2)}%):</span>
+                      <span>R$ {formatPrice(paymentCalculation.interestAmount)}</span>
+                    </div>
+                    <div className="flex justify-between font-medium border-t pt-1">
+                      <span>Total Final:</span>
+                      <span>R$ {formatPrice(paymentCalculation.finalAmount)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Submit Button */}
               <button
