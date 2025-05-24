@@ -1,36 +1,37 @@
-// Taxas de juros para cartão de crédito
-export const INTEREST_RATES = {
-  1: 0.0559, // 5.59%
-  2: 0.0859, // 8.59%
-  3: 0.0984, // 9.84%
-  4: 0.1109, // 11.09%
-  5: 0.1234, // 12.34%
-  6: 0.1359, // 13.59%
-  7: 0.1534, // 15.34%
-  8: 0.1659, // 16.59%
-  9: 0.1784, // 17.84%
-  10: 0.1909, // 19.09%
-  11: 0.2034, // 20.34%
-  12: 0.2159, // 21.59%
-}
+// Pagar.me API Configuration
+export const PAGARME_CONFIG = {
+  BASE_URL: "https://api.pagar.me/core/v5",
+  ENDPOINTS: {
+    CUSTOMERS: "/customers",
+    ORDERS: "/orders",
+    PLANS: "/plans",
+    SUBSCRIPTIONS: "/subscriptions",
+  },
+} as const
 
-// Taxa para PIX
-export const PIX_RATE = 0.0119 // 1.19%
+// Payment constants
+export const PAYMENT_CONSTANTS = {
+  PLAN: {
+    AMOUNT: 3090, // R$ 30,90 in cents
+    INTERVAL: "month",
+    BILLING_TYPE: "prepaid",
+    NAME: "Plano Petloo Mensal",
+    DESCRIPTION: "Acesso ao App Petloo e Loobook Digital",
+  },
+  SUBSCRIPTION: {
+    START_DELAY_DAYS: 30, // Subscription starts 30 days after payment
+  },
+} as const
 
-// Função para formatar valor monetário
-export function formatCurrency(value: number): string {
-  return value.toFixed(2).replace(".", ",")
-}
-
-// Função para obter a taxa de juros
-export function getInterestRate(paymentMethod: "credit_card" | "pix", installments = 1): number {
-  if (paymentMethod === "pix") {
-    return PIX_RATE
-  }
-
-  if (paymentMethod === "credit_card") {
-    return INTEREST_RATES[installments as keyof typeof INTEREST_RATES] || INTEREST_RATES[1]
-  }
-
-  return 0
-}
+// Error messages
+export const PAYMENT_ERRORS = {
+  MISSING_ENV_VARS: "Variáveis de ambiente da Pagar.me não configuradas",
+  INVALID_CUSTOMER_DATA: "Dados do cliente inválidos",
+  INVALID_CARD_DATA: "Dados do cartão inválidos",
+  CUSTOMER_CREATION_FAILED: "Falha ao criar cliente",
+  CARD_CREATION_FAILED: "Falha ao criar cartão",
+  ORDER_CREATION_FAILED: "Falha ao criar pedido",
+  PLAN_CREATION_FAILED: "Falha ao criar plano",
+  SUBSCRIPTION_CREATION_FAILED: "Falha ao criar assinatura",
+  PAYMENT_PROCESSING_FAILED: "Falha ao processar pagamento",
+} as const
