@@ -123,16 +123,27 @@ async function createCardId(card: PaymentCard, billingAddress: any): Promise<str
     body: JSON.stringify(cardPayload),
   })
 
-  const cardData = await cardResponse.json()
+  // Verificar Content-Type antes de fazer parse JSON
+  const contentType = cardResponse.headers.get("content-type")
 
-  console.log("Pagar.me card response:", JSON.stringify(cardData, null, 2))
+  if (contentType && contentType.includes("application/json")) {
+    const cardData = await cardResponse.json()
+    console.log("Pagar.me card response:", JSON.stringify(cardData, null, 2))
 
-  if (!cardResponse.ok) {
-    console.error("Pagar.me card creation error:", cardData)
-    throw new Error("Erro ao criar cartão. Verifique os dados e tente novamente.")
+    if (!cardResponse.ok) {
+      console.error("Pagar.me card creation error:", cardData)
+      throw new Error("Erro ao criar cartão. Verifique os dados e tente novamente.")
+    }
+
+    return cardData.id
+  } else {
+    const responseText = await cardResponse.text()
+    console.error("Resposta da Pagar.me (criação de cartão) não é JSON:", responseText)
+    console.error("Status:", cardResponse.status, cardResponse.statusText)
+    console.error("Headers:", Object.fromEntries(cardResponse.headers.entries()))
+
+    throw new Error("Resposta inesperada da Pagar.me ao criar cartão. Tente novamente.")
   }
-
-  return cardData.id
 }
 
 export async function POST(request: NextRequest) {
@@ -274,45 +285,63 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(orderPayload),
     })
 
-    const responseData = await pagarmeResponse.json()
+    // Verificar Content-Type antes de fazer parse JSON
+    const contentType = pagarmeResponse.headers.get("content-type")
 
-    console.log("Pagar.me response:", JSON.stringify(responseData, null, 2))
+    if (contentType && contentType.includes("application/json")) {
+      const responseData = await pagarmeResponse.json()
+      console.log("Pagar.me response:", JSON.stringify(responseData, null, 2))
 
-    if (!pagarmeResponse.ok) {
-      console.error("Pagar.me API error:", responseData)
+      if (!pagarmeResponse.ok) {
+        console.error("Pagar.me API error:", responseData)
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Erro ao processar pagamento. Tente novamente.",
+            details: responseData,
+          },
+          { status: 400 },
+        )
+      }
+
+      // Preparar resposta de sucesso
+      const response: any = {
+        success: true,
+        orderId: responseData.id,
+        status: responseData.status,
+        finalAmount: finalAmount,
+        originalAmount: originalAmount,
+        interestAmount: finalAmount - originalAmount,
+        paymentMethod: paymentMethod,
+      }
+
+      // Adicionar informações específicas do método de pagamento
+      if (paymentMethod === "pix" && responseData.charges?.[0]?.last_transaction?.qr_code) {
+        response.pixCode = responseData.charges[0].last_transaction.qr_code
+        response.pixQrCodeUrl = responseData.charges[0].last_transaction.qr_code_url
+      }
+
+      if (paymentMethod === "credit_card") {
+        response.installments = installments
+        response.installmentAmount = Math.round((finalAmount / installments) * 100) / 100
+      }
+
+      return NextResponse.json(response)
+    } else {
+      const responseText = await pagarmeResponse.text()
+      console.error("Resposta da Pagar.me (criação de pedido) não é JSON:", responseText)
+      console.error("Status:", pagarmeResponse.status, pagarmeResponse.statusText)
+      console.error("Headers:", Object.fromEntries(pagarmeResponse.headers.entries()))
+
       return NextResponse.json(
         {
           success: false,
-          error: "Erro ao processar pagamento. Tente novamente.",
-          details: responseData,
+          error: "Resposta inesperada da Pagar.me",
+          raw: responseText.substring(0, 500), // Limitar o tamanho da resposta no log
         },
-        { status: 400 },
+        { status: 500 },
       )
     }
-
-    // Preparar resposta de sucesso
-    const response: any = {
-      success: true,
-      orderId: responseData.id,
-      status: responseData.status,
-      finalAmount: finalAmount,
-      originalAmount: originalAmount,
-      interestAmount: finalAmount - originalAmount,
-      paymentMethod: paymentMethod,
-    }
-
-    // Adicionar informações específicas do método de pagamento
-    if (paymentMethod === "pix" && responseData.charges?.[0]?.last_transaction?.qr_code) {
-      response.pixCode = responseData.charges[0].last_transaction.qr_code
-      response.pixQrCodeUrl = responseData.charges[0].last_transaction.qr_code_url
-    }
-
-    if (paymentMethod === "credit_card") {
-      response.installments = installments
-      response.installmentAmount = Math.round((finalAmount / installments) * 100) / 100
-    }
-
-    return NextResponse.json(response)
   } catch (error) {
     console.error("Payment processing error:", error)
     return NextResponse.json(
