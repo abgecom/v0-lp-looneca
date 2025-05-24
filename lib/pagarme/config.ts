@@ -1,45 +1,36 @@
+// Pagar.me API Configuration
 export const PAGARME_CONFIG = {
+  // API Keys from environment variables
   apiKey: process.env.PAGARME_API_KEY || "",
   publicKey: process.env.PAGARME_PUBLIC_KEY || "",
   accountId: process.env.PAGARME_ACCOUNT_ID || "",
-  planId: process.env.PETLOO_PLAN_ID || "",
   webhookSecret: process.env.PAGARME_WEBHOOK_SECRET || "",
 
-  // Base URL for Pagar.me API
+  // Base URL for Pagar.me API v5
   baseUrl: "https://api.pagar.me/core/v5",
 
   // API Endpoints
   ENDPOINTS: {
     CUSTOMERS: "/customers",
-    CARDS: "/cards", // This is a standalone endpoint, not nested
+    CARDS: "/cards",
     ORDERS: "/orders",
     PLANS: "/plans",
     SUBSCRIPTIONS: "/subscriptions",
-    WEBHOOKS: "/hooks",
+    CHARGES: "/charges",
   },
 
   // Subscription configuration
   subscription: {
+    planId: process.env.PETLOO_PLAN_ID || "",
     startAtDaysOffset: 30, // Start subscription 30 days after payment
-    planName: "Plano Mensal Petloo",
-    planAmount: 3090, // R$ 30,90
-    planInterval: "month",
-    planIntervalCount: 1,
-    planBillingType: "prepaid",
-    planDescription: "Assinatura mensal do aplicativo Petloo",
+    billingType: "prepaid",
+    interval: "month",
+    intervalCount: 1,
   },
 
   // Payment configuration
   payment: {
-    defaultInstallments: 1,
-    maxInstallments: 12,
-    pixExpirationHours: 24,
-  },
-
-  // Logging configuration
-  logging: {
-    maskCardNumber: true,
-    logPayloads: true,
-    logResponses: true,
+    defaultCurrency: "BRL",
+    pixExpirationTime: 3600, // 1 hour in seconds
   },
 }
