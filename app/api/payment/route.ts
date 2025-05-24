@@ -306,6 +306,11 @@ export async function POST(request: NextRequest) {
       recurringAppPetloo: recurringProducts.appPetloo.toString(),
       recurringLoobook: recurringProducts.loobook.toString(),
       isRecurring: hasRecurringProducts.toString(),
+      requiresSubscription: hasRecurringProducts.toString(),
+      customerEmail: customer.email,
+      customerName: customer.name,
+      customerDocument: formatCpf(customer.cpf),
+      shippingAddress: JSON.stringify(shippingAddress),
     }
 
     // Payload para a Pagar.me
