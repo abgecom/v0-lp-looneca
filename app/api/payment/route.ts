@@ -18,6 +18,13 @@ const INTEREST_RATES = {
 
 const PIX_RATE = 0.0119 // 1.19% para PIX
 
+interface PaymentCard {
+  number: string
+  holderName: string
+  expirationDate: string
+  cvv: string
+}
+
 interface PaymentRequest {
   amount: number
   paymentMethod: "credit_card" | "pix"
@@ -48,12 +55,7 @@ interface PaymentRequest {
     price: number
     imageSrc?: string
   }>
-  card?: {
-    number: string
-    holderName: string
-    expirationDate: string
-    cvv: string
-  }
+  card?: PaymentCard
   recurringProducts: {
     appPetloo: boolean
     loobook: boolean
@@ -80,6 +82,57 @@ function formatCpf(cpf: string): string {
 function formatPhone(phone: string): string {
   const cleaned = phone.replace(/\D/g, "")
   return `+55${cleaned}`
+}
+
+async function createCardId(card: PaymentCard, billingAddress: any): Promise<string> {
+  const [expMonth, expYear] = card.expirationDate.split("/")
+
+  // Log dos dados do cartão para debug
+  console.log("Dados do cartão para debug:", {
+    number: card.number,
+    holder_name: card.holderName,
+    exp_month: Number.parseInt(expMonth),
+    exp_year: Number.parseInt(`20${expYear}`),
+    cvv: card.cvv,
+  })
+
+  const cardPayload = {
+    number: card.number.replace(/\s/g, ""),
+    holder_name: card.holderName,
+    exp_month: Number.parseInt(expMonth),
+    exp_year: Number.parseInt(`20${expYear}`),
+    cvv: card.cvv,
+    billing_address: {
+      line_1: billingAddress.line_1,
+      line_2: billingAddress.line_2,
+      zip_code: billingAddress.zip_code,
+      city: billingAddress.city,
+      state: billingAddress.state,
+      country: "BR",
+    },
+  }
+
+  console.log("Creating card with payload:", JSON.stringify(cardPayload, null, 2))
+
+  const cardResponse = await fetch("https://api.pagar.me/core/v5/cards", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${process.env.PAGARME_API_KEY}:`).toString("base64")}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(cardPayload),
+  })
+
+  const cardData = await cardResponse.json()
+
+  console.log("Pagar.me card response:", JSON.stringify(cardData, null, 2))
+
+  if (!cardResponse.ok) {
+    console.error("Pagar.me card creation error:", cardData)
+    throw new Error("Erro ao criar cartão. Verifique os dados e tente novamente.")
+  }
+
+  return cardData.id
 }
 
 export async function POST(request: NextRequest) {
@@ -157,20 +210,16 @@ export async function POST(request: NextRequest) {
     const payments = []
 
     if (paymentMethod === "credit_card" && card) {
-      // Preparar dados do cartão
-      const [month, year] = card.expirationDate.split("/")
+      // Criar card_id na Pagar.me
+      const cardId = await createCardId(card, billingAddress)
 
+      // Usar apenas o card_id no pagamento
       payments.push({
         payment_method: "credit_card",
         amount: finalAmount * 100, // Converter para centavos
         installments: installments,
         credit_card: {
-          number: card.number.replace(/\s/g, ""),
-          holder_name: card.holderName,
-          exp_month: Number.parseInt(month),
-          exp_year: Number.parseInt(`20${year}`),
-          cvv: card.cvv,
-          billing_address: billingAddress,
+          card_id: cardId,
         },
       })
     } else if (paymentMethod === "pix") {
@@ -269,7 +318,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Erro interno do servidor. Tente novamente.",
+        error: error instanceof Error ? error.message : "Erro interno do servidor. Tente novamente.",
       },
       { status: 500 },
     )

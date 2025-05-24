@@ -2,6 +2,13 @@
 
 import { INTEREST_RATES, PIX_RATE } from "@/lib/payment-constants"
 
+export interface PaymentCard {
+  number: string
+  holderName: string
+  expirationDate: string
+  cvv: string
+}
+
 export interface PaymentData {
   amount: number
   paymentMethod: "credit_card" | "pix"
@@ -32,12 +39,7 @@ export interface PaymentData {
     price: number
     imageSrc?: string
   }>
-  card?: {
-    number: string
-    holderName: string
-    expirationDate: string
-    cvv: string
-  }
+  card?: PaymentCard
   recurringProducts: {
     appPetloo: boolean
     loobook: boolean
