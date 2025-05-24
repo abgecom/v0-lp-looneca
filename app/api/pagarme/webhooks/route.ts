@@ -33,12 +33,27 @@ async function createSubscriptionAfterPayment(order: any): Promise<any> {
   try {
     console.log("Checking if subscription is needed for order:", order.id)
 
+    // Log detalhado dos metadados do pedido
+    console.log("=== ORDER DETAILS FOR SUBSCRIPTION ===")
+    console.log("Order ID:", order.id)
+    console.log("Order Status:", order.status)
+    console.log("Order Metadata:", JSON.stringify(order.metadata, null, 2))
+    console.log("Customer ID:", order.customer?.id)
+    console.log("Has Charges:", !!order.charges && order.charges.length > 0)
+    if (order.charges && order.charges.length > 0) {
+      console.log("Last Transaction:", JSON.stringify(order.charges[0].last_transaction, null, 2))
+    }
+    console.log("=====================================")
+
     // Verificar se o pedido requer assinatura com base nos metadados
     const requiresSubscription =
       order.metadata?.requiresSubscription === "true" || order.metadata?.isRecurring === "true"
 
     if (!requiresSubscription) {
       console.log("Order does not require subscription, skipping")
+      console.log("SUBSCRIPTION SKIP REASON: No subscription required in metadata")
+      console.log("requiresSubscription:", order.metadata?.requiresSubscription)
+      console.log("isRecurring:", order.metadata?.isRecurring)
       return { success: false, reason: "no_subscription_required" }
     }
 
@@ -69,6 +84,9 @@ async function createSubscriptionAfterPayment(order: any): Promise<any> {
 
     if (!customerId || !cardId) {
       console.error("Missing customer_id or card_id for subscription creation", { customerId, cardId })
+      console.log("SUBSCRIPTION SKIP REASON: Missing required data")
+      console.log("Customer ID:", customerId || "MISSING")
+      console.log("Card ID:", cardId || "MISSING")
       return { success: false, reason: "missing_data" }
     }
 
@@ -205,6 +223,15 @@ export async function POST(request: NextRequest) {
       id: body.data?.id,
       status: body.data?.status,
     })
+
+    // Log detalhado do webhook recebido
+    console.log("=== WEBHOOK RECEIVED ===")
+    console.log("Event Type:", body.type)
+    console.log("Order ID:", body.data?.id)
+    console.log("Order Status:", body.data?.status)
+    console.log("Has Metadata:", !!body.data?.metadata)
+    console.log("Metadata:", JSON.stringify(body.data?.metadata, null, 2))
+    console.log("======================")
 
     // Store webhook in database
     const { error: dbError } = await supabase.from("pagarme_webhooks").insert({
