@@ -1,17 +1,23 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
+import { pagarmeRequest, calculateSubscriptionStartDate } from "@/lib/pagarme/api"
+import { PAGARME_CONFIG } from "@/lib/pagarme/config"
 
-export async function POST(request: Request) {
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL!
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const supabase = createClient(supabaseUrl, supabaseKey)
+
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { customer, card, plan_id } = body
+    const { customer, card, installments, amount } = body
 
-    if (!customer || !card || !plan_id) {
-      return new NextResponse("Missing fields", { status: 400 })
-    }
+    console.log("Starting subscription creation process")
 
     // Step 1: Create customer
-    console.log("Step 1: Creating customer...")
-    const customerResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/pagarme/create-customer`, {
+    console.log("Step 1: Creating customer")
+    const customerResponse = await fetch(`${request.nextUrl.origin}/api/pagarme/create-customer`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(customer),
@@ -21,59 +27,148 @@ export async function POST(request: Request) {
       throw new Error("Failed to create customer")
     }
 
-    const customerData = await customerResponse.json()
-    const customerId = customerData.customer_id
+    const customerResult = await customerResponse.json()
+    const customer_id = customerResult.customer_id
 
-    if (!customerId) {
+    if (!customer_id) {
       console.error("Erro: customer_id não retornado na criação do cliente")
       throw new Error("Customer ID not returned from customer creation")
     }
 
-    console.log("Customer created successfully with ID:", customerId)
+    console.log("Customer created successfully with ID:", customer_id)
 
     // Step 2: Create card
-    console.log("Step 2: Creating card for customer_id:", customerId)
-    const cardResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/pagarme/create-card`, {
+    console.log("Step 2: Creating card for customer_id:", customer_id)
+    const cardResponse = await fetch(`${request.nextUrl.origin}/api/pagarme/create-card`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...card, customer_id: customerId }),
+      body: JSON.stringify({
+        ...card,
+        customer_id,
+      }),
     })
 
     if (!cardResponse.ok) {
       throw new Error("Failed to create card")
     }
 
-    const cardData = await cardResponse.json()
-    const cardId = cardData.card_id
+    const cardResult = await cardResponse.json()
+    const card_id = cardResult.card_id
 
-    if (!cardId) {
+    if (!card_id) {
       console.error("Erro: card_id não retornado na criação do cartão")
       throw new Error("Card ID not returned from card creation")
     }
 
-    console.log("Card created successfully with ID:", cardId)
+    console.log("Card created successfully with ID:", card_id)
 
-    // Step 3: Create subscription
-    console.log("Step 3: Creating subscription with plan_id:", plan_id, "customer_id:", customerId, "card_id:", cardId)
-    const subscriptionResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL}/api/pagarme/create-subscription-with-card`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan_id: plan_id, customer_id: customerId, card_id: cardId }),
-      },
-    )
-
-    if (!subscriptionResponse.ok) {
-      throw new Error("Failed to create subscription")
+    // Step 3: Create order for membership fee
+    console.log("Step 3: Creating order for membership fee")
+    const orderData = {
+      customer_id,
+      items: [
+        {
+          amount,
+          description: "Taxa de Adesão - Plano Petloo",
+          quantity: 1,
+        },
+      ],
+      payments: [
+        {
+          payment_method: "credit_card",
+          amount,
+          installments,
+          credit_card: {
+            card_id,
+            statement_descriptor: "PETLOO",
+          },
+        },
+      ],
     }
 
-    const subscriptionData = await subscriptionResponse.json()
-    console.log("Subscription created successfully:", subscriptionData)
+    const orderResponse = await pagarmeRequest("/orders", {
+      method: "POST",
+      body: orderData,
+    })
 
-    return NextResponse.json(subscriptionData)
-  } catch (error: any) {
+    if (!orderResponse.success) {
+      throw new Error(orderResponse.error || "Failed to create order")
+    }
+
+    const order = orderResponse.data
+    console.log("Order created successfully:", {
+      order_id: order.id,
+      status: order.status,
+      amount: order.amount,
+    })
+
+    // Step 4: Create subscription
+    console.log("Step 4: Creating subscription")
+    const subscriptionData = {
+      customer_id,
+      plan_id: PAGARME_CONFIG.planId,
+      card_id,
+      start_at: calculateSubscriptionStartDate(),
+      billing_type: "prepaid",
+      statement_descriptor: "PETLOO",
+      metadata: {
+        customer_name: customer.name,
+        customer_email: customer.email,
+        order_id: order.id,
+        created_at: new Date().toISOString(),
+      },
+    }
+
+    const subscriptionResponse = await pagarmeRequest("/subscriptions", {
+      method: "POST",
+      body: subscriptionData,
+    })
+
+    if (!subscriptionResponse.success) {
+      throw new Error(subscriptionResponse.error || "Failed to create subscription")
+    }
+
+    const subscription = subscriptionResponse.data
+    console.log("Subscription created successfully:", {
+      subscription_id: subscription.id,
+      status: subscription.status,
+      start_at: subscription.start_at,
+    })
+
+    // Step 5: Store in Supabase
+    console.log("Step 5: Storing data in Supabase")
+    const { error: dbError } = await supabase.from("pagarme_transactions").insert({
+      customer_id,
+      card_id,
+      order_id: order.id,
+      subscription_id: subscription.id,
+      plan_id: PAGARME_CONFIG.planId,
+      amount,
+      installments,
+      status: order.status,
+      customer_data: customer,
+      created_at: new Date().toISOString(),
+    })
+
+    if (dbError) {
+      console.error("Error storing in Supabase:", dbError)
+      // Don't fail the request, just log the error
+    }
+
+    return NextResponse.json({
+      success: true,
+      order_id: order.id,
+      subscription_id: subscription.id,
+      customer_id,
+      status: order.status,
+      order,
+      subscription,
+    })
+  } catch (error) {
     console.error("Error creating subscription:", error)
-    return new NextResponse(error.message || "Internal Server Error", { status: 500 })
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Subscription creation failed" },
+      { status: 500 },
+    )
   }
 }
