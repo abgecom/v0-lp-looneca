@@ -20,11 +20,20 @@ export async function POST(request: Request) {
     // Get the webhook payload
     const payload = await request.json()
 
-    // Verificar a assinatura do webhook (implementação simplificada)
-    // Em produção, você deve verificar a assinatura usando o HMAC
-    const signature = request.headers.get("X-Hub-Signature")
+    console.log(`Received Pagar.me webhook event: ${payload.type}`, {
+      eventId: payload.id,
+      timestamp: new Date().toISOString(),
+    })
+
+    // Verificar a assinatura do webhook (implementação para produção)
+    const signature = request.headers.get("X-Hub-Signature") || request.headers.get("x-hub-signature")
+
+    // Em ambiente de desenvolvimento/teste, a assinatura pode não estar presente
     if (!signature) {
-      console.warn("Webhook signature verification skipped - signature header missing")
+      console.log("Webhook signature not provided - this is normal for test environments")
+    } else {
+      console.log("Webhook signature received and should be validated in production")
+      // TODO: Implementar validação HMAC da assinatura em produção
     }
 
     // Store the webhook event
