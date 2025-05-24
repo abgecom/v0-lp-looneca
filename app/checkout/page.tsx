@@ -93,19 +93,7 @@ export default function CheckoutPage() {
   }, [cart.isInitialized, cart.isEmpty, router])
 
   // Verificar se o frete deve ser grátis (subtotal >= 249.90)
-  const isShippingFree = cart.totalPrice >= 249.9
-
-  // Calculate payment amounts when payment method or installments change
-  useEffect(() => {
-    if (totalWithShipping > 0) {
-      try {
-        const calculation = calculatePaymentAmount(totalWithShipping, paymentMethod, Number(formData.installments))
-        setPaymentCalculation(calculation)
-      } catch (error) {
-        console.error("Error calculating payment amount:", error)
-      }
-    }
-  }, [totalWithShipping, paymentMethod, formData.installments])
+  const isShippingFree = cart.isInitialized && cart.totalPrice >= 249.9
 
   // Calcular o preço do frete com base na regra de frete grátis
   const getShippingPrice = () => {
@@ -115,16 +103,32 @@ export default function CheckoutPage() {
     return shippingOption.price
   }
 
-  // Calculate total with shipping
-  const totalWithShipping = cart.totalPrice + (showShippingOptions ? getShippingPrice() : 0)
+  // Calculate total with shipping - only if cart is initialized
+  const totalWithShipping = cart.isInitialized ? cart.totalPrice + (showShippingOptions ? getShippingPrice() : 0) : 0
+
+  // Calculate payment amounts when payment method or installments change
+  useEffect(() => {
+    if (cart.isInitialized && totalWithShipping > 0) {
+      try {
+        const calculation = calculatePaymentAmount(totalWithShipping, paymentMethod, Number(formData.installments))
+        setPaymentCalculation(calculation)
+      } catch (error) {
+        console.error("Error calculating payment amount:", error)
+        setPaymentCalculation(null)
+      }
+    }
+  }, [cart.isInitialized, totalWithShipping, paymentMethod, formData.installments])
 
   // Format price for display
   const formatPrice = (price: number) => {
     return price.toFixed(2).replace(".", ",")
   }
 
-  // Calculate installment value
-  const installmentValue = (totalWithShipping / Number(formData.installments || 1)).toFixed(2).replace(".", ",")
+  // Calculate installment value - only if we have a valid total
+  const installmentValue =
+    totalWithShipping > 0
+      ? (totalWithShipping / Number(formData.installments || 1)).toFixed(2).replace(".", ",")
+      : "0,00"
 
   // Handle shipping option change
   const handleShippingOptionChange = (type: "standard" | "express") => {
