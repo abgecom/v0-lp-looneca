@@ -1,42 +1,45 @@
 export const PAGARME_CONFIG = {
-  apiKey: process.env.PAGARME_API_KEY!,
-  publicKey: process.env.PAGARME_PUBLIC_KEY!,
-  accountId: process.env.PAGARME_ACCOUNT_ID!,
-  planId: process.env.PETLOO_PLAN_ID!,
-  webhookSecret: process.env.PAGARME_WEBHOOK_SECRET,
+  apiKey: process.env.PAGARME_API_KEY || "",
+  publicKey: process.env.PAGARME_PUBLIC_KEY || "",
+  accountId: process.env.PAGARME_ACCOUNT_ID || "",
+  planId: process.env.PETLOO_PLAN_ID || "",
+  webhookSecret: process.env.PAGARME_WEBHOOK_SECRET || "",
+
+  // Base URL for Pagar.me API
   baseUrl: "https://api.pagar.me/core/v5",
 
-  // Plan configuration
-  plan: {
-    name: "Petloo Monthly Plan",
-    amount: 3090, // R$ 30,90 in cents
-    interval: "month" as const,
-    billingType: "prepaid" as const,
-    intervalCount: 1,
-    paymentMethods: ["credit_card"] as const,
-    installments: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+  // API Endpoints
+  ENDPOINTS: {
+    CUSTOMERS: "/customers",
+    CARDS: "/cards", // This is a standalone endpoint, not nested
+    ORDERS: "/orders",
+    PLANS: "/plans",
+    SUBSCRIPTIONS: "/subscriptions",
+    WEBHOOKS: "/hooks",
   },
 
-  // Default subscription settings
+  // Subscription configuration
   subscription: {
     startAtDaysOffset: 30, // Start subscription 30 days after payment
-    billingType: "prepaid" as const,
+    planName: "Plano Mensal Petloo",
+    planAmount: 3090, // R$ 30,90
+    planInterval: "month",
+    planIntervalCount: 1,
+    planBillingType: "prepaid",
+    planDescription: "Assinatura mensal do aplicativo Petloo",
   },
 
-  // Payment settings
+  // Payment configuration
   payment: {
-    currency: "BRL",
     defaultInstallments: 1,
     maxInstallments: 12,
+    pixExpirationHours: 24,
   },
-} as const
 
-// Validation function
-export function validatePagarmeConfig() {
-  const required = ["apiKey", "publicKey", "accountId", "planId"]
-  const missing = required.filter((key) => !PAGARME_CONFIG[key as keyof typeof PAGARME_CONFIG])
-
-  if (missing.length > 0) {
-    throw new Error(`Missing required Pagar.me environment variables: ${missing.join(", ")}`)
-  }
+  // Logging configuration
+  logging: {
+    maskCardNumber: true,
+    logPayloads: true,
+    logResponses: true,
+  },
 }

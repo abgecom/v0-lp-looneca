@@ -3,28 +3,19 @@ import { PAGARME_CONFIG } from "./config"
 export interface PagarmeRequestOptions {
   method?: "GET" | "POST" | "PUT" | "DELETE"
   body?: any
+  apiKey?: string
   headers?: Record<string, string>
-}
-
-export interface PagarmeResponse<T = any> {
-  success: boolean
-  data?: T
-  error?: string
-  status?: number
 }
 
 /**
  * Makes authenticated requests to Pagar.me API
  */
-export async function pagarmeRequest<T = any>(
-  endpoint: string,
-  options: PagarmeRequestOptions = {},
-): Promise<PagarmeResponse<T>> {
-  const { method = "GET", body, headers = {} } = options
+export async function pagarmeRequest(endpoint: string, options: PagarmeRequestOptions = {}) {
+  const { method = "GET", body, apiKey = PAGARME_CONFIG.apiKey, headers = {} } = options
 
   try {
     // Prepare authentication
-    const auth = Buffer.from(`${PAGARME_CONFIG.apiKey}:`).toString("base64")
+    const auth = Buffer.from(`${apiKey}:`).toString("base64")
 
     // Prepare request options
     const requestOptions: RequestInit = {
@@ -57,10 +48,13 @@ export async function pagarmeRequest<T = any>(
       responseData = await response.json()
     } else {
       const text = await response.text()
-      console.error("Non-JSON response from Pagar.me:", text)
+      console.error("Non-JSON response from Pagar.me:", text.substring(0, 500))
+      console.error("Status:", response.status, response.statusText)
+      console.error("Headers:", Object.fromEntries(response.headers.entries()))
+
       return {
         success: false,
-        error: `Invalid response format: ${text}`,
+        error: `Invalid response format (${response.status}): ${text.substring(0, 100)}...`,
         status: response.status,
       }
     }
@@ -118,13 +112,7 @@ export function formatCardForLog(cardNumber: string): string {
 export function formatPhoneForPagarme(phone: string) {
   const cleaned = phone.replace(/\D/g, "")
 
-  if (cleaned.length === 11) {
-    return {
-      country_code: "55",
-      area_code: cleaned.slice(0, 2),
-      number: cleaned.slice(2),
-    }
-  } else if (cleaned.length === 10) {
+  if (cleaned.length >= 10) {
     return {
       country_code: "55",
       area_code: cleaned.slice(0, 2),
@@ -160,8 +148,6 @@ export function validateCustomerData(customer: any): string[] {
   if (!customer.name) errors.push("Name is required")
   if (!customer.email) errors.push("Email is required")
   if (!customer.document) errors.push("Document is required")
-  if (!customer.phones?.mobile_phone) errors.push("Phone is required")
-  if (!customer.address) errors.push("Address is required")
 
   return errors
 }
