@@ -10,6 +10,7 @@ import { saveOrderToDatabase } from "@/actions/order-actions"
 import { Loader2, Info, Check } from "lucide-react"
 import Link from "next/link"
 import { processPayment } from "@/actions/payment-actions"
+import { calculatePaymentAmount } from "@/lib/payment-utils"
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -19,6 +20,8 @@ export default function CheckoutPage() {
   const [paymentSuccess, setPaymentSuccess] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<"credit_card" | "pix">("credit_card")
+  const [pixCode, setPixCode] = useState<string | null>(null)
+  const [pixQrCodeUrl, setPixQrCodeUrl] = useState<string | null>(null)
   const [showShippingOptions, setShowShippingOptions] = useState(false)
 
   // Shipping options state
@@ -66,6 +69,15 @@ export default function CheckoutPage() {
     loading: false,
   })
 
+  // Payment calculation state
+  const [paymentCalculation, setPaymentCalculation] = useState<{
+    originalAmount: number
+    finalAmount: number
+    interestAmount: number
+    rate: number
+    installmentAmount: number
+  } | null>(null)
+
   // Verificar se o carrinho está vazio e redirecionar para a página inicial
   useEffect(() => {
     // Aguardar a inicialização do carrinho
@@ -93,6 +105,19 @@ export default function CheckoutPage() {
 
   // Calculate total with shipping - only if cart is initialized
   const totalWithShipping = cart.isInitialized ? cart.totalPrice + (showShippingOptions ? getShippingPrice() : 0) : 0
+
+  // Calculate payment amounts when payment method or installments change
+  useEffect(() => {
+    if (cart.isInitialized && totalWithShipping > 0) {
+      try {
+        const calculation = calculatePaymentAmount(totalWithShipping, paymentMethod, Number(formData.installments))
+        setPaymentCalculation(calculation)
+      } catch (error) {
+        console.error("Error calculating payment amount:", error)
+        setPaymentCalculation(null)
+      }
+    }
+  }, [cart.isInitialized, totalWithShipping, paymentMethod, formData.installments])
 
   // Format price for display
   const formatPrice = (price: number) => {
@@ -335,11 +360,8 @@ export default function CheckoutPage() {
     setPaymentError(null)
 
     try {
-      // Check if customer has recurring products (App Petloo or Loobook)
-      const hasRecurringProducts = cart.recurringProducts.appPetloo || cart.recurringProducts.loobook
-
-      // Prepare payment data
-      const paymentData = {
+      // Prepare order data
+      const orderData = {
         customer: {
           name: formData.name,
           email: formData.email,
@@ -357,122 +379,78 @@ export default function CheckoutPage() {
           method: shippingOption.name,
           price: getShippingPrice(),
         },
-        card: {
-          number: formData.cardNumber.replace(/\s/g, ""),
-          holder_name: formData.cardName,
-          exp_month: formData.cardExpiry.split("/")[0],
-          exp_year: `20${formData.cardExpiry.split("/")[1]}`,
-          cvv: formData.cardCvv,
-        },
-        amount: Math.round(totalWithShipping * 100), // Convert to cents
+        items: cart.items.map((item) => ({
+          id: item.id,
+          name: item.name,
+          color: item.color,
+          petCount: item.petCount,
+          quantity: item.quantity,
+          price: item.price,
+          imageSrc: item.imageSrc,
+        })),
+        recurringProducts: cart.recurringProducts,
+        paymentMethod,
+        totalAmount: totalWithShipping,
         installments: Number(formData.installments),
-        hasRecurringProducts,
       }
 
-      // Process payment based on method
-      if (paymentMethod === "credit_card") {
-        console.log("Processing credit card payment")
+      // Process payment
+      const paymentResult = await processPayment({
+        amount: totalWithShipping,
+        paymentMethod,
+        installments: Number(formData.installments),
+        customer: {
+          name: formData.name,
+          email: formData.email,
+          cpf: formData.cpf,
+          phone: formData.phone,
+        },
+        shipping: {
+          cep: formData.cep,
+          address: formData.address,
+          number: formData.number,
+          complement: formData.complement,
+          neighborhood: formData.neighborhood,
+          city: formData.city,
+          state: formData.state,
+          method: shippingOption.name,
+          price: getShippingPrice(),
+        },
+        items: cart.items,
+        card:
+          paymentMethod === "credit_card"
+            ? {
+                number: formData.cardNumber.replace(/\s/g, ""),
+                holderName: formData.cardName,
+                expirationDate: formData.cardExpiry,
+                cvv: formData.cardCvv,
+              }
+            : undefined,
+        recurringProducts: cart.recurringProducts,
+      })
 
-        const result = await processPayment(paymentData)
-
-        if (!result.success) {
-          throw new Error(result.error || "Falha ao processar pagamento")
-        }
-
-        // Prepare order data for database
-        const orderData = {
-          customer: {
-            name: formData.name,
-            email: formData.email,
-            phone: formData.phone,
-            cpf: formData.cpf,
-          },
-          shipping: {
-            cep: formData.cep,
-            address: formData.address,
-            number: formData.number,
-            complement: formData.complement,
-            neighborhood: formData.neighborhood,
-            city: formData.city,
-            state: formData.state,
-            method: shippingOption.name,
-            price: getShippingPrice(),
-          },
-          items: cart.items.map((item) => ({
-            id: item.id,
-            name: item.name,
-            color: item.color,
-            petCount: item.petCount,
-            quantity: item.quantity,
-            price: item.price,
-            imageSrc: item.imageSrc,
-          })),
-          recurringProducts: cart.recurringProducts,
-          paymentMethod,
-          totalAmount: totalWithShipping,
-          installments: Number(formData.installments),
-          paymentId: result.payment_id,
-          paymentStatus: result.status === "paid" ? "paid" : "pending",
-        }
-
+      if (paymentResult.success) {
         // Save order to database
-        await saveOrderToDatabase(orderData)
-
-        console.log("Payment processed successfully:", {
-          payment_id: result.payment_id,
-          status: result.status,
-          subscription_id: result.subscription_id,
+        await saveOrderToDatabase({
+          ...orderData,
+          paymentId: paymentResult.orderId || "",
+          paymentStatus: paymentResult.status || "pending",
         })
 
-        setPaymentSuccess(true)
-        // Clear cart after successful payment
-        cart.clearCart()
-      } else {
-        // PIX payment - create order without payment processing
-        const orderData = {
-          customer: {
-            name: formData.name,
-            email: formData.email,
-            phone: formData.phone,
-            cpf: formData.cpf,
-          },
-          shipping: {
-            cep: formData.cep,
-            address: formData.address,
-            number: formData.number,
-            complement: formData.complement,
-            neighborhood: formData.neighborhood,
-            city: formData.city,
-            state: formData.state,
-            method: shippingOption.name,
-            price: getShippingPrice(),
-          },
-          items: cart.items.map((item) => ({
-            id: item.id,
-            name: item.name,
-            color: item.color,
-            petCount: item.petCount,
-            quantity: item.quantity,
-            price: item.price,
-            imageSrc: item.imageSrc,
-          })),
-          recurringProducts: cart.recurringProducts,
-          paymentMethod,
-          totalAmount: totalWithShipping,
-          installments: 1,
-          paymentId: `pix-${Date.now()}`,
-          paymentStatus: "pending",
+        if (paymentMethod === "pix") {
+          setPixCode(paymentResult.pixCode || null)
+          setPixQrCodeUrl(paymentResult.pixQrCodeUrl || null)
+        } else {
+          setPaymentSuccess(true)
+          // Clear cart after successful payment
+          cart.clearCart()
         }
-
-        await saveOrderToDatabase(orderData)
-        setPaymentSuccess(true)
-        cart.clearCart()
+      } else {
+        setPaymentError(paymentResult.error || "Ocorreu um erro ao processar o pagamento. Tente novamente.")
       }
     } catch (error) {
-      console.error("Error processing order:", error)
-      setPaymentError(
-        error instanceof Error ? error.message : "Ocorreu um erro ao processar o pedido. Tente novamente.",
-      )
+      console.error("Error processing payment:", error)
+      setPaymentError("Ocorreu um erro ao processar o pagamento. Tente novamente.")
     } finally {
       setIsProcessing(false)
     }
@@ -545,10 +523,65 @@ export default function CheckoutPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold mb-4">Pedido registrado com sucesso!</h1>
+            <h1 className="text-2xl font-bold mb-4">Pagamento realizado com sucesso!</h1>
             <p className="text-gray-600 mb-6">
-              Obrigado pelo seu pedido. Você receberá um e-mail com os detalhes em breve.
+              Obrigado pela sua compra. Você receberá um e-mail com os detalhes do seu pedido em breve.
             </p>
+            <Link
+              href="/"
+              className="bg-[#F1542E] text-white px-6 py-3 rounded-lg font-bold hover:bg-[#e04020] transition-colors"
+            >
+              Voltar para a loja
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show PIX payment information
+  if (pixCode && pixQrCodeUrl) {
+    return (
+      <div className="min-h-screen bg-white py-10 px-4">
+        <div className="max-w-3xl mx-auto">
+          <div className="flex flex-col items-center text-center">
+            <h1 className="text-2xl font-bold mb-4">Pagamento via PIX</h1>
+            <p className="text-gray-600 mb-6">
+              Escaneie o QR Code abaixo ou copie o código PIX para realizar o pagamento.
+            </p>
+
+            <div className="mb-6">
+              <Image
+                src={pixQrCodeUrl || "/placeholder.svg"}
+                alt="QR Code PIX"
+                width={200}
+                height={200}
+                className="mx-auto"
+              />
+            </div>
+
+            <div className="w-full max-w-md mb-6">
+              <div className="border border-gray-300 rounded-md p-3 bg-gray-50 relative">
+                <p className="text-sm break-all">{pixCode}</p>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(pixCode)
+                    alert("Código PIX copiado!")
+                  }}
+                  className="absolute right-2 top-2 text-[#F1542E] hover:text-[#e04020] text-sm font-medium"
+                >
+                  Copiar
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-6 text-sm text-yellow-800">
+              <p>
+                <strong>Importante:</strong> Após realizar o pagamento, você receberá um e-mail com a confirmação e os
+                detalhes do seu pedido.
+              </p>
+            </div>
+
             <Link
               href="/"
               className="bg-[#F1542E] text-white px-6 py-3 rounded-lg font-bold hover:bg-[#e04020] transition-colors"
@@ -1043,10 +1076,21 @@ export default function CheckoutPage() {
                             onChange={handleInputChange}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]"
                           >
-                            <option value="1">1x de R$ {formatPrice(totalWithShipping)}</option>
+                            <option value="1">
+                              1x de R${" "}
+                              {paymentCalculation
+                                ? formatPrice(paymentCalculation.finalAmount)
+                                : formatPrice(totalWithShipping)}
+                              {paymentMethod === "credit_card" && " (com juros de 5,59%)"}
+                              {paymentMethod === "pix" && " (com taxa de 1,19%)"}
+                            </option>
                             {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((installment) => (
                               <option key={installment} value={installment}>
-                                {installment}x de R$ {formatPrice(totalWithShipping / installment)}
+                                {installment}x de R${" "}
+                                {paymentCalculation
+                                  ? formatPrice(paymentCalculation.installmentAmount)
+                                  : formatPrice(totalWithShipping / installment)}{" "}
+                                com juros
                               </option>
                             ))}
                           </select>
@@ -1094,7 +1138,7 @@ export default function CheckoutPage() {
                     {paymentMethod === "pix" && (
                       <div className="mt-4">
                         <p className="text-sm text-gray-600">
-                          Após finalizar a compra, você receberá instruções para pagamento via PIX.
+                          Após finalizar a compra, você receberá um QR Code para realizar o pagamento via PIX.
                         </p>
                       </div>
                     )}
@@ -1117,6 +1161,26 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              {paymentCalculation && paymentCalculation.interestAmount > 0 && (
+                <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                  <h3 className="font-medium mb-2">Resumo do Pagamento</h3>
+                  <div className="text-sm space-y-1">
+                    <div className="flex justify-between">
+                      <span>Subtotal + Frete:</span>
+                      <span>R$ {formatPrice(paymentCalculation.originalAmount)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Taxa ({paymentCalculation.rate.toFixed(2)}%):</span>
+                      <span>R$ {formatPrice(paymentCalculation.interestAmount)}</span>
+                    </div>
+                    <div className="flex justify-between font-medium border-t pt-1">
+                      <span>Total Final:</span>
+                      <span>R$ {formatPrice(paymentCalculation.finalAmount)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Submit Button */}
               <button
                 type="submit"
@@ -1129,7 +1193,7 @@ export default function CheckoutPage() {
                     Processando...
                   </>
                 ) : (
-                  "Finalizar pedido"
+                  "Finalizar compra"
                 )}
               </button>
 

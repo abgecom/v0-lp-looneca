@@ -1,18 +1,23 @@
 "use server"
 
-import { createClient } from "@supabase/supabase-js"
+import { INTEREST_RATES, PIX_RATE } from "@/lib/payment-constants"
 
-// Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseKey)
+export interface PaymentCard {
+  number: string
+  holderName: string
+  expirationDate: string
+  cvv: string
+}
 
-interface PaymentData {
+export interface PaymentData {
+  amount: number
+  paymentMethod: "credit_card" | "pix"
+  installments?: number
   customer: {
     name: string
     email: string
-    phone: string
     cpf: string
+    phone: string
   }
   shipping: {
     cep: string
@@ -22,220 +27,84 @@ interface PaymentData {
     neighborhood: string
     city: string
     state: string
-    method?: string
-    price?: number
+    method: string
+    price: number
   }
-  card: {
-    number: string
-    holder_name: string
-    exp_month: string
-    exp_year: string
-    cvv: string
+  items: Array<{
+    id: string
+    name: string
+    color: string
+    petCount: number
+    quantity: number
+    price: number
+    imageSrc?: string
+  }>
+  card?: PaymentCard
+  recurringProducts: {
+    appPetloo: boolean
+    loobook: boolean
   }
-  amount: number
-  installments: number
-  hasRecurringProducts: boolean
 }
 
-export async function processPayment(paymentData: PaymentData) {
+export interface PaymentResponse {
+  success: boolean
+  orderId?: string
+  status?: string
+  finalAmount?: number
+  originalAmount?: number
+  interestAmount?: number
+  paymentMethod?: string
+  pixCode?: string
+  pixQrCodeUrl?: string
+  installments?: number
+  installmentAmount?: number
+  error?: string
+}
+
+export async function processPayment(data: PaymentData): Promise<PaymentResponse> {
   try {
-    console.log("Processing payment for:", {
-      customer_email: paymentData.customer.email,
-      amount: paymentData.amount,
-      installments: paymentData.installments,
-      has_recurring: paymentData.hasRecurringProducts,
+    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/payment`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
     })
 
-    // Prepare customer data for Pagar.me
-    const customerData = {
-      name: paymentData.customer.name,
-      email: paymentData.customer.email,
-      document: paymentData.customer.cpf,
-      phones: {
-        mobile_phone: paymentData.customer.phone,
-      },
-      address: {
-        cep: paymentData.shipping.cep,
-        address: paymentData.shipping.address,
-        number: paymentData.shipping.number,
-        complement: paymentData.shipping.complement || "",
-        neighborhood: paymentData.shipping.neighborhood,
-        city: paymentData.shipping.city,
-        state: paymentData.shipping.state,
-      },
-    }
+    const result = await response.json()
 
-    // Prepare card data for Pagar.me
-    const cardData = {
-      number: paymentData.card.number,
-      holder_name: paymentData.card.holder_name,
-      exp_month: paymentData.card.exp_month,
-      exp_year: paymentData.card.exp_year,
-      cvv: paymentData.card.cvv,
-      billing_address: customerData.address,
-    }
-
-    // If customer has recurring products, create subscription
-    if (paymentData.hasRecurringProducts) {
-      console.log("Creating subscription for recurring products")
-
-      const subscriptionResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/pagarme/create-subscription`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          customer: customerData,
-          card: cardData,
-          installments: paymentData.installments,
-          amount: paymentData.amount,
-        }),
-      })
-
-      if (!subscriptionResponse.ok) {
-        const errorData = await subscriptionResponse.json()
-        throw new Error(errorData.error || "Failed to create subscription")
-      }
-
-      const subscriptionResult = await subscriptionResponse.json()
-
-      console.log("Subscription created successfully:", {
-        order_id: subscriptionResult.order_id,
-        subscription_id: subscriptionResult.subscription_id,
-        status: subscriptionResult.status,
-      })
-
-      return {
-        success: true,
-        payment_id: subscriptionResult.order_id,
-        subscription_id: subscriptionResult.subscription_id,
-        status: subscriptionResult.status,
-        message: "Pagamento processado com sucesso",
-      }
-    } else {
-      // For one-time payments, create customer and card, then create order
-      console.log("Processing one-time payment")
-
-      // Create customer
-      const customerResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/pagarme/create-customer`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(customerData),
-      })
-
-      if (!customerResponse.ok) {
-        throw new Error("Failed to create customer")
-      }
-
-      const { customer_id } = await customerResponse.json()
-
-      // Create card
-      const cardResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/pagarme/create-card`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...cardData,
-          customer_id,
-        }),
-      })
-
-      if (!cardResponse.ok) {
-        throw new Error("Failed to create card")
-      }
-
-      const { card_id } = await cardResponse.json()
-
-      // Create order
-      const orderData = {
-        customer_id,
-        items: [
-          {
-            amount: paymentData.amount,
-            description: "Caneca Personalizada Looneca",
-            quantity: 1,
-          },
-        ],
-        payments: [
-          {
-            payment_method: "credit_card",
-            amount: paymentData.amount,
-            installments: paymentData.installments,
-            credit_card: {
-              card_id,
-              statement_descriptor: "PETLOO",
-            },
-          },
-        ],
-      }
-
-      const orderResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/pagarme/orders`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(orderData),
-      })
-
-      if (!orderResponse.ok) {
-        throw new Error("Failed to create order")
-      }
-
-      const orderResult = await orderResponse.json()
-
-      console.log("Order created successfully:", {
-        order_id: orderResult.id,
-        status: orderResult.status,
-      })
-
-      return {
-        success: true,
-        payment_id: orderResult.id,
-        status: orderResult.status,
-        message: "Pagamento processado com sucesso",
-      }
-    }
+    return result
   } catch (error) {
     console.error("Error processing payment:", error)
-
-    // Store error in database for debugging
-    await supabase.from("payment_errors").insert({
-      customer_email: paymentData.customer.email,
-      error_message: error instanceof Error ? error.message : "Unknown error",
-      payment_data: paymentData,
-      created_at: new Date().toISOString(),
-    })
-
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Erro ao processar pagamento",
+      error: "Erro ao processar pagamento. Tente novamente.",
     }
   }
 }
 
-export async function getPaymentStatus(paymentId: string) {
-  try {
-    // Check payment status in Supabase
-    const { data, error } = await supabase.from("pagarme_transactions").select("*").eq("order_id", paymentId).single()
+export async function calculatePaymentAmount(
+  originalAmount: number,
+  paymentMethod: "credit_card" | "pix",
+  installments = 1,
+) {
+  let rate = 0
 
-    if (error) {
-      console.error("Error fetching payment status:", error)
-      return { success: false, error: "Payment not found" }
-    }
+  if (paymentMethod === "pix") {
+    rate = PIX_RATE
+  } else if (paymentMethod === "credit_card") {
+    rate = INTEREST_RATES[installments as keyof typeof INTEREST_RATES] || INTEREST_RATES[1]
+  }
 
-    return {
-      success: true,
-      status: data.status,
-      payment: data,
-    }
-  } catch (error) {
-    console.error("Error getting payment status:", error)
-    return {
-      success: false,
-      error: "Failed to get payment status",
-    }
+  const finalAmount = originalAmount * (1 + rate)
+  const interestAmount = finalAmount - originalAmount
+
+  return {
+    originalAmount,
+    finalAmount: Math.round(finalAmount * 100) / 100,
+    interestAmount: Math.round(interestAmount * 100) / 100,
+    rate: rate * 100, // Retorna em porcentagem
+    installmentAmount:
+      paymentMethod === "credit_card" ? Math.round((finalAmount / installments) * 100) / 100 : finalAmount,
   }
 }

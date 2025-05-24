@@ -1,142 +1,59 @@
-import { PAGARME_CONFIG } from "./payment-constants"
+// Taxas de juros para cartão de crédito
+export const INTEREST_RATES = {
+  1: 0.0559, // 5.59%
+  2: 0.0859, // 8.59%
+  3: 0.0984, // 9.84%
+  4: 0.1109, // 11.09%
+  5: 0.1234, // 12.34%
+  6: 0.1359, // 13.59%
+  7: 0.1534, // 15.34%
+  8: 0.1659, // 16.59%
+  9: 0.1784, // 17.84%
+  10: 0.1909, // 19.09%
+  11: 0.2034, // 20.34%
+  12: 0.2159, // 21.59%
+}
 
-// Get Pagar.me configuration from environment variables
-export function getPagarmeConfig() {
-  const apiKey = process.env.PAGARME_API_KEY
-  const publicKey = process.env.PAGARME_PUBLIC_KEY
-  const accountId = process.env.PAGARME_ACCOUNT_ID
-  const planId = process.env.PETLOO_PLAN_ID
+// Taxa para PIX
+export const PIX_RATE = 0.0119 // 1.19%
 
-  if (!apiKey || !publicKey || !accountId) {
-    throw new Error("Missing Pagar.me environment variables")
+// Função para formatar valor monetário
+export function formatCurrency(value: number): string {
+  return value.toFixed(2).replace(".", ",")
+}
+
+// Função para obter a taxa de juros
+export function getInterestRate(paymentMethod: "credit_card" | "pix", installments = 1): number {
+  if (paymentMethod === "pix") {
+    return PIX_RATE
   }
+
+  if (paymentMethod === "credit_card") {
+    return INTEREST_RATES[installments as keyof typeof INTEREST_RATES] || INTEREST_RATES[1]
+  }
+
+  return 0
+}
+
+// Função para calcular valores de pagamento (versão client-side)
+export function calculatePaymentAmount(originalAmount: number, paymentMethod: "credit_card" | "pix", installments = 1) {
+  let rate = 0
+
+  if (paymentMethod === "pix") {
+    rate = PIX_RATE
+  } else if (paymentMethod === "credit_card") {
+    rate = INTEREST_RATES[installments as keyof typeof INTEREST_RATES] || INTEREST_RATES[1]
+  }
+
+  const finalAmount = originalAmount * (1 + rate)
+  const interestAmount = finalAmount - originalAmount
 
   return {
-    apiKey,
-    publicKey,
-    accountId,
-    planId,
-  }
-}
-
-// Create authorization header for Pagar.me API
-export function createAuthHeader(apiKey: string): string {
-  const credentials = Buffer.from(`${apiKey}:`).toString("base64")
-  return `Basic ${credentials}`
-}
-
-// Create headers for Pagar.me API requests
-export function createPagarmeHeaders(apiKey: string) {
-  return {
-    Authorization: createAuthHeader(apiKey),
-    "Content-Type": "application/json",
-    Accept: "application/json",
-  }
-}
-
-// Make request to Pagar.me API
-export async function pagarmeRequest(
-  endpoint: string,
-  options: {
-    method: "GET" | "POST" | "PUT" | "DELETE"
-    body?: any
-    apiKey: string
-  },
-) {
-  const url = `${PAGARME_CONFIG.BASE_URL}${endpoint}`
-  const headers = createPagarmeHeaders(options.apiKey)
-
-  const response = await fetch(url, {
-    method: options.method,
-    headers,
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  })
-
-  if (!response.ok) {
-    const errorData = await response.text()
-    console.error(`Pagar.me API Error (${response.status}):`, errorData)
-    throw new Error(`Pagar.me API Error: ${response.status}`)
-  }
-
-  return response.json()
-}
-
-// Format card number for logging (show only last 4 digits)
-export function formatCardForLogging(cardNumber: string): string {
-  const cleanNumber = cardNumber.replace(/\s/g, "")
-  if (cleanNumber.length < 4) return "****"
-  return `****${cleanNumber.slice(-4)}`
-}
-
-// Validate customer data
-export function validateCustomerData(customer: any): boolean {
-  return !!(customer.name && customer.email && customer.document && customer.phones && customer.address)
-}
-
-// Validate card data
-export function validateCardData(card: any): boolean {
-  return !!(card.number && card.holder_name && card.exp_month && card.exp_year && card.cvv && card.billing_address)
-}
-
-// Calculate subscription start date (30 days from now)
-export function calculateSubscriptionStartDate(): string {
-  const startDate = new Date()
-  startDate.setDate(startDate.getDate() + 30)
-  return startDate.toISOString()
-}
-
-// Format phone number for Pagar.me
-export function formatPhoneForPagarme(phone: string) {
-  const cleanPhone = phone.replace(/\D/g, "")
-
-  if (cleanPhone.length === 11) {
-    return {
-      country_code: "55",
-      area_code: cleanPhone.slice(0, 2),
-      number: cleanPhone.slice(2),
-    }
-  }
-
-  if (cleanPhone.length === 10) {
-    return {
-      country_code: "55",
-      area_code: cleanPhone.slice(0, 2),
-      number: cleanPhone.slice(2),
-    }
-  }
-
-  throw new Error("Invalid phone number format")
-}
-
-// Format document for Pagar.me
-export function formatDocumentForPagarme(document: string) {
-  const cleanDocument = document.replace(/\D/g, "")
-
-  if (cleanDocument.length === 11) {
-    return {
-      type: "cpf",
-      number: cleanDocument,
-    }
-  }
-
-  if (cleanDocument.length === 14) {
-    return {
-      type: "cnpj",
-      number: cleanDocument,
-    }
-  }
-
-  throw new Error("Invalid document format")
-}
-
-// Format address for Pagar.me
-export function formatAddressForPagarme(address: any) {
-  return {
-    line_1: `${address.number}, ${address.address}`,
-    line_2: address.complement || "",
-    zip_code: address.cep.replace(/\D/g, ""),
-    city: address.city,
-    state: address.state,
-    country: "BR",
+    originalAmount,
+    finalAmount: Math.round(finalAmount * 100) / 100,
+    interestAmount: Math.round(interestAmount * 100) / 100,
+    rate: rate * 100, // Retorna em porcentagem
+    installmentAmount:
+      paymentMethod === "credit_card" ? Math.round((finalAmount / installments) * 100) / 100 : finalAmount,
   }
 }
