@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
 
 // Taxas de juros para cartão de crédito
 const INTEREST_RATES = {
@@ -17,6 +18,11 @@ const INTEREST_RATES = {
 }
 
 const PIX_RATE = 0.0119 // 1.19% para PIX
+
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL!
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 interface PaymentCard {
   number: string
@@ -81,7 +87,96 @@ function formatCpf(cpf: string): string {
 
 function formatPhone(phone: string): string {
   const cleaned = phone.replace(/\D/g, "")
-  return `+55${cleaned}`
+
+  // Extract area code and number
+  let areaCode = "00"
+  let number = cleaned
+
+  if (cleaned.length >= 10) {
+    areaCode = cleaned.slice(0, 2)
+    number = cleaned.slice(2)
+  }
+
+  return {
+    country_code: "55",
+    area_code: areaCode,
+    number: number,
+  }
+}
+
+// Calcular data de início da assinatura (30 dias após o pagamento)
+function calculateSubscriptionStartDate(): string {
+  const startDate = new Date()
+  startDate.setDate(startDate.getDate() + 30)
+  return startDate.toISOString()
+}
+
+// Criar assinatura após pagamento aprovado
+async function createSubscription(customerId: string, cardId: string, orderId: string, customer: any): Promise<any> {
+  try {
+    console.log("Creating subscription for customer:", customerId, "with card:", cardId)
+
+    const subscriptionData = {
+      customer_id: customerId,
+      plan_id: process.env.PETLOO_PLAN_ID,
+      card_id: cardId,
+      start_at: calculateSubscriptionStartDate(),
+      billing_type: "prepaid",
+      statement_descriptor: "PETLOO",
+      metadata: {
+        customer_name: customer.name,
+        customer_email: customer.email,
+        order_id: orderId,
+        created_at: new Date().toISOString(),
+      },
+    }
+
+    const subscriptionResponse = await fetch("https://api.pagar.me/core/v5/subscriptions", {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${process.env.PAGARME_API_KEY}:`).toString("base64")}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(subscriptionData),
+    })
+
+    if (!subscriptionResponse.ok) {
+      const errorData = await subscriptionResponse.json()
+      console.error("Failed to create subscription:", errorData)
+      return { success: false, error: errorData }
+    }
+
+    const subscription = await subscriptionResponse.json()
+    console.log("Subscription created successfully:", {
+      subscription_id: subscription.id,
+      status: subscription.status,
+      start_at: subscription.start_at,
+    })
+
+    // Store subscription in database
+    const { error: dbError } = await supabase.from("pagarme_transactions").insert({
+      customer_id: customerId,
+      card_id: cardId,
+      order_id: orderId,
+      subscription_id: subscription.id,
+      plan_id: process.env.PETLOO_PLAN_ID,
+      amount: subscription.amount,
+      installments: 1,
+      status: subscription.status,
+      customer_data: customer,
+      created_at: new Date().toISOString(),
+    })
+
+    if (dbError) {
+      console.error("Error storing subscription in Supabase:", dbError)
+    }
+
+    return { success: true, subscription }
+  } catch (error) {
+    console.error("Error creating subscription:", error)
+    return { success: false, error }
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -99,6 +194,10 @@ export async function POST(request: NextRequest) {
       recurringProducts,
     } = body
 
+    // Verificar se há produtos recorrentes
+    const hasRecurringProducts = recurringProducts.appPetloo || recurringProducts.loobook
+    console.log("Has recurring products:", hasRecurringProducts)
+
     // Calcular valor final com juros
     const finalAmount = calculateFinalAmount(originalAmount, paymentMethod, installments)
 
@@ -109,11 +208,7 @@ export async function POST(request: NextRequest) {
       document: formatCpf(customer.cpf),
       type: "individual",
       phones: {
-        mobile_phone: {
-          country_code: "55",
-          area_code: formatPhone(customer.phone).slice(3, 5),
-          number: formatPhone(customer.phone).slice(5),
-        },
+        mobile_phone: formatPhone(customer.phone),
       },
     }
 
@@ -185,6 +280,7 @@ export async function POST(request: NextRequest) {
           },
           operation_type: "auth_and_capture",
           recurrence: false,
+          save: hasRecurringProducts, // Salvar o cartão se houver produtos recorrentes
         },
       })
     } else if (paymentMethod === "pix") {
@@ -209,7 +305,7 @@ export async function POST(request: NextRequest) {
             : "0%",
       recurringAppPetloo: recurringProducts.appPetloo.toString(),
       recurringLoobook: recurringProducts.loobook.toString(),
-      isRecurring: (recurringProducts.appPetloo || recurringProducts.loobook).toString(),
+      isRecurring: hasRecurringProducts.toString(),
     }
 
     // Payload para a Pagar.me
@@ -262,6 +358,41 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Verificar se o pagamento foi aprovado
+      const paymentStatus = responseData.status
+      const isPaymentApproved = paymentStatus === "paid" || paymentStatus === "authorized"
+
+      console.log("Payment status:", paymentStatus, "Approved:", isPaymentApproved)
+
+      // Extrair customer_id e card_id para assinatura
+      const customerId = responseData.customer?.id
+      let cardId = null
+
+      // Extrair card_id do pagamento
+      if (paymentMethod === "credit_card" && responseData.charges && responseData.charges.length > 0) {
+        const lastTransaction = responseData.charges[0].last_transaction
+        if (lastTransaction && lastTransaction.card) {
+          cardId = lastTransaction.card.id
+          console.log("Card ID extracted from payment:", cardId)
+        }
+      }
+
+      // Criar assinatura se o pagamento for aprovado e houver produtos recorrentes
+      let subscriptionResult = null
+      if (isPaymentApproved && hasRecurringProducts && customerId && cardId && paymentMethod === "credit_card") {
+        console.log("Creating subscription after successful payment")
+        subscriptionResult = await createSubscription(customerId, cardId, responseData.id, customerData)
+        console.log("Subscription creation result:", subscriptionResult.success)
+      } else if (hasRecurringProducts) {
+        console.log("Skipping subscription creation:", {
+          isPaymentApproved,
+          hasRecurringProducts,
+          hasCustomerId: !!customerId,
+          hasCardId: !!cardId,
+          paymentMethod,
+        })
+      }
+
       // Preparar resposta de sucesso
       const response: any = {
         success: true,
@@ -282,6 +413,15 @@ export async function POST(request: NextRequest) {
       if (paymentMethod === "credit_card") {
         response.installments = installments
         response.installmentAmount = Math.round((finalAmount / installments) * 100) / 100
+      }
+
+      // Adicionar informações da assinatura se foi criada
+      if (subscriptionResult && subscriptionResult.success) {
+        response.subscription = {
+          id: subscriptionResult.subscription.id,
+          status: subscriptionResult.subscription.status,
+          start_at: subscriptionResult.subscription.start_at,
+        }
       }
 
       return NextResponse.json(response)
