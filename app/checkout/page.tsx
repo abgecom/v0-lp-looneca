@@ -9,7 +9,8 @@ import { useCart } from "@/contexts/cart-context"
 import { saveOrderToDatabase } from "@/actions/order-actions"
 import { Loader2, Info, Check } from "lucide-react"
 import Link from "next/link"
-import { processPayment, calculatePaymentAmount } from "@/actions/payment-actions"
+import { processPayment } from "@/actions/payment-actions"
+import { calculatePaymentAmount } from "@/lib/payment-utils"
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -56,7 +57,6 @@ export default function CheckoutPage() {
   })
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
-  const [addressLoading, setAddressLoading] = useState(false)
 
   // Estado para controlar o status do CEP
   const [cepStatus, setCepStatus] = useState<{
@@ -98,15 +98,12 @@ export default function CheckoutPage() {
   // Calculate payment amounts when payment method or installments change
   useEffect(() => {
     if (totalWithShipping > 0) {
-      const calculateAsync = async () => {
-        const calculation = await calculatePaymentAmount(
-          totalWithShipping,
-          paymentMethod,
-          Number(formData.installments),
-        )
+      try {
+        const calculation = calculatePaymentAmount(totalWithShipping, paymentMethod, Number(formData.installments))
         setPaymentCalculation(calculation)
+      } catch (error) {
+        console.error("Error calculating payment amount:", error)
       }
-      calculateAsync()
     }
   }, [totalWithShipping, paymentMethod, formData.installments])
 
@@ -432,7 +429,7 @@ export default function CheckoutPage() {
         // Save order to database
         await saveOrderToDatabase({
           ...orderData,
-          paymentId: paymentResult.paymentId || "",
+          paymentId: paymentResult.orderId || "",
           paymentStatus: paymentResult.status || "pending",
         })
 
