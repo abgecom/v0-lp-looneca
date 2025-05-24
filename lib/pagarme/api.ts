@@ -1,0 +1,182 @@
+import { PAGARME_CONFIG } from "./config"
+
+export interface PagarmeRequestOptions {
+  method?: "GET" | "POST" | "PUT" | "DELETE"
+  body?: any
+  headers?: Record<string, string>
+}
+
+export interface PagarmeResponse<T = any> {
+  success: boolean
+  data?: T
+  error?: string
+  status?: number
+}
+
+/**
+ * Makes authenticated requests to Pagar.me API
+ */
+export async function pagarmeRequest<T = any>(
+  endpoint: string,
+  options: PagarmeRequestOptions = {},
+): Promise<PagarmeResponse<T>> {
+  const { method = "GET", body, headers = {} } = options
+
+  try {
+    // Prepare authentication
+    const auth = Buffer.from(`${PAGARME_CONFIG.apiKey}:`).toString("base64")
+
+    // Prepare request options
+    const requestOptions: RequestInit = {
+      method,
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...headers,
+      },
+    }
+
+    // Add body for POST/PUT requests
+    if (body && (method === "POST" || method === "PUT")) {
+      requestOptions.body = JSON.stringify(body)
+    }
+
+    // Make the request
+    const url = `${PAGARME_CONFIG.baseUrl}${endpoint}`
+    console.log(`Making Pagar.me API request: ${method} ${url}`)
+
+    const response = await fetch(url, requestOptions)
+
+    // Check if response is JSON
+    const contentType = response.headers.get("content-type")
+    const isJson = contentType && contentType.includes("application/json")
+
+    let responseData
+    if (isJson) {
+      responseData = await response.json()
+    } else {
+      const text = await response.text()
+      console.error("Non-JSON response from Pagar.me:", text)
+      return {
+        success: false,
+        error: `Invalid response format: ${text}`,
+        status: response.status,
+      }
+    }
+
+    // Log response for debugging (without sensitive data)
+    console.log(`Pagar.me API response (${response.status}):`, {
+      success: response.ok,
+      endpoint,
+      status: response.status,
+      hasData: !!responseData,
+    })
+
+    if (!response.ok) {
+      const errorMessage = responseData?.message || responseData?.error || "Unknown error"
+      console.error("Pagar.me API Error:", {
+        status: response.status,
+        error: errorMessage,
+        endpoint,
+        data: responseData,
+      })
+
+      return {
+        success: false,
+        error: errorMessage,
+        status: response.status,
+        data: responseData,
+      }
+    }
+
+    return {
+      success: true,
+      data: responseData,
+      status: response.status,
+    }
+  } catch (error) {
+    console.error("Pagar.me API Request Error:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Network error",
+    }
+  }
+}
+
+/**
+ * Helper function to format card number for logging (shows only last 4 digits)
+ */
+export function formatCardForLog(cardNumber: string): string {
+  if (!cardNumber || cardNumber.length < 4) return "****"
+  return `****${cardNumber.slice(-4)}`
+}
+
+/**
+ * Helper function to format phone number for Pagar.me API
+ */
+export function formatPhoneForPagarme(phone: string) {
+  const cleaned = phone.replace(/\D/g, "")
+
+  if (cleaned.length === 11) {
+    return {
+      country_code: "55",
+      area_code: cleaned.slice(0, 2),
+      number: cleaned.slice(2),
+    }
+  } else if (cleaned.length === 10) {
+    return {
+      country_code: "55",
+      area_code: cleaned.slice(0, 2),
+      number: cleaned.slice(2),
+    }
+  }
+
+  throw new Error("Invalid phone number format")
+}
+
+/**
+ * Helper function to format document (CPF/CNPJ) for Pagar.me API
+ */
+export function formatDocumentForPagarme(document: string): string {
+  return document.replace(/\D/g, "")
+}
+
+/**
+ * Helper function to calculate subscription start date (30 days from now)
+ */
+export function calculateSubscriptionStartDate(): string {
+  const startDate = new Date()
+  startDate.setDate(startDate.getDate() + PAGARME_CONFIG.subscription.startAtDaysOffset)
+  return startDate.toISOString()
+}
+
+/**
+ * Helper function to validate required fields for customer creation
+ */
+export function validateCustomerData(customer: any): string[] {
+  const errors: string[] = []
+
+  if (!customer.name) errors.push("Name is required")
+  if (!customer.email) errors.push("Email is required")
+  if (!customer.document) errors.push("Document is required")
+  if (!customer.phones?.mobile_phone) errors.push("Phone is required")
+  if (!customer.address) errors.push("Address is required")
+
+  return errors
+}
+
+/**
+ * Helper function to validate required fields for card creation
+ */
+export function validateCardData(card: any): string[] {
+  const errors: string[] = []
+
+  if (!card.number) errors.push("Card number is required")
+  if (!card.holder_name) errors.push("Holder name is required")
+  if (!card.exp_month) errors.push("Expiration month is required")
+  if (!card.exp_year) errors.push("Expiration year is required")
+  if (!card.cvv) errors.push("CVV is required")
+
+  return errors
+}
