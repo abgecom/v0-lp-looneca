@@ -28,6 +28,11 @@ interface CartContextType {
     loobook: boolean
   }
   toggleRecurringProduct: (product: "appPetloo" | "loobook") => void
+  // Novas propriedades para fotos e raça do pet
+  petPhotos: string[]
+  petTypeBreed: string
+  petNotes: string
+  setPetData: (photos: string[], typeBreed: string, notes: string) => void
 }
 
 // Valor inicial do contexto
@@ -46,6 +51,11 @@ const initialCartContext: CartContextType = {
     loobook: true,
   },
   toggleRecurringProduct: () => {},
+  // Valores iniciais para fotos e raça do pet
+  petPhotos: [],
+  petTypeBreed: "",
+  petNotes: "",
+  setPetData: () => {},
 }
 
 const CartContext = createContext<CartContextType>(initialCartContext)
@@ -57,6 +67,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     appPetloo: true,
     loobook: true,
   })
+  // Estados para fotos e raça do pet
+  const [petPhotos, setPetPhotos] = useState<string[]>([])
+  const [petTypeBreed, setPetTypeBreed] = useState("")
+  const [petNotes, setPetNotes] = useState("")
 
   // Carregar itens e configurações do localStorage quando o componente montar
   useEffect(() => {
@@ -81,6 +95,20 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log("Produtos recorrentes carregados:", parsedRecurringProducts)
           } catch (e) {
             console.error("Erro ao carregar produtos recorrentes:", e)
+          }
+        }
+
+        // Carregar dados do pet
+        const savedPetData = localStorage.getItem("looneca-pet-data")
+        if (savedPetData) {
+          try {
+            const parsedPetData = JSON.parse(savedPetData)
+            setPetPhotos(parsedPetData.photos || [])
+            setPetTypeBreed(parsedPetData.typeBreed || "")
+            setPetNotes(parsedPetData.notes || "")
+            console.log("Dados do pet carregados:", parsedPetData)
+          } catch (e) {
+            console.error("Erro ao carregar dados do pet:", e)
           }
         }
 
@@ -111,12 +139,32 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [recurringProducts, isInitialized])
 
+  // Salvar dados do pet quando mudarem
+  useEffect(() => {
+    if (isInitialized && typeof window !== "undefined") {
+      const petData = {
+        photos: petPhotos,
+        typeBreed: petTypeBreed,
+        notes: petNotes,
+      }
+      localStorage.setItem("looneca-pet-data", JSON.stringify(petData))
+      console.log("Dados do pet salvos:", petData)
+    }
+  }, [petPhotos, petTypeBreed, petNotes, isInitialized])
+
   // Função para alternar produtos recorrentes
   const toggleRecurringProduct = (product: "appPetloo" | "loobook") => {
     setRecurringProducts((prev) => ({
       ...prev,
       [product]: !prev[product],
     }))
+  }
+
+  // Função para definir os dados do pet
+  const setPetData = (photos: string[], typeBreed: string, notes: string) => {
+    setPetPhotos(photos)
+    setPetTypeBreed(typeBreed)
+    setPetNotes(notes)
   }
 
   const addItem = (newItem: CartItem) => {
@@ -179,6 +227,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isInitialized,
         recurringProducts,
         toggleRecurringProduct,
+        petPhotos,
+        petTypeBreed,
+        petNotes,
+        setPetData,
       }}
     >
       {children}

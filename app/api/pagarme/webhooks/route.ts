@@ -210,21 +210,13 @@ async function getOrderDetails(orderId: string): Promise<any> {
 }
 
 // Função para verificar a assinatura do webhook
-function verifyWebhookSignature(signature: string, payload: string): boolean {
+function verificarAssinatura(payload: string, signature: string, secret: string): boolean {
   try {
-    if (!process.env.PAGARME_WEBHOOK_SECRET) {
-      console.error("PAGARME_WEBHOOK_SECRET não está definido")
-      return false
-    }
-
-    const expectedSignature = crypto
-      .createHmac("sha256", process.env.PAGARME_WEBHOOK_SECRET)
-      .update(payload)
-      .digest("hex")
-
-    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+    const hmac = crypto.createHmac("sha256", secret)
+    const calculatedSignature = hmac.update(payload).digest("hex")
+    return calculatedSignature === signature
   } catch (error) {
-    console.error("Erro ao verificar assinatura do webhook:", error)
+    console.error("Erro ao verificar assinatura:", error)
     return false
   }
 }
@@ -332,7 +324,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Processar eventos de pagamento
-    if (body.type === "charge.paid" || body.type === "charge.failed" || body.type === "charge.pending") {
+    if (
+      body.type === "charge.paid" ||
+      body.type === "charge.pending" ||
+      body.type === "charge.failed" ||
+      body.type === "charge.refunded" ||
+      body.type === "charge.canceled"
+    ) {
       const paymentId = body.data.id
       const status = body.data.status
       const updatedAt = new Date().toISOString()
@@ -350,6 +348,8 @@ export async function POST(request: NextRequest) {
 
       if (pedidosError) {
         console.error("Erro ao atualizar status na tabela pedidos:", pedidosError)
+      } else {
+        console.log("Status de pagamento atualizado com sucesso na tabela pedidos")
       }
 
       // Manter a atualização na tabela looneca_orders para compatibilidade
@@ -363,6 +363,32 @@ export async function POST(request: NextRequest) {
 
       if (ordersError) {
         console.error("Erro ao atualizar status na tabela looneca_orders:", ordersError)
+      }
+    }
+
+    // Processar eventos de assinatura
+    if (
+      body.type === "subscription.created" ||
+      body.type === "subscription.canceled" ||
+      body.type === "subscription.updated"
+    ) {
+      const subscriptionId = body.data.id
+      const status = body.data.status
+
+      console.log(`Atualizando status da assinatura para ${status} (ID: ${subscriptionId})`)
+
+      const { error: subscriptionError } = await supabase
+        .from("pagarme_transactions")
+        .update({
+          status: status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("subscription_id", subscriptionId)
+
+      if (subscriptionError) {
+        console.error("Erro ao atualizar status da assinatura:", subscriptionError)
+      } else {
+        console.log("Status da assinatura atualizado com sucesso")
       }
     }
 

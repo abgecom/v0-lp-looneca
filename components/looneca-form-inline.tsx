@@ -7,6 +7,7 @@ import { criarPedidoLooneca } from "@/actions/looneca-actions"
 import { Upload, AlertCircle, X, Check, Loader2 } from "lucide-react"
 import Image from "next/image"
 import PetAutocomplete from "./pet-autocomplete"
+import { useCart } from "@/contexts/cart-context"
 
 interface PetFormData {
   tipoRacaPet: string
@@ -32,6 +33,9 @@ const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
       { tipoRacaPet: "", fotosUrls: [] },
       { tipoRacaPet: "", fotosUrls: [] },
     ])
+
+    // Usar o contexto do carrinho para armazenar os dados
+    const { setPetData } = useCart()
 
     // Expor o método handleSubmit para o componente pai
     useImperativeHandle(ref, () => ({
@@ -88,6 +92,14 @@ const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
         // Combinar todos os tipos/raças e URLs de fotos
         const combinedTipoRacaPet = petDataToSubmit.map((pet) => pet.tipoRacaPet).join(", ")
         const combinedFotosUrls = petDataToSubmit.flatMap((pet) => pet.fotosUrls)
+
+        // Salvar dados no contexto do carrinho
+        setPetData(combinedFotosUrls, combinedTipoRacaPet, observacao)
+        console.log("Dados do pet salvos no contexto do carrinho:", {
+          photos: combinedFotosUrls,
+          typeBreed: combinedTipoRacaPet,
+          notes: observacao,
+        })
 
         const result = await criarPedidoLooneca({
           tipoRacaPet: combinedTipoRacaPet,

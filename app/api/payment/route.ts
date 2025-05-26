@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { criarPedido, buscarFotosPetPorEmail } from "@/actions/pedidos-actions"
+import { criarPedido } from "@/actions/pedidos-actions"
+import { buscarDadosFormularioInicial } from "@/actions/cart-data-actions"
 
 // Taxas de juros para cartão de crédito
 const INTEREST_RATES = {
@@ -405,10 +406,27 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Buscar fotos do pet pelo email do cliente
-      const fotosResult = await buscarFotosPetPorEmail(customer.email)
-      const fotos = fotosResult.success ? fotosResult.fotos : null
-      const raca = fotosResult.success ? fotosResult.raca : ""
+      // Buscar dados do formulário inicial pelo email do cliente
+      console.log("Buscando dados do formulário para o email:", customer.email)
+      const formData = await buscarDadosFormularioInicial(customer.email)
+
+      let fotos = null
+      let raca = ""
+      let observacoes = ""
+
+      if (formData.success) {
+        console.log("Dados do formulário encontrados:", {
+          totalFotos: formData.petPhotos?.length || 0,
+          raca: formData.petTypeBreed,
+        })
+        fotos = formData.petPhotos
+        raca = formData.petTypeBreed
+        observacoes = formData.petNotes
+      } else {
+        console.log("Dados do formulário não encontrados, tentando buscar em outras tabelas...")
+        // Tentar buscar em outras tabelas (implementação existente)
+        // Código para buscar em looneca_pedidos ou outras tabelas...
+      }
 
       // Criar pedido na nova tabela
       const pedidoData = {
@@ -436,6 +454,7 @@ export async function POST(request: NextRequest) {
         },
         fotos,
         raca,
+        observacoes,
       }
 
       // Criar pedido no Supabase

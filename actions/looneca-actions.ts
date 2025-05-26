@@ -2,6 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js"
 import { revalidatePath } from "next/cache"
+import { salvarDadosFormularioInicial } from "./cart-data-actions"
 
 // Verificar se as variáveis de ambiente estão definidas
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -18,6 +19,7 @@ interface LoonecaPedidoData {
   tipoRacaPet: string
   observacao?: string
   fotosUrls: string[]
+  email?: string // Adicionado campo de email, mas não será salvo na tabela looneca_pedidos
 }
 
 export async function criarPedidoLooneca(data: LoonecaPedidoData) {
@@ -31,7 +33,18 @@ export async function criarPedidoLooneca(data: LoonecaPedidoData) {
       return { success: false, error: "É necessário enviar pelo menos uma foto do pet" }
     }
 
-    // Inserir na tabela looneca_pedidos
+    // Se temos email, salvar os dados do formulário em uma tabela separada
+    if (data.email) {
+      try {
+        await salvarDadosFormularioInicial(data.email, data.fotosUrls, data.tipoRacaPet, data.observacao || "")
+        console.log("Dados do formulário salvos com sucesso para:", data.email)
+      } catch (error) {
+        console.error("Erro ao salvar dados do formulário:", error)
+        // Não interromper o fluxo se falhar ao salvar os dados do formulário
+      }
+    }
+
+    // Inserir na tabela looneca_pedidos (sem o email)
     const { data: pedido, error } = await supabase
       .from("looneca_pedidos")
       .insert({
