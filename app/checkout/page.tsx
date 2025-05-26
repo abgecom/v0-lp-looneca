@@ -1199,26 +1199,6 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {paymentCalculation && paymentCalculation.interestAmount > 0 && (
-                <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                  <h3 className="font-medium mb-2">Resumo do Pagamento</h3>
-                  <div className="text-sm space-y-1">
-                    <div className="flex justify-between">
-                      <span>Subtotal + Frete:</span>
-                      <span>R$ {formatPrice(paymentCalculation.originalAmount)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Taxa ({paymentCalculation.rate.toFixed(2)}%):</span>
-                      <span>R$ {formatPrice(paymentCalculation.interestAmount)}</span>
-                    </div>
-                    <div className="flex justify-between font-medium border-t pt-1">
-                      <span>Total Final:</span>
-                      <span>R$ {formatPrice(paymentCalculation.finalAmount)}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Submit Button */}
               <button
                 type="submit"
