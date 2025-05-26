@@ -23,6 +23,7 @@ export default function CheckoutPage() {
   const [pixCode, setPixCode] = useState<string | null>(null)
   const [pixQrCodeUrl, setPixQrCodeUrl] = useState<string | null>(null)
   const [showShippingOptions, setShowShippingOptions] = useState(false)
+  const [paymentResult, setPaymentResult] = useState<any>(null)
 
   // Shipping options state
   const [shippingOption, setShippingOption] = useState<{
@@ -458,6 +459,8 @@ export default function CheckoutPage() {
         recurringProducts: cart.recurringProducts,
       })
 
+      setPaymentResult(paymentResult)
+
       if (paymentResult.success) {
         // Save order to database
         await saveOrderToDatabase({
@@ -470,9 +473,14 @@ export default function CheckoutPage() {
           setPixCode(paymentResult.pixCode || null)
           setPixQrCodeUrl(paymentResult.pixQrCodeUrl || null)
         } else {
-          setPaymentSuccess(true)
-          // Clear cart after successful payment
-          cart.clearCart()
+          // Redirecionar para a página de agradecimento
+          if (paymentResult.redirectUrl) {
+            window.location.href = paymentResult.redirectUrl
+          } else {
+            setPaymentSuccess(true)
+            // Clear cart after successful payment
+            cart.clearCart()
+          }
         }
       } else {
         setPaymentError(paymentResult.error || "Ocorreu um erro ao processar o pagamento. Tente novamente.")
@@ -568,6 +576,9 @@ export default function CheckoutPage() {
     )
   }
 
+  // Localizar a parte onde mostramos as informações do PIX (por volta da linha 600)
+  // Adicionar um botão para verificar o status do pagamento
+
   // Show PIX payment information
   if (pixCode && pixQrCodeUrl) {
     return (
@@ -611,12 +622,21 @@ export default function CheckoutPage() {
               </p>
             </div>
 
-            <Link
-              href="/"
-              className="bg-[#F1542E] text-white px-6 py-3 rounded-lg font-bold hover:bg-[#e04020] transition-colors"
-            >
-              Voltar para a loja
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+              <Link
+                href="/"
+                className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg font-bold hover:bg-gray-300 transition-colors flex-1 text-center"
+              >
+                Voltar para a loja
+              </Link>
+
+              <Link
+                href={`/obrigado?order_id=${paymentResult?.orderId || ""}&payment_method=pix`}
+                className="bg-[#F1542E] text-white px-6 py-3 rounded-lg font-bold hover:bg-[#e04020] transition-colors flex-1 text-center"
+              >
+                Já paguei o PIX
+              </Link>
+            </div>
           </div>
         </div>
       </div>

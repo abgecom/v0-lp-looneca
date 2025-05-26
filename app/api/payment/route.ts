@@ -470,6 +470,7 @@ export async function POST(request: NextRequest) {
         originalAmount: originalAmount,
         interestAmount: finalAmount - originalAmount,
         paymentMethod: paymentMethod,
+        redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/obrigado?order_id=${responseData.id}&payment_method=${paymentMethod}`,
       }
 
       // Adicionar informações específicas do método de pagamento
