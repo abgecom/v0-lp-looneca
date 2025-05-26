@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js"
 
 // Taxas de juros para cartão de crédito
 const INTEREST_RATES = {
-  1: 0.0, // 0% para pagamento à vista
+  1: 0.0559, // 5.59%
   2: 0.0859, // 8.59%
   3: 0.0984, // 9.84%
   4: 0.1109, // 11.09%
@@ -17,19 +17,12 @@ const INTEREST_RATES = {
   12: 0.2159, // 21.59%
 }
 
-const PIX_RATE = 0.0 // 0% para PIX
+const PIX_RATE = 0.0119 // 1.19% para PIX
 
 // Initialize Supabase client
-// Verificar se as variáveis de ambiente estão definidas
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  console.error("Missing required environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
-}
-
-const supabaseUrl = process.env.SUPABASE_URL || ""
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: { persistSession: false },
-})
+const supabaseUrl = process.env.SUPABASE_URL!
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 interface PaymentCard {
   number: string
@@ -76,14 +69,13 @@ interface PaymentRequest {
 }
 
 function calculateFinalAmount(originalAmount: number, paymentMethod: "credit_card" | "pix", installments = 1): number {
-  // Para pagamento à vista (1x) ou PIX, não aplicar juros
-  if (installments === 1 || paymentMethod === "pix") {
-    return originalAmount
+  if (paymentMethod === "pix") {
+    return Math.round(originalAmount * (1 + PIX_RATE))
   }
 
   if (paymentMethod === "credit_card") {
-    const rate = INTEREST_RATES[installments as keyof typeof INTEREST_RATES] || 0
-    return Math.round(originalAmount * (1 + rate) * 100) / 100
+    const rate = INTEREST_RATES[installments as keyof typeof INTEREST_RATES] || INTEREST_RATES[1]
+    return Math.round(originalAmount * (1 + rate))
   }
 
   return originalAmount
@@ -306,9 +298,11 @@ export async function POST(request: NextRequest) {
       originalAmount: originalAmount.toString(),
       finalAmount: finalAmount.toString(),
       interestRate:
-        installments === 1 || paymentMethod === "pix"
-          ? "0%"
-          : (INTEREST_RATES[installments as keyof typeof INTEREST_RATES] * 100).toFixed(2) + "%",
+        paymentMethod === "credit_card"
+          ? (INTEREST_RATES[installments as keyof typeof INTEREST_RATES] * 100).toFixed(2) + "%"
+          : paymentMethod === "pix"
+            ? (PIX_RATE * 100).toFixed(2) + "%"
+            : "0%",
       recurringAppPetloo: recurringProducts.appPetloo.toString(),
       recurringLoobook: recurringProducts.loobook.toString(),
       isRecurring: hasRecurringProducts.toString(),

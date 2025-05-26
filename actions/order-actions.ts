@@ -1,18 +1,4 @@
-"use server"
-
-import { createClient } from "@supabase/supabase-js"
-import { v4 as uuidv4 } from "uuid"
-
-// Verificar se as variáveis de ambiente estão definidas
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  console.error("Missing required environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
-}
-
-const supabaseUrl = process.env.SUPABASE_URL || ""
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: { persistSession: false },
-})
+import { supabase } from "@/lib/supabaseClient"
 
 interface OrderItem {
   id: string
@@ -52,6 +38,7 @@ interface OrderData {
   installments: number
   paymentId: string
   paymentStatus: string
+  petPhotos?: string[] // Novo campo para armazenar as URLs das fotos dos pets
 }
 
 export async function saveOrderToDatabase(orderData: OrderData) {
@@ -93,57 +80,19 @@ export async function saveOrderToDatabase(orderData: OrderData) {
         installments: orderData.installments,
         payment_id: orderData.paymentId,
         payment_status: orderData.paymentStatus,
+        pet_photos: orderData.petPhotos || [], // Adicionando as fotos dos pets
         created_at: new Date().toISOString(),
       })
       .select()
 
     if (orderError) {
-      console.error("Error saving order to database:", orderError)
-      throw new Error("Failed to save order")
+      console.error("Error creating order:", orderError)
+      throw new Error(orderError.message)
     }
 
-    const orderId = orderResult[0].id
-
-    // If the customer selected the Loobook product, create entries in the loobooks table
-    if (orderData.recurringProducts.loobook) {
-      // For each pet in the order, create a loobook entry
-      for (const item of orderData.items) {
-        if (item.petCount > 0) {
-          // Create a pet ID for each pet in the order
-          for (let i = 0; i < item.petCount; i++) {
-            const petId = uuidv4()
-
-            // Create a loobook entry for this pet
-            await supabase.from("loobooks").insert({
-              id: uuidv4(),
-              pet_id: petId,
-              color: item.color,
-              cover_url: item.imageSrc,
-              created_at: new Date().toISOString(),
-            })
-          }
-        }
-      }
-    }
-
-    // Record the payment in the payments table if it exists
-    try {
-      await supabase.from("payments").insert({
-        order_id: orderId,
-        payment_id: orderData.paymentId,
-        amount: orderData.totalAmount,
-        status: orderData.paymentStatus,
-        payment_method: orderData.paymentMethod,
-        created_at: new Date().toISOString(),
-      })
-    } catch (error) {
-      // If the payments table doesn't exist or has a different structure, log the error but continue
-      console.error("Error recording payment:", error)
-    }
-
-    return { success: true, orderId }
-  } catch (error) {
-    console.error("Error in saveOrderToDatabase:", error)
-    throw error
+    return orderResult
+  } catch (error: any) {
+    console.error("Error saving order to database:", error)
+    throw new Error(error.message)
   }
 }

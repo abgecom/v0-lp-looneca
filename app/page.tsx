@@ -266,8 +266,7 @@ export default function Home() {
                   </span>
                 </div>
                 <p className="text-sm text-gray-600 mt-1">
-                  Em até 12x de R$ {(PRECOS[selectedPetCount as keyof typeof PRECOS] / 12).toFixed(2).replace(".", ",")}
-                  *
+                  Em até 12x de {(PRECOS[selectedPetCount as keyof typeof PRECOS] / 12).toFixed(2).replace(".", ",")}
                 </p>
               </div>
 

@@ -12,7 +12,7 @@ interface ImageUploadProps {
   maxSizeInMB?: number
 }
 
-export default function ImageUpload({ onImagesUploaded, maxImages = 15, maxSizeInMB = 15 }: ImageUploadProps) {
+export default function ImageUpload({ onImagesUploaded, maxImages = 5, maxSizeInMB = 5 }: ImageUploadProps) {
   const [uploadedImages, setUploadedImages] = useState<{ url: string; file: File }[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)

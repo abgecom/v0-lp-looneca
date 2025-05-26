@@ -3,16 +3,10 @@ import { createClient } from "@supabase/supabase-js"
 import crypto from "crypto"
 import { calculateSubscriptionStartDate } from "@/lib/pagarme/api"
 
-// Verificar se as variáveis de ambiente estão definidas
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  console.error("Missing required environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
-}
-
-const supabaseUrl = process.env.SUPABASE_URL || ""
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: { persistSession: false },
-})
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL!
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 // Webhook secret for signature verification
 const webhookSecret = process.env.PAGARME_WEBHOOK_SECRET
