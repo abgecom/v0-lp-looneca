@@ -141,8 +141,8 @@ const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
             <div className="mb-4">
               <PetImageUpload
                 onImagesUploaded={(urls) => handleImagesUploaded(index, urls)}
-                maxImages={5}
-                maxSizeInMB={5}
+                maxImages={15}
+                maxSizeInMB={15}
                 petIndex={index}
               />
             </div>
@@ -187,7 +187,7 @@ interface PetImageUploadProps {
   petIndex: number
 }
 
-function PetImageUpload({ onImagesUploaded, maxImages = 5, maxSizeInMB = 5, petIndex }: PetImageUploadProps) {
+function PetImageUpload({ onImagesUploaded, maxImages = 15, maxSizeInMB = 15, petIndex }: PetImageUploadProps) {
   const [uploadedImages, setUploadedImages] = useState<{ url: string; file: File }[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)

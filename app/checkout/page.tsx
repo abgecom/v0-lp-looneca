@@ -52,7 +52,7 @@ export default function CheckoutPage() {
     cardName: "",
     cardExpiry: "",
     cardCvv: "",
-    installments: "12",
+    installments: "1",
     saveInfo: true,
   })
 
@@ -77,6 +77,15 @@ export default function CheckoutPage() {
     rate: number
     installmentAmount: number
   } | null>(null)
+
+  // Preparar opções de parcelamento
+  const [installmentOptions, setInstallmentOptions] = useState<
+    Array<{
+      value: string
+      label: string
+      amount: number
+    }>
+  >([])
 
   // Verificar se o carrinho está vazio e redirecionar para a página inicial
   useEffect(() => {
@@ -106,6 +115,32 @@ export default function CheckoutPage() {
   // Calculate total with shipping - only if cart is initialized
   const totalWithShipping = cart.isInitialized ? cart.totalPrice + (showShippingOptions ? getShippingPrice() : 0) : 0
 
+  // Gerar opções de parcelamento quando o total mudar
+  useEffect(() => {
+    if (cart.isInitialized && totalWithShipping > 0) {
+      const options = []
+
+      // Opção à vista (1x)
+      options.push({
+        value: "1",
+        label: `1x de R$ ${formatPrice(totalWithShipping)}`,
+        amount: totalWithShipping,
+      })
+
+      // Opções parceladas (2x-12x)
+      for (let i = 2; i <= 12; i++) {
+        const calculation = calculatePaymentAmount(totalWithShipping, "credit_card", i)
+        options.push({
+          value: i.toString(),
+          label: `${i}x de R$ ${formatPrice(calculation.installmentAmount)}*`,
+          amount: calculation.installmentAmount,
+        })
+      }
+
+      setInstallmentOptions(options)
+    }
+  }, [cart.isInitialized, totalWithShipping])
+
   // Calculate payment amounts when payment method or installments change
   useEffect(() => {
     if (cart.isInitialized && totalWithShipping > 0) {
@@ -123,12 +158,6 @@ export default function CheckoutPage() {
   const formatPrice = (price: number) => {
     return price.toFixed(2).replace(".", ",")
   }
-
-  // Calculate installment value - only if we have a valid total
-  const installmentValue =
-    totalWithShipping > 0
-      ? (totalWithShipping / Number(formData.installments || 1)).toFixed(2).replace(".", ",")
-      : "0,00"
 
   // Handle shipping option change
   const handleShippingOptionChange = (type: "standard" | "express") => {
@@ -1076,21 +1105,9 @@ export default function CheckoutPage() {
                             onChange={handleInputChange}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]"
                           >
-                            <option value="1">
-                              1x de R${" "}
-                              {paymentCalculation
-                                ? formatPrice(paymentCalculation.finalAmount)
-                                : formatPrice(totalWithShipping)}
-                              {paymentMethod === "credit_card" && " (com juros de 5,59%)"}
-                              {paymentMethod === "pix" && " (com taxa de 1,19%)"}
-                            </option>
-                            {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((installment) => (
-                              <option key={installment} value={installment}>
-                                {installment}x de R${" "}
-                                {paymentCalculation
-                                  ? formatPrice(paymentCalculation.installmentAmount)
-                                  : formatPrice(totalWithShipping / installment)}{" "}
-                                com juros
+                            {installmentOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
                               </option>
                             ))}
                           </select>
@@ -1349,7 +1366,7 @@ export default function CheckoutPage() {
                   <span>R$ {formatPrice(totalWithShipping)}</span>
                 </div>
                 <p className="text-sm text-gray-600 mt-2">
-                  Em até 12x de R$ {installmentValue} sem juros no cartão de crédito
+                  Em até 12x{Number(formData.installments) > 1 ? "*" : ""} no cartão de crédito
                 </p>
               </div>
             </div>
