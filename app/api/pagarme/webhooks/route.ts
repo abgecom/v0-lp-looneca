@@ -209,6 +209,26 @@ async function getOrderDetails(orderId: string): Promise<any> {
   }
 }
 
+// Função para verificar a assinatura do webhook
+function verifyWebhookSignature(signature: string, payload: string): boolean {
+  try {
+    if (!process.env.PAGARME_WEBHOOK_SECRET) {
+      console.error("PAGARME_WEBHOOK_SECRET não está definido")
+      return false
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.PAGARME_WEBHOOK_SECRET)
+      .update(payload)
+      .digest("hex")
+
+    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+  } catch (error) {
+    console.error("Erro ao verificar assinatura do webhook:", error)
+    return false
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Get the raw request body for signature verification
@@ -308,6 +328,41 @@ export async function POST(request: NextRequest) {
         } else {
           console.log(`Updated subscription ${subscriptionId} status to ${status}`)
         }
+      }
+    }
+
+    // Processar eventos de pagamento
+    if (body.type === "charge.paid" || body.type === "charge.failed" || body.type === "charge.pending") {
+      const paymentId = body.data.id
+      const status = body.data.status
+      const updatedAt = new Date().toISOString()
+
+      console.log(`Atualizando status de pagamento para ${status} (ID: ${paymentId})`)
+
+      // Atualizar status na tabela pedidos
+      const { error: pedidosError } = await supabase
+        .from("pedidos")
+        .update({
+          status_pagamento: status,
+          atualizacao_pagamento: updatedAt,
+        })
+        .eq("id_pagamento", paymentId)
+
+      if (pedidosError) {
+        console.error("Erro ao atualizar status na tabela pedidos:", pedidosError)
+      }
+
+      // Manter a atualização na tabela looneca_orders para compatibilidade
+      const { error: ordersError } = await supabase
+        .from("looneca_orders")
+        .update({
+          payment_status: status,
+          updated_at: updatedAt,
+        })
+        .eq("payment_id", paymentId)
+
+      if (ordersError) {
+        console.error("Erro ao atualizar status na tabela looneca_orders:", ordersError)
       }
     }
 

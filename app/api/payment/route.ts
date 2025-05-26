@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { criarPedido, buscarFotosPetPorEmail } from "@/actions/pedidos-actions"
 
 // Taxas de juros para cartão de crédito
 const INTEREST_RATES = {
@@ -404,6 +405,43 @@ export async function POST(request: NextRequest) {
         })
       }
 
+      // Buscar fotos do pet pelo email do cliente
+      const fotosResult = await buscarFotosPetPorEmail(customer.email)
+      const fotos = fotosResult.success ? fotosResult.fotos : null
+      const raca = fotosResult.success ? fotosResult.raca : ""
+
+      // Criar pedido na nova tabela
+      const pedidoData = {
+        customer: {
+          email: customer.email,
+          name: customer.name,
+          phone: customer.phone,
+          cpf: customer.cpf,
+          cep: shipping.cep,
+          cidade: shipping.city,
+          estado: shipping.state,
+          endereco: shipping.address,
+          numero: shipping.number,
+          complemento: shipping.complement,
+          bairro: shipping.neighborhood,
+        },
+        itens: items,
+        recorrentes: recurringProducts,
+        pagamento: {
+          metodo: paymentMethod,
+          total: finalAmount,
+          id: responseData.id,
+          status: responseData.status,
+          data: new Date().toISOString(),
+        },
+        fotos,
+        raca,
+      }
+
+      // Criar pedido no Supabase
+      const pedidoResult = await criarPedido(pedidoData)
+      console.log("Resultado da criação do pedido:", pedidoResult.success)
+
       // Preparar resposta de sucesso
       const response: any = {
         success: true,
@@ -433,6 +471,11 @@ export async function POST(request: NextRequest) {
           status: subscriptionResult.subscription.status,
           start_at: subscriptionResult.subscription.start_at,
         }
+      }
+
+      // Adicionar número do pedido à resposta
+      if (pedidoResult.success && pedidoResult.pedido) {
+        response.pedidoNumero = pedidoResult.pedido.pedido_numero
       }
 
       return NextResponse.json(response)
