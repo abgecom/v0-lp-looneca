@@ -151,10 +151,8 @@ const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
 
             {/* Upload de Fotos */}
             <div className="mb-4">
-              <PetImageUpload
+              <OptimizedPetImageUpload
                 onImagesUploaded={(urls) => handleImagesUploaded(index, urls)}
-                maxImages={15}
-                maxSizeInMB={15}
                 petIndex={index}
               />
             </div>
@@ -191,21 +189,140 @@ const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
 
 LoonecaFormInline.displayName = "LoonecaFormInline"
 
-// Componente de upload de imagens para cada pet
-interface PetImageUploadProps {
+// Componente de upload de imagens otimizado para cada pet
+interface OptimizedPetImageUploadProps {
   onImagesUploaded: (urls: string[]) => void
-  maxImages?: number
-  maxSizeInMB?: number
   petIndex: number
 }
 
-function PetImageUpload({ onImagesUploaded, maxImages = 15, maxSizeInMB = 15, petIndex }: PetImageUploadProps) {
-  const [uploadedImages, setUploadedImages] = useState<{ url: string; file: File }[]>([])
+function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetImageUploadProps) {
+  const [uploadedImages, setUploadedImages] = useState<
+    { url: string; file: File; status: "uploading" | "success" | "error" }[]
+  >([])
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
-  const maxSizeInBytes = maxSizeInMB * 1024 * 1024
+  // Função para comprimir a imagem antes do upload
+  const compressImage = async (file: File): Promise<File> => {
+    try {
+      // Se o arquivo já for pequeno, não comprimir
+      if (file.size <= 1024 * 1024) {
+        return file
+      }
+
+      // Criar um canvas para redimensionar a imagem
+      const img = new Image()
+      const canvas = document.createElement("canvas")
+      const ctx = canvas.getContext("2d")
+
+      // Carregar a imagem
+      await new Promise((resolve, reject) => {
+        img.onload = resolve
+        img.onerror = reject
+        img.src = URL.createObjectURL(file)
+      })
+
+      // Calcular as novas dimensões mantendo a proporção
+      const MAX_WIDTH = 1920
+      const MAX_HEIGHT = 1920
+      let width = img.width
+      let height = img.height
+
+      if (width > height) {
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width
+          width = MAX_WIDTH
+        }
+      } else {
+        if (height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height
+          height = MAX_HEIGHT
+        }
+      }
+
+      // Definir as dimensões do canvas
+      canvas.width = width
+      canvas.height = height
+
+      // Desenhar a imagem redimensionada
+      ctx?.drawImage(img, 0, 0, width, height)
+
+      // Converter para blob com qualidade reduzida
+      const blob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob(
+          (blob) => resolve(blob as Blob),
+          file.type,
+          0.7, // Qualidade 70%
+        )
+      })
+
+      // Limpar URL temporária
+      URL.revokeObjectURL(img.src)
+
+      // Criar um novo arquivo a partir do blob
+      const compressedFile = new File([blob], file.name, {
+        type: file.type,
+        lastModified: Date.now(),
+      })
+
+      console.log(
+        `Imagem comprimida: ${file.name} - Original: ${(file.size / 1024 / 1024).toFixed(2)}MB, Comprimida: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`,
+      )
+
+      return compressedFile
+    } catch (error) {
+      console.error("Erro ao comprimir imagem:", error)
+      // Em caso de erro na compressão, retornar o arquivo original
+      return file
+    }
+  }
+
+  // Função para fazer upload de uma única imagem com retry
+  const uploadSingleImage = async (file: File, retryCount = 0): Promise<string> => {
+    try {
+      // Comprimir a imagem antes do upload
+      const compressedFile = await compressImage(file)
+
+      // Criar FormData para o upload
+      const formData = new FormData()
+      formData.append("file", compressedFile)
+
+      // Fazer upload usando fetch
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("Erro na resposta do servidor:", response.status, errorText)
+        throw new Error(`Erro no upload: ${response.status} - ${errorText}`)
+      }
+
+      // Tentar analisar a resposta como JSON
+      try {
+        const data = await response.json()
+        if (!data.url) {
+          throw new Error("URL não encontrada na resposta")
+        }
+        return data.url
+      } catch (parseError) {
+        console.error("Erro ao analisar resposta JSON:", parseError)
+        throw new Error("Resposta inválida do servidor")
+      }
+    } catch (error) {
+      console.error(`Erro no upload (tentativa ${retryCount + 1}):`, error)
+
+      // Tentar novamente até 3 vezes em caso de falha
+      if (retryCount < 2) {
+        console.log(`Tentando novamente (${retryCount + 2}/3)...`)
+        return uploadSingleImage(file, retryCount + 1)
+      }
+
+      throw error
+    }
+  }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -214,60 +331,50 @@ function PetImageUpload({ onImagesUploaded, maxImages = 15, maxSizeInMB = 15, pe
     setError(null)
     setIsUploading(true)
 
-    // Verificar se não excede o limite de imagens
-    if (uploadedImages.length + files.length > maxImages) {
-      setError(`Você pode enviar no máximo ${maxImages} imagens.`)
-      setIsUploading(false)
-      return
-    }
+    // Adicionar arquivos à lista com status 'uploading'
+    const newImages = Array.from(files).map((file) => ({
+      url: URL.createObjectURL(file), // URL temporária para preview
+      file,
+      status: "uploading" as const,
+    }))
 
-    const newImages: { url: string; file: File }[] = []
-    const newUrls: string[] = []
+    // Atualizar estado com as novas imagens
+    setUploadedImages((prev) => [...prev, ...newImages])
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
+    // Fazer upload de cada imagem sequencialmente para evitar sobrecarga
+    const uploadedUrls: string[] = []
+    const failedUploads: number[] = []
 
-      // Verificar o tipo de arquivo
-      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-        setError("Apenas arquivos .jpg, .png e .webp são permitidos.")
-        setIsUploading(false)
-        return
-      }
-
-      // Verificar o tamanho do arquivo
-      if (file.size > maxSizeInBytes) {
-        setError(`Cada imagem deve ter no máximo ${maxSizeInMB}MB.`)
-        setIsUploading(false)
-        return
-      }
+    for (let i = 0; i < newImages.length; i++) {
+      const image = newImages[i]
 
       try {
-        // Fazer upload para o Vercel Blob
-        const formData = new FormData()
-        formData.append("file", file)
+        const url = await uploadSingleImage(image.file)
+        uploadedUrls.push(url)
 
-        const response = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        })
+        // Atualizar o status da imagem para 'success'
+        setUploadedImages((prev) =>
+          prev.map((img) => (img === image ? { ...img, url, status: "success" as const } : img)),
+        )
+      } catch (error) {
+        console.error(`Erro no upload da imagem ${i}:`, error)
+        failedUploads.push(i)
 
-        if (!response.ok) {
-          throw new Error("Falha ao fazer upload da imagem.")
-        }
-
-        const data = await response.json()
-        newImages.push({ url: data.url, file })
-        newUrls.push(data.url)
-      } catch (err) {
-        console.error("Erro ao fazer upload:", err)
-        setError("Ocorreu um erro ao fazer upload da imagem. Tente novamente.")
-        setIsUploading(false)
-        return
+        // Atualizar o status da imagem para 'error'
+        setUploadedImages((prev) => prev.map((img) => (img === image ? { ...img, status: "error" as const } : img)))
       }
     }
 
-    setUploadedImages((prev) => [...prev, ...newImages])
-    onImagesUploaded([...uploadedImages.map((img) => img.url), ...newUrls])
+    // Atualizar as URLs no componente pai
+    const allUrls = [...uploadedImages.filter((img) => img.status === "success").map((img) => img.url), ...uploadedUrls]
+
+    onImagesUploaded(allUrls)
+
+    // Mostrar erro se algum upload falhou
+    if (failedUploads.length > 0) {
+      setError(`${failedUploads.length} imagem(ns) não pôde(puderam) ser enviada(s). Tente novamente.`)
+    }
+
     setIsUploading(false)
 
     // Limpar o input de arquivo
@@ -278,14 +385,32 @@ function PetImageUpload({ onImagesUploaded, maxImages = 15, maxSizeInMB = 15, pe
 
   const removeImage = (index: number) => {
     const newImages = [...uploadedImages]
-    newImages.splice(index, 1)
+    const removedImage = newImages.splice(index, 1)[0]
     setUploadedImages(newImages)
-    onImagesUploaded(newImages.map((img) => img.url))
+
+    // Revogar URL temporária para liberar memória
+    if (removedImage.url.startsWith("blob:")) {
+      URL.revokeObjectURL(removedImage.url)
+    }
+
+    // Atualizar as URLs no componente pai
+    onImagesUploaded(newImages.filter((img) => img.status === "success").map((img) => img.url))
   }
 
   const triggerFileInput = () => {
     fileInputRef.current?.click()
   }
+
+  // Limpar URLs temporárias ao desmontar o componente
+  useEffect(() => {
+    return () => {
+      uploadedImages.forEach((image) => {
+        if (image.url.startsWith("blob:")) {
+          URL.revokeObjectURL(image.url)
+        }
+      })
+    }
+  }, [])
 
   return (
     <div className="w-full">
@@ -300,23 +425,17 @@ function PetImageUpload({ onImagesUploaded, maxImages = 15, maxSizeInMB = 15, pe
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
-            accept=".jpg,.jpeg,.png,.webp"
+            accept="image/*"
             multiple
             className="hidden"
-            disabled={isUploading || uploadedImages.length >= maxImages}
+            disabled={isUploading}
           />
           <div className="flex flex-col items-center justify-center py-3">
             <Upload className="w-8 h-8 mb-1 text-[#F1542E]" />
             <p className="text-sm font-medium">
-              {isUploading
-                ? "Enviando..."
-                : uploadedImages.length >= maxImages
-                  ? `Limite de ${maxImages} imagens atingido`
-                  : `Envie as fotos do seu pet clicando aqui: *`}
+              {isUploading ? "Enviando..." : `Envie as fotos do seu pet clicando aqui: *`}
             </p>
-            <p className="text-xs text-gray-500 mt-1">
-              Formatos aceitos: .jpg, .png, .webp (máx. {maxSizeInMB}MB cada)
-            </p>
+            <p className="text-xs text-gray-500 mt-1">Envie fotos de vários ângulos para melhor resultado</p>
           </div>
         </div>
         <p className="text-xs text-gray-600 mt-1">
@@ -332,27 +451,60 @@ function PetImageUpload({ onImagesUploaded, maxImages = 15, maxSizeInMB = 15, pe
       )}
 
       {uploadedImages.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mt-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-4">
           {uploadedImages.map((image, index) => (
             <div key={index} className="relative group">
-              <div className="aspect-square rounded-md overflow-hidden border border-gray-200">
-                <Image
-                  src={image.url || "/placeholder.svg"}
-                  alt={`Imagem ${index + 1} do Pet ${petIndex + 1}`}
-                  width={200}
-                  height={200}
-                  className="w-full h-full object-cover"
-                />
+              <div className="aspect-square rounded-md overflow-hidden border border-gray-200 bg-gray-50">
+                {/* Imagem ou indicador de carregamento */}
+                <div className="relative w-full h-full">
+                  <Image
+                    src={image.url || "/placeholder.svg"}
+                    alt={`Imagem ${index + 1} do Pet ${petIndex + 1}`}
+                    width={200}
+                    height={200}
+                    className={`w-full h-full object-cover ${image.status === "uploading" ? "opacity-50" : ""}`}
+                  />
+
+                  {/* Indicador de status */}
+                  {image.status === "uploading" && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="bg-white bg-opacity-70 rounded-full p-2">
+                        <Loader2 className="w-6 h-6 animate-spin text-[#F1542E]" />
+                      </div>
+                    </div>
+                  )}
+
+                  {image.status === "error" && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-red-100 bg-opacity-50">
+                      <div className="bg-white bg-opacity-70 rounded-full p-2">
+                        <AlertCircle className="w-6 h-6 text-red-500" />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Botão de remover */}
               <button
                 type="button"
                 onClick={() => removeImage(index)}
                 className="absolute top-1 right-1 bg-white rounded-full p-1 shadow-md opacity-70 group-hover:opacity-100 transition-opacity"
+                disabled={image.status === "uploading"}
               >
                 <X className="w-4 h-4 text-red-500" />
               </button>
-              <div className="absolute bottom-1 left-1 bg-white rounded-full px-2 py-0.5 text-xs shadow-md opacity-70">
-                {index + 1}/{uploadedImages.length}
+
+              {/* Indicador de status */}
+              <div
+                className={`absolute bottom-1 left-1 rounded-full px-2 py-0.5 text-xs shadow-md ${
+                  image.status === "uploading"
+                    ? "bg-blue-100 text-blue-700"
+                    : image.status === "error"
+                      ? "bg-red-100 text-red-700"
+                      : "bg-green-100 text-green-700"
+                }`}
+              >
+                {image.status === "uploading" ? "Enviando..." : image.status === "error" ? "Erro" : "Enviado"}
               </div>
             </div>
           ))}
@@ -361,13 +513,16 @@ function PetImageUpload({ onImagesUploaded, maxImages = 15, maxSizeInMB = 15, pe
 
       <div className="flex items-center justify-between mt-2">
         <p className="text-xs text-gray-500">
-          {uploadedImages.length} de {maxImages} imagens
+          {uploadedImages.filter((img) => img.status === "success").length} fotos enviadas
         </p>
-        {uploadedImages.length > 0 && (
+        {uploadedImages.filter((img) => img.status === "success").length > 0 && (
           <div className="flex items-center text-green-600 text-xs">
             <Check className="w-4 h-4 mr-1" />
             <span>
-              {uploadedImages.length} {uploadedImages.length === 1 ? "imagem enviada" : "imagens enviadas"}
+              {uploadedImages.filter((img) => img.status === "success").length}{" "}
+              {uploadedImages.filter((img) => img.status === "success").length === 1
+                ? "imagem enviada"
+                : "imagens enviadas"}
             </span>
           </div>
         )}
