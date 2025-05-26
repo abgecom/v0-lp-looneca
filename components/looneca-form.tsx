@@ -224,7 +224,7 @@ export default function LoonecaForm() {
 
             {/* Upload de Fotos */}
             <div className="mb-6">
-              <ImageUpload onImagesUploaded={handleImagesUploaded} maxImages={5} maxSizeInMB={5} />
+              <ImageUpload onImagesUploaded={handleImagesUploaded} maxImages={15} maxSizeInMB={15} />
             </div>
 
             {/* Observações */}

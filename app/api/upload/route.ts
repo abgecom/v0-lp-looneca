@@ -17,9 +17,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     )
   }
 
-  // Verificar o tamanho do arquivo (5MB)
-  if (file.size > 5 * 1024 * 1024) {
-    return NextResponse.json({ error: "O arquivo é muito grande. O tamanho máximo é 5MB." }, { status: 400 })
+  // Verificar o tamanho do arquivo (15MB)
+  if (file.size > 15 * 1024 * 1024) {
+    return NextResponse.json({ error: "O arquivo é muito grande. O tamanho máximo é 15MB." }, { status: 400 })
   }
 
   try {
