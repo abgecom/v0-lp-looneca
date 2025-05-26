@@ -470,13 +470,19 @@ export async function POST(request: NextRequest) {
         originalAmount: originalAmount,
         interestAmount: finalAmount - originalAmount,
         paymentMethod: paymentMethod,
-        redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/obrigado?order_id=${responseData.id}&payment_method=${paymentMethod}`,
       }
 
       // Adicionar informações específicas do método de pagamento
       if (paymentMethod === "pix" && responseData.charges?.[0]?.last_transaction?.qr_code) {
         response.pixCode = responseData.charges[0].last_transaction.qr_code
         response.pixQrCodeUrl = responseData.charges[0].last_transaction.qr_code_url
+
+        // URL para a página de PIX
+        const itemsParam = encodeURIComponent(JSON.stringify(items))
+        response.redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/pagamento-pix?order_id=${responseData.id}&pix_code=${responseData.charges[0].last_transaction.qr_code}&pix_qrcode_url=${responseData.charges[0].last_transaction.qr_code_url}&pedido_numero=${pedidoResult.pedido?.pedido_numero || "0000"}&total=${finalAmount.toFixed(2).replace(".", ",")}&items=${itemsParam}`
+      } else {
+        // Para cartão de crédito, manter o redirecionamento para a página de obrigado
+        response.redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/obrigado?order_id=${responseData.id}&payment_method=${paymentMethod}`
       }
 
       if (paymentMethod === "credit_card") {
