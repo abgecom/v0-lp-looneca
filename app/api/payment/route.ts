@@ -478,8 +478,26 @@ export async function POST(request: NextRequest) {
         response.pixQrCodeUrl = responseData.charges[0].last_transaction.qr_code_url
 
         // URL para a página de PIX
-        const itemsParam = encodeURIComponent(JSON.stringify(items))
-        response.redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/pagamento-pix?order_id=${responseData.id}&pix_code=${responseData.charges[0].last_transaction.qr_code}&pix_qrcode_url=${responseData.charges[0].last_transaction.qr_code_url}&pedido_numero=${pedidoResult.pedido?.pedido_numero || "0000"}&total=${finalAmount.toFixed(2).replace(".", ",")}&items=${itemsParam}`
+        try {
+          // Garantir que os itens são serializáveis
+          const safeItems = items.map((item) => ({
+            id: item.id || "",
+            name: item.name || "Produto",
+            color: item.color || "",
+            petCount: item.petCount || 1,
+            quantity: item.quantity || 1,
+            price: item.price || 0,
+            // Remover a URL da imagem para evitar problemas de serialização
+            imageSrc: item.imageSrc ? String(item.imageSrc).substring(0, 500) : "/placeholder.svg",
+          }))
+
+          const itemsParam = encodeURIComponent(JSON.stringify(safeItems))
+          response.redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/pagamento-pix?order_id=${responseData.id}&pix_code=${responseData.charges[0].last_transaction.qr_code}&pix_qrcode_url=${responseData.charges[0].last_transaction.qr_code_url}&pedido_numero=${pedidoResult.pedido?.pedido_numero || "0000"}&total=${finalAmount.toFixed(2).replace(".", ",")}&items=${itemsParam}`
+        } catch (error) {
+          console.error("Erro ao serializar itens para URL:", error)
+          // Fallback para URL sem itens
+          response.redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/pagamento-pix?order_id=${responseData.id}&pix_code=${responseData.charges[0].last_transaction.qr_code}&pix_qrcode_url=${responseData.charges[0].last_transaction.qr_code_url}&pedido_numero=${pedidoResult.pedido?.pedido_numero || "0000"}&total=${finalAmount.toFixed(2).replace(".", ",")}`
+        }
       } else {
         // Para cartão de crédito, manter o redirecionamento para a página de obrigado
         response.redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/obrigado?order_id=${responseData.id}&payment_method=${paymentMethod}`

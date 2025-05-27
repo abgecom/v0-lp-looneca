@@ -53,12 +53,22 @@ export default function PagamentoPix() {
   // Inicializar itens do pedido
   useEffect(() => {
     try {
-      const parsedItems = JSON.parse(decodeURIComponent(itemsParam))
-      if (Array.isArray(parsedItems)) {
-        setItems(parsedItems)
+      if (itemsParam) {
+        const decodedItems = decodeURIComponent(itemsParam)
+        const parsedItems = JSON.parse(decodedItems)
+        if (Array.isArray(parsedItems)) {
+          setItems(parsedItems)
+        } else {
+          console.error("Itens do pedido não são um array:", parsedItems)
+          setItems([])
+        }
+      } else {
+        console.log("Nenhum item de pedido encontrado nos parâmetros")
+        setItems([])
       }
     } catch (error) {
       console.error("Erro ao processar itens do pedido:", error)
+      setItems([])
     }
   }, [itemsParam])
 
@@ -92,12 +102,13 @@ export default function PagamentoPix() {
     router.push(`/obrigado?order_id=${orderId}&payment_method=pix`)
   }
 
-  // Calcular subtotal
-  const subtotal = items.reduce((total, item) => total + item.price * item.quantity, 0)
+  // Calcular subtotal com verificação de segurança
+  const subtotal =
+    items.length > 0 ? items.reduce((total, item) => total + (item.price || 0) * (item.quantity || 1), 0) : 0
 
-  // Calcular frete (assumindo que a diferença entre total e subtotal é o frete)
-  const totalValue = Number.parseFloat(total.replace(",", "."))
-  const shipping = totalValue - subtotal
+  // Calcular frete com verificação de segurança
+  const totalValue = Number.parseFloat(total?.replace(",", ".") || "0")
+  const shipping = isNaN(totalValue) ? 0 : Math.max(0, totalValue - subtotal)
 
   // Renderizar versão desktop
   if (!isMobile) {
@@ -124,7 +135,7 @@ export default function PagamentoPix() {
               <div className="flex justify-center mb-8">
                 <div className="border border-gray-300 rounded-lg p-4 bg-white">
                   <Image
-                    src={pixQrCodeUrl || "/placeholder.svg"}
+                    src={pixQrCodeUrl || "/placeholder.svg?height=200&width=200&query=QR%20Code%20PIX"}
                     alt="QR Code PIX"
                     width={250}
                     height={250}
@@ -201,8 +212,8 @@ export default function PagamentoPix() {
                   <div className="flex">
                     <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
                       <Image
-                        src={item.imageSrc || "/placeholder.svg"}
-                        alt={item.name}
+                        src={item.imageSrc || "/placeholder.svg?height=64&width=64&query=product"}
+                        alt={item.name || "Produto"}
                         width={64}
                         height={64}
                         className="w-full h-full object-cover"
@@ -280,8 +291,8 @@ export default function PagamentoPix() {
             <div key={index} className="flex items-center mb-3">
               <div className="w-12 h-12 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden mr-3">
                 <Image
-                  src={item.imageSrc || "/placeholder.svg"}
-                  alt={item.name}
+                  src={item.imageSrc || "/placeholder.svg?height=64&width=64&query=product"}
+                  alt={item.name || "Produto"}
                   width={48}
                   height={48}
                   className="w-full h-full object-cover"
@@ -389,7 +400,7 @@ export default function PagamentoPix() {
           <div className="flex justify-center mb-6">
             <div className="border border-gray-300 rounded-lg p-4 bg-white">
               <Image
-                src={pixQrCodeUrl || "/placeholder.svg"}
+                src={pixQrCodeUrl || "/placeholder.svg?height=200&width=200&query=QR%20Code%20PIX"}
                 alt="QR Code PIX"
                 width={200}
                 height={200}
