@@ -5,7 +5,6 @@ import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Copy, Check, Smartphone, FileText } from "lucide-react"
 import { useCart } from "@/contexts/cart-context"
-import { createClient } from "@supabase/supabase-js"
 
 export default function PixPaymentPage() {
   const router = useRouter()
@@ -16,17 +15,12 @@ export default function PixPaymentPage() {
   const cart = useCart()
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const [showOrderSummary, setShowOrderSummary] = useState(false)
-  const [pedidoNumero, setPedidoNumero] = useState<number | null>(null)
-
-  // Initialize Supabase client
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-  const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
   // Get data from URL parameters
   const pixCode = searchParams.get("pixCode") || ""
   const pixQrCodeUrl = searchParams.get("pixQrCodeUrl") || ""
   const orderId = searchParams.get("orderId") || "10410" // Default to 10410 if not provided
+  const orderNumber = searchParams.get("pedido_numero") || "1028" // Default to 1028 if not provided, next will be 1029
   const orderStatus = searchParams.get("status") || "RESERVADO"
 
   // Format time as MM:SS
@@ -77,51 +71,6 @@ export default function PixPaymentPage() {
       router.push("/checkout")
     }
   }, [pixCode, pixQrCodeUrl, router])
-
-  // Fetch pedido_numero from Supabase
-  useEffect(() => {
-    const fetchPedidoNumero = async () => {
-      if (!orderId) return
-
-      try {
-        // First try to find in pedidos table
-        const { data: pedidoData, error: pedidoError } = await supabase
-          .from("pedidos")
-          .select("pedido_numero")
-          .eq("id_pagamento", orderId)
-          .single()
-
-        if (pedidoData && pedidoData.pedido_numero) {
-          setPedidoNumero(pedidoData.pedido_numero)
-          return
-        }
-
-        // If not found, try looneca_orders table
-        const { data: orderData, error: orderError } = await supabase
-          .from("looneca_orders")
-          .select("id")
-          .eq("payment_id", orderId)
-          .single()
-
-        if (orderData) {
-          // Get the highest pedido_numero and add 1
-          const { data: maxData } = await supabase
-            .from("pedidos")
-            .select("pedido_numero")
-            .order("pedido_numero", { ascending: false })
-            .limit(1)
-
-          const nextPedidoNumero = maxData && maxData.length > 0 ? maxData[0].pedido_numero + 1 : 1034
-          setPedidoNumero(nextPedidoNumero)
-        }
-      } catch (error) {
-        console.error("Error fetching pedido_numero:", error)
-        setPedidoNumero(1034) // Fallback to 1034
-      }
-    }
-
-    fetchPedidoNumero()
-  }, [orderId])
 
   if (!pixCode || !pixQrCodeUrl) {
     return (
@@ -366,7 +315,7 @@ export default function PixPaymentPage() {
         {/* Order Number */}
         <div className="text-center">
           <p className="text-gray-700">
-            PEDIDO <span className="text-[#10B981] font-bold">#{pedidoNumero || 1034}</span> - {orderStatus}
+            PEDIDO <span className="text-[#10B981] font-bold">#{orderNumber}</span> - {orderStatus}
           </p>
         </div>
       </div>
