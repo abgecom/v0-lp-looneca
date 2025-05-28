@@ -3,25 +3,25 @@
 import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Copy, Check, ChevronDown, ChevronUp, QrCode } from "lucide-react"
-import Link from "next/link"
+import { Copy, Check, Smartphone, FileText } from "lucide-react"
 import { useCart } from "@/contexts/cart-context"
 
 export default function PixPaymentPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [copied, setCopied] = useState(false)
-  const [orderSummaryOpen, setOrderSummaryOpen] = useState(false)
   const [showQrCode, setShowQrCode] = useState(false)
   const [timeLeft, setTimeLeft] = useState(30 * 60) // 30 minutes in seconds
   const cart = useCart()
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const [showOrderSummary, setShowOrderSummary] = useState(false)
 
   // Get data from URL parameters
   const pixCode = searchParams.get("pixCode") || ""
   const pixQrCodeUrl = searchParams.get("pixQrCodeUrl") || ""
-  const orderId = searchParams.get("orderId") || "1020" // Default to 1020 if not provided
-  const orderStatus = searchParams.get("status") || "Reservado"
+  const orderId = searchParams.get("orderId") || "10410" // Default to 10410 if not provided
+  const orderNumber = searchParams.get("pedido_numero") || "1028" // Default to 1028 if not provided, next will be 1029
+  const orderStatus = searchParams.get("status") || "RESERVADO"
 
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
@@ -72,9 +72,6 @@ export default function PixPaymentPage() {
     }
   }, [pixCode, pixQrCodeUrl, router])
 
-  // Check if we're on a mobile device
-  const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false
-
   if (!pixCode || !pixQrCodeUrl) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -85,121 +82,52 @@ export default function PixPaymentPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-3xl mx-auto">
-        {/* Header with Logo */}
-        <div className="text-center mb-8">
-          <div className="mb-4">
-            <Image src="/images/petloo-logo-new.png" alt="Petloo Logo" width={150} height={50} className="mx-auto" />
-          </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">PIX gerado com sucesso</h1>
-          <p className="text-gray-600 max-w-xl mx-auto">
-            Estamos aguardando o pagamento! Após realizar o pagamento, aguarde nesta tela para confirmar seu pedido.
-          </p>
-        </div>
-
-        {/* Main content */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-          {/* Countdown timer */}
-          <div className="bg-[#F1542E] text-white p-4 text-center">
-            <p className="text-sm mb-1">Tempo restante para pagamento</p>
-            <div className="text-3xl font-bold">{formatTime(timeLeft)}</div>
-          </div>
-
-          <div className="p-6">
-            {/* Desktop: QR Code + Copy Code */}
-            <div className="flex flex-col md:flex-row items-start justify-between gap-8">
-              {/* Copy Code Section */}
-              <div className="w-full">
-                <div className="mb-4">
-                  <h3 className="font-medium text-lg mb-3">Código PIX para copiar e colar:</h3>
-                  <div className="relative">
-                    <div className="border border-gray-300 rounded-md p-3 bg-gray-50 pr-12 break-all text-sm">
-                      {pixCode}
-                    </div>
-                    <button
-                      onClick={copyToClipboard}
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#F1542E] text-white hover:bg-[#e04020] p-2 rounded-md"
-                    >
-                      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {copied ? "Código copiado!" : "Clique no botão para copiar"}
-                  </p>
-                </div>
-
-                {/* Mobile: Show QR Code Button */}
-                <div className="md:hidden mb-6">
-                  <button
-                    onClick={() => setShowQrCode(!showQrCode)}
-                    className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
-                  >
-                    <QrCode className="w-5 h-5" />
-                    {showQrCode ? "Ocultar QR Code" : "Mostrar QR Code"}
-                  </button>
-
-                  {showQrCode && (
-                    <div className="mt-4 flex justify-center">
-                      <div className="bg-white p-4 border border-gray-200 rounded-lg">
-                        <Image
-                          src={pixQrCodeUrl || "/placeholder.svg"}
-                          alt="QR Code PIX"
-                          width={200}
-                          height={200}
-                          className="mx-auto"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Payment instructions */}
-                <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
-                  <h3 className="font-medium text-lg mb-3">Como pagar com PIX:</h3>
-                  <ol className="list-decimal pl-5 space-y-2 text-sm text-gray-700">
-                    <li>Abra o aplicativo do seu banco</li>
-                    <li>Acesse a área PIX</li>
-                    <li className="hidden md:list-item">Escaneie o QR Code ao lado ou</li>
-                    <li>Selecione a opção "PIX Copia e Cola"</li>
-                    <li>Cole o código que você copiou</li>
-                    <li>Confirme as informações e finalize o pagamento</li>
-                    <li>Aguarde nesta página para confirmação automática</li>
-                  </ol>
-                </div>
-              </div>
-
-              {/* QR Code (desktop only) */}
-              <div className="hidden md:block">
-                <h3 className="font-medium text-lg mb-3">QR Code PIX:</h3>
-                <div className="bg-white p-4 border border-gray-200 rounded-lg">
-                  <Image
-                    src={pixQrCodeUrl || "/placeholder.svg"}
-                    alt="QR Code PIX"
-                    width={200}
-                    height={200}
-                    className="mx-auto"
-                  />
-                </div>
-                <p className="text-center text-sm text-gray-500 mt-2">Escaneie o QR Code com o app do seu banco</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
+      <div className="max-w-md mx-auto">
         {/* Order Summary */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
           <div
-            className="p-4 border-b border-gray-200 flex justify-between items-center cursor-pointer"
-            onClick={() => setOrderSummaryOpen(!orderSummaryOpen)}
+            className="p-4 border-b border-gray-200 flex items-center justify-between cursor-pointer"
+            onClick={() => setShowOrderSummary(!showOrderSummary)}
           >
-            <h3 className="font-medium">Resumo do pedido</h3>
-            <button className="text-gray-500">
-              {orderSummaryOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-            </button>
+            <div className="flex items-center">
+              {showOrderSummary ? (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-gray-500 mr-2"
+                >
+                  <polyline points="18 15 12 9 6 15"></polyline>
+                </svg>
+              ) : (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-gray-500 mr-2"
+                >
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              )}
+              <h3 className="font-medium text-gray-700">Resumo do Pedido</h3>
+            </div>
+            <span className="text-sm text-gray-500">{showOrderSummary ? "Ocultar" : "Mostrar"}</span>
           </div>
 
-          {orderSummaryOpen && (
-            <div className="p-4">
+          {showOrderSummary && (
+            <div className="p-4 transition-all duration-300 ease-in-out">
               {/* Items */}
               {cart.items.map((item, index) => (
                 <div key={index} className="flex justify-between py-2 border-b border-gray-100 last:border-0">
@@ -214,10 +142,13 @@ export default function PixPaymentPage() {
                       />
                     </div>
                     <div>
-                      <p className="font-medium text-sm">{item.name}</p>
-                      <p className="text-xs text-gray-500">
-                        {item.color} • {item.petCount} pet{item.petCount > 1 ? "s" : ""} • Qtd: {item.quantity}
-                      </p>
+                      <div className="flex items-center">
+                        <span className="inline-flex items-center justify-center bg-gray-500 text-white rounded-full w-5 h-5 text-xs mr-2">
+                          {item.quantity}
+                        </span>
+                        <p className="font-medium text-sm">{item.name}</p>
+                      </div>
+                      <p className="text-xs text-gray-500">Petloo</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -226,53 +157,6 @@ export default function PixPaymentPage() {
                 </div>
               ))}
 
-              {/* Recurring products */}
-              {cart.recurringProducts.appPetloo && (
-                <div className="flex justify-between py-2 border-b border-gray-100">
-                  <div className="flex items-start">
-                    <div className="w-12 h-12 bg-gray-100 rounded overflow-hidden mr-3 flex-shrink-0">
-                      <Image
-                        src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/imgapp1-VnnOgP7stsRZkKIeJkojR2Grh3ILVy.png"
-                        alt="App Petloo"
-                        width={48}
-                        height={48}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">App Petloo</p>
-                      <p className="text-xs text-green-600">GRÁTIS</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">R$ 0,00</p>
-                  </div>
-                </div>
-              )}
-
-              {cart.recurringProducts.loobook && (
-                <div className="flex justify-between py-2 border-b border-gray-100">
-                  <div className="flex items-start">
-                    <div className="w-12 h-12 bg-gray-100 rounded overflow-hidden mr-3 flex-shrink-0">
-                      <Image
-                        src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/imglivro%2Bapp1-bYzQDKdaCXTRBQgXxgOwAH3pCxOgM4.png"
-                        alt="Livro digital Loobook"
-                        width={48}
-                        height={48}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">Livro digital Loobook</p>
-                      <p className="text-xs text-green-600">GRÁTIS</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">R$ 0,00</p>
-                  </div>
-                </div>
-              )}
-
               {/* Totals */}
               <div className="mt-4 space-y-2">
                 <div className="flex justify-between text-sm">
@@ -280,7 +164,11 @@ export default function PixPaymentPage() {
                   <span>R$ {formatPrice(cart.totalPrice)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>Frete</span>
+                  <span>Desconto</span>
+                  <span>---</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Entrega</span>
                   {isShippingFree ? (
                     <span className="text-green-600">Grátis</span>
                   ) : (
@@ -296,19 +184,139 @@ export default function PixPaymentPage() {
           )}
         </div>
 
-        {/* Order Status */}
-        <div className="bg-white rounded-lg shadow-md p-6 text-center">
-          <p className="text-gray-600 mb-2">Status do pedido</p>
-          <p className="text-lg font-bold mb-1">
-            PEDIDO #{orderId} - <span className="text-yellow-600">{orderStatus}</span>
-          </p>
-          <p className="text-sm text-gray-500">Aguardando confirmação do pagamento. Não feche esta página.</p>
+        {/* PIX Payment Section */}
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
+          <div className="p-4 text-center">
+            <h2 className="text-xl font-bold text-gray-800 mb-2">PIX gerado com sucesso</h2>
+            <p className="text-gray-600 mb-4">
+              Estamos aguardando o pagamento! Após realizar o pagamento, aguarde nesta tela para confirmar seu pedido.
+            </p>
 
-          <div className="mt-6">
-            <Link href="/" className="text-[#F1542E] hover:underline text-sm">
-              Voltar para a loja
-            </Link>
+            {/* Timer */}
+            <div className="mb-4">
+              <div className="text-[#00A3C4] text-6xl font-bold">{formatTime(timeLeft)}</div>
+              <p className="text-sm text-gray-500">Tempo para conclusão da operação</p>
+            </div>
+
+            <p className="text-gray-700 mb-3">
+              Pague através do código <strong>PIX copia e cola.</strong>
+            </p>
+
+            {/* PIX Code */}
+            <div className="flex mb-4">
+              <div className="flex-grow border border-gray-300 rounded-l-md p-3 bg-gray-50 overflow-hidden text-ellipsis whitespace-nowrap">
+                {pixCode}
+              </div>
+              <button
+                onClick={copyToClipboard}
+                className="bg-[#3B82F6] text-white px-4 py-2 rounded-r-md hover:bg-blue-600 flex items-center justify-center min-w-[100px]"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4 mr-1" /> Copiado
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-1" /> Copiar
+                  </>
+                )}
+              </button>
+            </div>
           </div>
+        </div>
+
+        {/* How to Pay Section */}
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
+          <div className="p-4">
+            <h3 className="font-bold text-lg text-gray-800 mb-4">Como pagar o seu pedido</h3>
+
+            <div className="space-y-4">
+              <div className="flex">
+                <div className="mr-3 text-[#00A3C4]">
+                  <FileText size={24} />
+                </div>
+                <div>
+                  <p>
+                    <strong>Copie o código</strong> acima clicando no botão Copiar
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex">
+                <div className="mr-3 text-[#00A3C4]">
+                  <Smartphone size={24} />
+                </div>
+                <div>
+                  <p>
+                    <strong>Abra o aplicativo de seu banco</strong> e selecione <strong>Copia e Cola</strong> na opção
+                    de <strong>pagamento por PIX</strong>. Certifique-se que os dados estão corretos e finalize o
+                    pagamento
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* QR Code Button */}
+        <div className="text-center mb-6">
+          <p className="text-gray-500 mb-2">ou</p>
+          <button
+            onClick={() => setShowQrCode(!showQrCode)}
+            className="bg-[#10B981] text-white px-6 py-3 rounded-full font-medium hover:bg-green-600 transition-colors flex items-center justify-center mx-auto"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="mr-2"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <rect x="7" y="7" width="3" height="3"></rect>
+              <rect x="14" y="7" width="3" height="3"></rect>
+              <rect x="7" y="14" width="3" height="3"></rect>
+              <rect x="14" y="14" width="3" height="3"></rect>
+            </svg>
+            MOSTRAR QR CODE
+          </button>
+        </div>
+
+        {/* QR Code Modal */}
+        {showQrCode && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+              <h3 className="font-bold text-lg mb-4 text-center">QR Code PIX</h3>
+              <div className="flex justify-center mb-4">
+                <Image
+                  src={pixQrCodeUrl || "/placeholder.svg"}
+                  alt="QR Code PIX"
+                  width={200}
+                  height={200}
+                  className="border border-gray-200"
+                />
+              </div>
+              <p className="text-sm text-gray-500 text-center mb-4">Escaneie o QR Code com o aplicativo do seu banco</p>
+              <button
+                onClick={() => setShowQrCode(false)}
+                className="w-full bg-gray-200 text-gray-800 py-2 rounded-md hover:bg-gray-300"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Order Number */}
+        <div className="text-center">
+          <p className="text-gray-700">
+            PEDIDO <span className="text-[#10B981] font-bold">#{orderNumber}</span> - {orderStatus}
+          </p>
         </div>
       </div>
     </div>

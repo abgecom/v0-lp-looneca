@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import Link from "next/link"
 import { useState, useRef } from "react"
 import MediaCarousel from "@/components/media-carousel"
 import FAQSection from "@/components/faq-section"
@@ -14,21 +15,21 @@ import { useRouter } from "next/navigation"
 
 // Define a animação de flutuação
 const floatingAnimation = `
- @keyframes float {
-   0% {
-     transform: translateY(0px);
-   }
-   50% {
-     transform: translateY(-10px);
-   }
-   100% {
-     transform: translateY(0px);
-   }
- }
- 
- .animate-float {
-   animation: float 3s ease-in-out infinite;
- }
+  @keyframes float {
+    0% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+    100% {
+      transform: translateY(0px);
+    }
+  }
+  
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
 `
 
 export default function Home() {
@@ -97,16 +98,9 @@ export default function Home() {
     { type: "image" as const, src: "/images/carousel/cat10.webp", alt: "Caneca Looneca personalizada" },
     { type: "image" as const, src: "/images/carousel/cat11.webp", alt: "Caneca Looneca personalizada" },
     { type: "image" as const, src: "/images/carousel/cat12.webp", alt: "Caneca Looneca personalizada" },
-    {
-      type: "video" as const,
-      src: "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Fotos%20de%20cat%C3%A1logo/cat13-PbXsbMDD8NywEXSwKAfQQUVxCVRUqb.mp4",
-      alt: "Vídeo de caneca personalizada",
-    },
-    {
-      type: "video" as const,
-      src: "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Fotos%20de%20cat%C3%A1logo/cat14-tRL56mTZ8Yfs5soMExkTrNmdYBOXEP.mp4",
-      alt: "Vídeo de caneca personalizada",
-    },
+    { type: "video" as const, src: "/images/carousel/cat13.mp4" },
+    { type: "video" as const, src: "/images/carousel/cat14.mp4" },
+    { type: "video" as const, src: "/images/carousel/cat15.mp4" },
   ]
 
   // Function to handle color selection
@@ -493,7 +487,14 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Botão de encomendar removido */}
+          <div className="text-center mt-8">
+            <Link
+              href="#"
+              className="bg-[#F1542E] text-white px-6 py-3 rounded-lg font-bold hover:bg-[#e04020] transition-colors inline-block"
+            >
+              Encomendar agora
+            </Link>
+          </div>
         </div>
       </section>
 

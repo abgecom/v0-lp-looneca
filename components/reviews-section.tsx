@@ -24,18 +24,12 @@ interface ReviewsSectionProps {
 }
 
 export default function ReviewsSection({
-  averageRating = 4.8,
-  totalReviews = 319,
-  distribution = [
-    { stars: 5, count: 281 },
-    { stars: 4, count: 24 },
-    { stars: 3, count: 10 },
-    { stars: 2, count: 4 },
-    { stars: 1, count: 0 },
-  ],
-  reviews = [],
-  additionalReviews1 = [],
-  additionalReviews2 = [],
+  averageRating,
+  totalReviews,
+  distribution,
+  reviews,
+  additionalReviews1,
+  additionalReviews2,
 }: ReviewsSectionProps) {
   // Calcular o total de avaliações para as barras de progresso
   const totalDistributionReviews = distribution.reduce((acc, item) => acc + item.count, 0)

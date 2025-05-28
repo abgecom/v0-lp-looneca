@@ -29,6 +29,12 @@ export default function Header() {
           <Image src="/images/petloo-logo-new.png" alt="Petloo Logo" width={96} height={48} className="h-full w-auto" />
         </Link>
         <div className="flex items-center gap-4">
+          <Link
+            href="/#order"
+            className="bg-[#F1542E] text-white px-6 py-3 rounded-lg font-bold hover:bg-[#e04020] transition-colors hidden md:block"
+          >
+            Pedir agora
+          </Link>
           <Link href="/carrinho" className="relative">
             <ShoppingCart className="w-6 h-6" />
             {totalCartItems > 0 && (
