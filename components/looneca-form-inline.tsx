@@ -267,7 +267,9 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
       })
 
       console.log(
-        `Imagem comprimida: ${file.name} - Original: ${(file.size / 1024 / 1024).toFixed(2)}MB, Comprimida: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`,
+        `Imagem comprimida: ${file.name} - Original: ${(file.size / 1024 / 1024).toFixed(2)}MB, Comprimida: ${(
+          compressedFile.size / 1024 / 1024
+        ).toFixed(2)}MB`,
       )
 
       return compressedFile

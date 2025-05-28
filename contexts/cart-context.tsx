@@ -77,6 +77,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Verificar se estamos no cliente
       if (typeof window !== "undefined") {
+        console.log("Inicializando carrinho do localStorage...")
         const savedItems = localStorage.getItem("looneca-cart")
         if (savedItems) {
           const parsedItems = JSON.parse(savedItems)
@@ -124,12 +125,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Salvar itens no localStorage quando mudar
   useEffect(() => {
-    // Só salvar se já estiver inicializado para evitar sobrescrever dados
-    if (isInitialized && typeof window !== "undefined") {
+    // Salvar sempre que os itens mudarem, independente de isInitialized
+    if (typeof window !== "undefined") {
       localStorage.setItem("looneca-cart", JSON.stringify(items))
       console.log("Carrinho salvo no localStorage:", items)
     }
-  }, [items, isInitialized])
+  }, [items])
 
   // Salvar configurações de produtos recorrentes quando mudarem
   useEffect(() => {

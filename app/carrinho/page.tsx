@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -8,6 +8,7 @@ import { Trash2, Minus, Plus, ArrowLeft, ShoppingBag, Check, X } from "lucide-re
 import Header from "@/components/header"
 import Footer from "@/components/footer"
 import { useCart } from "@/contexts/cart-context"
+import { trackFBEvent } from "@/components/facebook-pixel"
 
 // Adicionar interfaces para as ofertas adicionais
 interface AdditionalOffer {
@@ -24,25 +25,26 @@ export default function CartPage() {
   const router = useRouter()
   const [isClient, setIsClient] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const cartEventTrackedRef = useRef(false)
 
   // Estado para armazenar os dados do carrinho
   const [cartItems, setCartItems] = useState<any[]>([])
   const [cartTotalPrice, setCartTotalPrice] = useState(0)
   const [cartTotalItems, setCartTotalItems] = useState(0)
 
-  // Estado para controlar as ofertas adicionais selecionadas
-  // Remover o estado local selectedOffers
-  // Remover:
-  // const [selectedOffers, setSelectedOffers] = useState<{ [key: string]: boolean }>({
-  //   "app-petloo": true,
-  //   loobook: true,
-  // })
-
   const cart = useCart() // Call the hook at the top level
 
   // Usar useEffect para acessar o contexto do carrinho apenas no cliente
   useEffect(() => {
     setIsClient(true)
+  }, [])
+
+  // Disparar evento AddToCart quando a página carregar
+  useEffect(() => {
+    if (!cartEventTrackedRef.current) {
+      trackFBEvent("AddToCart")
+      cartEventTrackedRef.current = true
+    }
   }, [])
 
   // Atualizar os estados locais quando o carrinho mudar
@@ -136,7 +138,7 @@ export default function CartPage() {
 
           <h1 className="text-2xl md:text-3xl font-bold mb-8">Seu Carrinho</h1>
 
-          {!isClient ? (
+          {!isClient || !cart.isInitialized ? (
             <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F1542E]"></div>
             </div>

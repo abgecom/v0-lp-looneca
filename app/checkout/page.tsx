@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useCart } from "@/contexts/cart-context"
@@ -11,6 +11,7 @@ import { Loader2, Info, Check } from "lucide-react"
 import Link from "next/link"
 import { processPayment } from "@/actions/payment-actions"
 import { calculatePaymentAmount } from "@/lib/payment-utils"
+import { trackFBEvent } from "@/components/facebook-pixel"
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -23,6 +24,11 @@ export default function CheckoutPage() {
   const [pixCode, setPixCode] = useState<string | null>(null)
   const [pixQrCodeUrl, setPixQrCodeUrl] = useState<string | null>(null)
   const [showShippingOptions, setShowShippingOptions] = useState(false)
+
+  // Refs para rastrear eventos do Facebook Pixel
+  const cepInputTrackedRef = useRef(false)
+  const purchaseEventTrackedRef = useRef(false)
+  const checkoutEventTrackedRef = useRef(false)
 
   // Shipping options state
   const [shippingOption, setShippingOption] = useState<{
@@ -87,6 +93,25 @@ export default function CheckoutPage() {
     }>
   >([])
 
+  // Verificar se o frete deve ser grátis (subtotal >= 249.90)
+  const isShippingFree = cart.isInitialized && cart.totalPrice >= 249.9
+
+  // Calcular o preço do frete com base na regra de frete grátis
+  const getShippingPrice = () => {
+    if (shippingOption.type === "standard" && isShippingFree) {
+      return 0
+    }
+    return shippingOption.price
+  }
+
+  // Calculate total with shipping - only if cart is initialized
+  const totalWithShipping = cart.isInitialized ? cart.totalPrice + (showShippingOptions ? getShippingPrice() : 0) : 0
+
+  // Format price for display
+  const formatPrice = (price: number) => {
+    return price.toFixed(2).replace(".", ",")
+  }
+
   // Verificar se o carrinho está vazio e redirecionar para a página inicial
   useEffect(() => {
     // Aguardar a inicialização do carrinho
@@ -101,19 +126,30 @@ export default function CheckoutPage() {
     }
   }, [cart.isInitialized, cart.isEmpty, router])
 
-  // Verificar se o frete deve ser grátis (subtotal >= 249.90)
-  const isShippingFree = cart.isInitialized && cart.totalPrice >= 249.9
-
-  // Calcular o preço do frete com base na regra de frete grátis
-  const getShippingPrice = () => {
-    if (shippingOption.type === "standard" && isShippingFree) {
-      return 0
+  // Disparar evento InitiateCheckout quando a página carregar
+  useEffect(() => {
+    if (cart.isInitialized && !checkoutEventTrackedRef.current) {
+      trackFBEvent("InitiateCheckout")
+      checkoutEventTrackedRef.current = true
     }
-    return shippingOption.price
-  }
+  }, [cart.isInitialized])
 
-  // Calculate total with shipping - only if cart is initialized
-  const totalWithShipping = cart.isInitialized ? cart.totalPrice + (showShippingOptions ? getShippingPrice() : 0) : 0
+  // Disparar evento Purchase quando o pagamento for bem-sucedido ou quando o QR Code do PIX for exibido
+  useEffect(() => {
+    if (!cart.isInitialized || purchaseEventTrackedRef.current) return
+
+    // Verificar se o pagamento foi bem-sucedido (cartão de crédito)
+    if (paymentSuccess) {
+      trackFBEvent("Purchase", { value: totalWithShipping, currency: "BRL" })
+      purchaseEventTrackedRef.current = true
+    }
+
+    // Verificar se o QR Code do PIX foi exibido
+    if (pixCode && pixQrCodeUrl) {
+      trackFBEvent("Purchase", { value: totalWithShipping, currency: "BRL" })
+      purchaseEventTrackedRef.current = true
+    }
+  }, [paymentSuccess, pixCode, pixQrCodeUrl, cart.isInitialized, totalWithShipping])
 
   // Gerar opções de parcelamento quando o total mudar
   useEffect(() => {
@@ -153,11 +189,6 @@ export default function CheckoutPage() {
       }
     }
   }, [cart.isInitialized, totalWithShipping, paymentMethod, formData.installments])
-
-  // Format price for display
-  const formatPrice = (price: number) => {
-    return price.toFixed(2).replace(".", ",")
-  }
 
   // Handle shipping option change
   const handleShippingOptionChange = (type: "standard" | "express") => {
@@ -211,6 +242,12 @@ export default function CheckoutPage() {
     }
 
     setFormData((prev) => ({ ...prev, cep: value }))
+
+    // Disparar evento AddPaymentInfo na primeira vez que o usuário digitar no campo CEP
+    if (!cepInputTrackedRef.current && value.length > 0) {
+      trackFBEvent("AddPaymentInfo")
+      cepInputTrackedRef.current = true
+    }
 
     // Se o usuário digitou o 8º dígito, validar e buscar o CEP automaticamente
     if (value.replace(/\D/g, "").length === 8) {

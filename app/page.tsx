@@ -146,7 +146,7 @@ export default function Home() {
         // Adicionar ao carrinho
         const currentItem = carouselItems.find((item) => item.variant === selectedColor) || carouselItems[0]
 
-        addItem({
+        const newItem = {
           id: `looneca-${Date.now()}`,
           name: "Caneca Personalizada Looneca Prisma",
           color: selectedColor,
@@ -154,10 +154,16 @@ export default function Home() {
           quantity: quantity,
           price: PRECOS[selectedPetCount as keyof typeof PRECOS],
           imageSrc: currentItem.src,
-        })
+        }
 
-        // Redirecionar para o carrinho
-        router.push("/carrinho")
+        console.log("Adicionando item ao carrinho:", newItem)
+        addItem(newItem)
+
+        // Aguardar um momento para garantir que o estado foi atualizado
+        setTimeout(() => {
+          // Redirecionar para o carrinho
+          router.push("/carrinho")
+        }, 100)
       }
     } catch (error) {
       console.error("Erro ao processar pedido:", error)
