@@ -504,8 +504,10 @@ export default function CheckoutPage() {
         })
 
         if (paymentMethod === "pix") {
-          setPixCode(paymentResult.pixCode || null)
-          setPixQrCodeUrl(paymentResult.pixQrCodeUrl || null)
+          // Redirect to PIX payment page instead of showing QR code here
+          router.push(
+            `/pix-payment?pixCode=${encodeURIComponent(paymentResult.pixCode || "")}&pixQrCodeUrl=${encodeURIComponent(paymentResult.pixQrCodeUrl || "")}&orderId=${paymentResult.orderId || ""}&status=${paymentResult.status || "Reservado"}`,
+          )
         } else {
           setPaymentSuccess(true)
           // Clear cart after successful payment
@@ -593,61 +595,6 @@ export default function CheckoutPage() {
             <p className="text-gray-600 mb-6">
               Obrigado pela sua compra. Você receberá um e-mail com os detalhes do seu pedido em breve.
             </p>
-            <Link
-              href="/"
-              className="bg-[#F1542E] text-white px-6 py-3 rounded-lg font-bold hover:bg-[#e04020] transition-colors"
-            >
-              Voltar para a loja
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Show PIX payment information
-  if (pixCode && pixQrCodeUrl) {
-    return (
-      <div className="min-h-screen bg-white py-10 px-4">
-        <div className="max-w-3xl mx-auto">
-          <div className="flex flex-col items-center text-center">
-            <h1 className="text-2xl font-bold mb-4">Pagamento via PIX</h1>
-            <p className="text-gray-600 mb-6">
-              Escaneie o QR Code abaixo ou copie o código PIX para realizar o pagamento.
-            </p>
-
-            <div className="mb-6">
-              <Image
-                src={pixQrCodeUrl || "/placeholder.svg"}
-                alt="QR Code PIX"
-                width={200}
-                height={200}
-                className="mx-auto"
-              />
-            </div>
-
-            <div className="w-full max-w-md mb-6">
-              <div className="border border-gray-300 rounded-md p-3 bg-gray-50 relative">
-                <p className="text-sm break-all">{pixCode}</p>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(pixCode)
-                    alert("Código PIX copiado!")
-                  }}
-                  className="absolute right-2 top-2 text-[#F1542E] hover:text-[#e04020] text-sm font-medium"
-                >
-                  Copiar
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-6 text-sm text-yellow-800">
-              <p>
-                <strong>Importante:</strong> Após realizar o pagamento, você receberá um e-mail com a confirmação e os
-                detalhes do seu pedido.
-              </p>
-            </div>
-
             <Link
               href="/"
               className="bg-[#F1542E] text-white px-6 py-3 rounded-lg font-bold hover:bg-[#e04020] transition-colors"
@@ -1170,60 +1117,30 @@ export default function CheckoutPage() {
                       </div>
                       <label className="ml-2 font-medium cursor-pointer">PIX</label>
                       <div className="ml-auto">
-                        <Image
-                          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/pix-pQeEaHw1QkFcUBY4A45g43gFx34OWl.svg"
-                          alt="PIX"
-                          width={32}
-                          height={32}
-                          className="h-8 w-auto"
-                        />
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path
+                            d="M23.5 8.5L8.5 23.5"
+                            stroke="#32BCAD"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M8.5 8.5L23.5 23.5"
+                            stroke="#32BCAD"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
                       </div>
                     </div>
 
                     {paymentMethod === "pix" && (
-                      <div className="mt-4 bg-gray-50 border border-gray-200 rounded-md p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center">
-                            <span className="font-medium text-gray-900">PIX</span>
-                          </div>
-                          <div className="flex items-center">
-                            <Image
-                              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/pix-pQeEaHw1QkFcUBY4A45g43gFx34OWl.svg"
-                              alt="PIX"
-                              width={32}
-                              height={32}
-                              className="h-8 w-auto"
-                            />
-                          </div>
-                        </div>
-
-                        <p className="text-sm text-gray-700 mb-3">Clique em "Finalizar Compra" para gerar o PIX.</p>
-
-                        <div className="border-t border-gray-200 pt-3">
-                          <p className="text-sm font-medium text-gray-900 mb-2">
-                            Informações sobre o pagamento via PIX:
-                          </p>
-                          <ul className="text-sm text-gray-700 space-y-1">
-                            <li className="flex items-start">
-                              <span className="w-1 h-1 bg-gray-400 rounded-full mt-2 mr-2 flex-shrink-0"></span>
-                              <span>
-                                Valor à vista <strong>R$ {formatPrice(totalWithShipping)}</strong>;
-                              </span>
-                            </li>
-                            <li className="flex items-start">
-                              <span className="w-1 h-1 bg-gray-400 rounded-full mt-2 mr-2 flex-shrink-0"></span>
-                              <span>
-                                <strong>Não pode ser parcelado!</strong> Use cartão de crédito para parcelar sua compra;
-                              </span>
-                            </li>
-                            <li className="flex items-start">
-                              <span className="w-1 h-1 bg-gray-400 rounded-full mt-2 mr-2 flex-shrink-0"></span>
-                              <span>
-                                Prazo de até <strong>30 minutos</strong> para compensar.
-                              </span>
-                            </li>
-                          </ul>
-                        </div>
+                      <div className="mt-4">
+                        <p className="text-sm text-gray-600">
+                          Após finalizar a compra, você receberá um QR Code para realizar o pagamento via PIX.
+                        </p>
                       </div>
                     )}
                   </div>
