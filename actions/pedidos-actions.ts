@@ -71,6 +71,9 @@ async function getPetDataFromClient(req: Request) {
 
 export async function criarPedido(data: PedidoData, req?: Request) {
   try {
+    console.log("=== DEBUG CRIAR PEDIDO ===")
+    console.log("Dados recebidos:", data)
+
     // Obter o último número de pedido
     const { data: ultimoPedido, error: queryError } = await supabase
       .from("pedidos")
@@ -93,9 +96,13 @@ export async function criarPedido(data: PedidoData, req?: Request) {
     let raca = data.raca
     let observacoes = data.observacoes
 
+    console.log("Dados iniciais do pedido:", { fotos, raca, observacoes })
+
     // Buscar os dados do carrinho armazenados no localStorage (via cookie)
     const cookieStore = cookies()
     const petDataCookie = cookieStore.get("looneca-pet-data")
+
+    console.log("Cookie encontrado:", petDataCookie)
 
     if (petDataCookie) {
       try {
@@ -104,6 +111,7 @@ export async function criarPedido(data: PedidoData, req?: Request) {
         fotos = fotos || petData.photos
         raca = raca || petData.typeBreed
         observacoes = observacoes || petData.notes
+        console.log("Dados após recuperação do cookie:", { fotos, raca, observacoes })
       } catch (error) {
         console.error("Erro ao analisar cookie de dados do pet:", error)
       }
@@ -123,14 +131,17 @@ export async function criarPedido(data: PedidoData, req?: Request) {
         .limit(1)
 
       if (!pedidosError && pedidosData && pedidosData.length > 0) {
-        console.log("Dados do pet encontrados na tabela looneca_pedidos")
+        console.log("Dados do pet encontrados na tabela looneca_pedidos:", pedidosData[0])
         fotos = fotos || pedidosData[0].fotos_urls
         raca = raca || pedidosData[0].tipo_raca_pet
         observacoes = observacoes || pedidosData[0].observacao
+        console.log("Dados após recuperação do banco:", { fotos, raca, observacoes })
       } else {
         console.log("Nenhum dado encontrado na tabela looneca_pedidos:", pedidosError)
       }
     }
+
+    console.log("Dados finais antes de inserir:", { fotos, raca, observacoes })
 
     // Inserir novo pedido
     const { data: novoPedido, error: insertError } = await supabase
@@ -171,6 +182,7 @@ export async function criarPedido(data: PedidoData, req?: Request) {
       email: customer.email,
       totalFotos: fotos ? (Array.isArray(fotos) ? fotos.length : "objeto") : "nenhuma",
       raca: raca || "não informada",
+      pedidoInserido: novoPedido[0],
     })
 
     return { success: true, pedido: novoPedido[0] }

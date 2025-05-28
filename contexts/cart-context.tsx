@@ -28,7 +28,7 @@ interface CartContextType {
     loobook: boolean
   }
   toggleRecurringProduct: (product: "appPetloo" | "loobook") => void
-  // Novas propriedades para fotos e raça do pet
+  // Propriedades para fotos e raça do pet
   petPhotos: string[]
   petTypeBreed: string
   petNotes: string
@@ -51,7 +51,6 @@ const initialCartContext: CartContextType = {
     loobook: true,
   },
   toggleRecurringProduct: () => {},
-  // Valores iniciais para fotos e raça do pet
   petPhotos: [],
   petTypeBreed: "",
   petNotes: "",
@@ -107,9 +106,32 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setPetPhotos(parsedPetData.photos || [])
             setPetTypeBreed(parsedPetData.typeBreed || "")
             setPetNotes(parsedPetData.notes || "")
-            console.log("Dados do pet carregados:", parsedPetData)
+            console.log("Dados do pet carregados do localStorage:", parsedPetData)
           } catch (e) {
             console.error("Erro ao carregar dados do pet:", e)
+          }
+        }
+
+        // Carregar dados do cookie também
+        const getCookie = (name: string) => {
+          const value = `; ${document.cookie}`
+          const parts = value.split(`; ${name}=`)
+          if (parts.length === 2) return parts.pop()?.split(";").shift()
+        }
+
+        const cookiePetData = getCookie("looneca-pet-data")
+        if (cookiePetData) {
+          try {
+            const parsedCookieData = JSON.parse(decodeURIComponent(cookiePetData))
+            console.log("Dados do pet carregados do cookie:", parsedCookieData)
+            // Se não temos dados no localStorage, usar os do cookie
+            if (!savedPetData) {
+              setPetPhotos(parsedCookieData.photos || [])
+              setPetTypeBreed(parsedCookieData.typeBreed || "")
+              setPetNotes(parsedCookieData.notes || "")
+            }
+          } catch (e) {
+            console.error("Erro ao carregar dados do cookie:", e)
           }
         }
 
@@ -149,6 +171,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         notes: petNotes,
       }
       localStorage.setItem("looneca-pet-data", JSON.stringify(petData))
+
+      // Também salvar no cookie
+      document.cookie = `looneca-pet-data=${encodeURIComponent(JSON.stringify(petData))}; path=/; max-age=${7 * 24 * 60 * 60}`
+
       console.log("Dados do pet salvos:", petData)
     }
   }, [petPhotos, petTypeBreed, petNotes, isInitialized])
@@ -163,6 +189,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Função para definir os dados do pet
   const setPetData = (photos: string[], typeBreed: string, notes: string) => {
+    console.log("=== DEBUG CART CONTEXT setPetData ===")
+    console.log("Recebendo dados:", { photos, typeBreed, notes })
+
     setPetPhotos(photos)
     setPetTypeBreed(typeBreed)
     setPetNotes(notes)

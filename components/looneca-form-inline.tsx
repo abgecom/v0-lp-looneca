@@ -32,6 +32,7 @@ const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
       { tipoRacaPet: "", fotosUrls: [] },
       { tipoRacaPet: "", fotosUrls: [] },
       { tipoRacaPet: "", fotosUrls: [] },
+      { tipoRacaPet: "", fotosUrls: [] },
     ])
 
     // Usar o contexto do carrinho para armazenar os dados
@@ -92,6 +93,13 @@ const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
         // Combinar todos os tipos/raças e URLs de fotos
         const combinedTipoRacaPet = petDataToSubmit.map((pet) => pet.tipoRacaPet).join(", ")
         const combinedFotosUrls = petDataToSubmit.flatMap((pet) => pet.fotosUrls)
+
+        // DEBUG: Log dos dados antes de salvar
+        console.log("=== DEBUG LOONECA FORM ===")
+        console.log("petDataToSubmit:", petDataToSubmit)
+        console.log("combinedTipoRacaPet:", combinedTipoRacaPet)
+        console.log("combinedFotosUrls:", combinedFotosUrls)
+        console.log("observacao:", observacao)
 
         // Salvar dados no contexto do carrinho
         setPetData(combinedFotosUrls, combinedTipoRacaPet, observacao)
