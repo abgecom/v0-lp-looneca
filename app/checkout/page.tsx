@@ -1170,30 +1170,60 @@ export default function CheckoutPage() {
                       </div>
                       <label className="ml-2 font-medium cursor-pointer">PIX</label>
                       <div className="ml-auto">
-                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path
-                            d="M23.5 8.5L8.5 23.5"
-                            stroke="#32BCAD"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                          <path
-                            d="M8.5 8.5L23.5 23.5"
-                            stroke="#32BCAD"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
+                        <Image
+                          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/pix-pQeEaHw1QkFcUBY4A45g43gFx34OWl.svg"
+                          alt="PIX"
+                          width={32}
+                          height={32}
+                          className="h-8 w-auto"
+                        />
                       </div>
                     </div>
 
                     {paymentMethod === "pix" && (
-                      <div className="mt-4">
-                        <p className="text-sm text-gray-600">
-                          Após finalizar a compra, você receberá um QR Code para realizar o pagamento via PIX.
-                        </p>
+                      <div className="mt-4 bg-gray-50 border border-gray-200 rounded-md p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center">
+                            <span className="font-medium text-gray-900">PIX</span>
+                          </div>
+                          <div className="flex items-center">
+                            <Image
+                              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/pix-pQeEaHw1QkFcUBY4A45g43gFx34OWl.svg"
+                              alt="PIX"
+                              width={32}
+                              height={32}
+                              className="h-8 w-auto"
+                            />
+                          </div>
+                        </div>
+
+                        <p className="text-sm text-gray-700 mb-3">Clique em "Finalizar Compra" para gerar o PIX.</p>
+
+                        <div className="border-t border-gray-200 pt-3">
+                          <p className="text-sm font-medium text-gray-900 mb-2">
+                            Informações sobre o pagamento via PIX:
+                          </p>
+                          <ul className="text-sm text-gray-700 space-y-1">
+                            <li className="flex items-start">
+                              <span className="w-1 h-1 bg-gray-400 rounded-full mt-2 mr-2 flex-shrink-0"></span>
+                              <span>
+                                Valor à vista <strong>R$ {formatPrice(totalWithShipping)}</strong>;
+                              </span>
+                            </li>
+                            <li className="flex items-start">
+                              <span className="w-1 h-1 bg-gray-400 rounded-full mt-2 mr-2 flex-shrink-0"></span>
+                              <span>
+                                <strong>Não pode ser parcelado!</strong> Use cartão de crédito para parcelar sua compra;
+                              </span>
+                            </li>
+                            <li className="flex items-start">
+                              <span className="w-1 h-1 bg-gray-400 rounded-full mt-2 mr-2 flex-shrink-0"></span>
+                              <span>
+                                Prazo de até <strong>30 minutos</strong> para compensar.
+                              </span>
+                            </li>
+                          </ul>
+                        </div>
                       </div>
                     )}
                   </div>
