@@ -511,9 +511,9 @@ export default function CheckoutPage() {
             )}&orderId=${paymentResult.orderId || ""}&status=RESERVADO`,
           )
         } else {
-          setPaymentSuccess(true)
-          // Clear cart after successful payment
+          // Para pagamento com cartão aprovado, redirecionar para thank-you
           cart.clearCart()
+          router.push(`/thank-you?orderId=${paymentResult.orderId || ""}`)
         }
       } else {
         setPaymentError(paymentResult.error || "Ocorreu um erro ao processar o pagamento. Tente novamente.")

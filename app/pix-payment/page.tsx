@@ -287,6 +287,20 @@ export default function PixPaymentPage() {
           </button>
         </div>
 
+        {/* Payment Confirmation Button */}
+        <div className="text-center mb-6">
+          <button
+            onClick={() => {
+              console.log("Redirecionando para thank-you com orderId:", orderId)
+              router.push(`/thank-you?orderId=${orderId}`)
+            }}
+            className="bg-[#10B981] text-white px-6 py-3 rounded-lg font-medium hover:bg-green-600 transition-colors flex items-center justify-center mx-auto w-full"
+          >
+            <Check className="w-5 h-5 mr-2" />
+            Já finalizei o pagamento
+          </button>
+        </div>
+
         {/* QR Code Modal */}
         {showQrCode && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
