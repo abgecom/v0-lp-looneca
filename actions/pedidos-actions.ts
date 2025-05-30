@@ -87,7 +87,7 @@ export async function criarPedido(data: PedidoData, req?: Request) {
     }
 
     // Gerar novo número de pedido
-    const novoNumero = ultimoPedido && ultimoPedido.length > 0 ? ultimoPedido[0].pedido_numero + 1 : 1001
+    const novoNumero = ultimoPedido && ultimoPedido.length > 0 ? ultimoPedido[0].pedido_numero + 1 : 1045
 
     const { customer, itens, recorrentes, pagamento } = data
 
