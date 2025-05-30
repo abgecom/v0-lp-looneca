@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
+import { createContext, useContext, useState, useEffect, useCallback } from "react"
 
 export interface CartItem {
   id: string
@@ -180,61 +180,73 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [petPhotos, petTypeBreed, petNotes, isInitialized])
 
   // Função para alternar produtos recorrentes
-  const toggleRecurringProduct = (product: "appPetloo" | "loobook") => {
-    setRecurringProducts((prev) => ({
-      ...prev,
-      [product]: !prev[product],
-    }))
-  }
+  const toggleRecurringProduct = useCallback(
+    (product: "appPetloo" | "loobook") => {
+      setRecurringProducts((prev) => ({
+        ...prev,
+        [product]: !prev[product],
+      }))
+    },
+    [setRecurringProducts],
+  )
 
   // Função para definir os dados do pet
-  const setPetData = (photos: string[], typeBreed: string, notes: string) => {
-    console.log("=== DEBUG CART CONTEXT setPetData ===")
-    console.log("Recebendo dados:", { photos, typeBreed, notes })
+  const setPetData = useCallback(
+    (photos: string[], typeBreed: string, notes: string) => {
+      console.log("=== DEBUG CART CONTEXT setPetData ===")
+      console.log("Recebendo dados:", { photos, typeBreed, notes })
 
-    setPetPhotos(photos)
-    setPetTypeBreed(typeBreed)
-    setPetNotes(notes)
-  }
+      setPetPhotos(photos)
+      setPetTypeBreed(typeBreed)
+      setPetNotes(notes)
+    },
+    [setPetPhotos, setPetTypeBreed, setPetNotes],
+  )
 
-  const addItem = (newItem: CartItem) => {
-    setItems((prevItems) => {
-      // Verificar se o item já existe no carrinho (mesma cor e quantidade de pets)
-      const existingItemIndex = prevItems.findIndex(
-        (item) => item.id === newItem.id && item.color === newItem.color && item.petCount === newItem.petCount,
-      )
+  const addItem = useCallback(
+    (newItem: CartItem) => {
+      setItems((prevItems) => {
+        const existingItemIndex = prevItems.findIndex(
+          (item) => item.id === newItem.id && item.color === newItem.color && item.petCount === newItem.petCount,
+        )
 
-      if (existingItemIndex >= 0) {
-        // Se o item já existe, atualizar a quantidade
-        const updatedItems = [...prevItems]
-        updatedItems[existingItemIndex].quantity += newItem.quantity
-        return updatedItems
-      } else {
-        // Se o item não existe, adicionar ao carrinho
-        return [...prevItems, newItem]
+        if (existingItemIndex >= 0) {
+          const updatedItems = [...prevItems]
+          updatedItems[existingItemIndex].quantity += newItem.quantity
+          return updatedItems
+        } else {
+          return [...prevItems, newItem]
+        }
+      })
+    },
+    [setItems],
+  )
+
+  const removeItem = useCallback(
+    (itemId: string) => {
+      setItems((prevItems) => prevItems.filter((item) => item.id !== itemId))
+    },
+    [setItems],
+  )
+
+  const updateQuantity = useCallback(
+    (itemId: string, quantity: number) => {
+      if (quantity <= 0) {
+        removeItem(itemId) // removeItem é estável devido ao seu próprio useCallback
+        return
       }
-    })
-  }
 
-  const removeItem = (itemId: string) => {
-    setItems((prevItems) => prevItems.filter((item) => item.id !== itemId))
-  }
+      setItems((prevItems) => prevItems.map((item) => (item.id === itemId ? { ...item, quantity } : item)))
+    },
+    [setItems, removeItem],
+  )
 
-  const updateQuantity = (itemId: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeItem(itemId)
-      return
-    }
-
-    setItems((prevItems) => prevItems.map((item) => (item.id === itemId ? { ...item, quantity } : item)))
-  }
-
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     setItems([])
     if (typeof window !== "undefined") {
       localStorage.removeItem("looneca-cart")
     }
-  }
+  }, [setItems])
 
   // Calcular totais
   const totalItems = items.reduce((total, item) => total + item.quantity, 0)
