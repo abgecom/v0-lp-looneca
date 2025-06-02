@@ -508,10 +508,13 @@ export default function CheckoutPage() {
           router.push(
             `/pix-payment?pixCode=${encodeURIComponent(paymentResult.pixCode || "")}&pixQrCodeUrl=${encodeURIComponent(
               paymentResult.pixQrCodeUrl || "",
-            )}&orderId=${paymentResult.orderId || ""}&status=RESERVADO&pedido=${paymentResult.pedidoNumero}`,
+            )}&orderId=${paymentResult.orderId || ""}&status=RESERVADO`,
           )
         } else {
-          setPaymentSuccess(true)
+          // Replace this line:
+          // setPaymentSuccess(true)
+          // With this:
+          router.push(`/thank-you?pedido=${paymentResult.pedidoNumero || paymentResult.orderId}`)
           // Clear cart after successful payment
           cart.clearCart()
         }

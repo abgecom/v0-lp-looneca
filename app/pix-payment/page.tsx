@@ -3,9 +3,8 @@
 import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Copy, Check, Smartphone, FileText, QrCode, ChevronUp, ChevronDown } from "lucide-react" // Adicionado QrCode, ChevronUp, ChevronDown
+import { Copy, Check, Smartphone, FileText } from "lucide-react"
 import { useCart } from "@/contexts/cart-context"
-import { Button } from "@/components/ui/button" // Importando Button
 
 export default function PixPaymentPage() {
   const router = useRouter()
@@ -17,33 +16,37 @@ export default function PixPaymentPage() {
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const [showOrderSummary, setShowOrderSummary] = useState(false)
 
+  // Get data from URL parameters
   const pixCode = searchParams.get("pixCode") || ""
   const pixQrCodeUrl = searchParams.get("pixQrCodeUrl") || ""
-  // Usar 'pedido' como o nome do parâmetro para consistência com a página de obrigado
-  const orderNumberFromUrl = searchParams.get("pedido") || searchParams.get("pedido_numero") || ""
+  const orderId = searchParams.get("orderId") || "10410" // Default to 10410 if not provided
+  const orderNumber = searchParams.get("pedido_numero") || "1028" // Default to 1028 if not provided, next will be 1029
   const orderStatus = searchParams.get("status") || "RESERVADO"
 
+  // Format time as MM:SS
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60)
     const remainingSeconds = seconds % 60
     return `${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`
   }
 
+  // Copy PIX code to clipboard
   const copyToClipboard = () => {
-    if (pixCode) {
-      navigator.clipboard.writeText(pixCode)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 3000)
-    }
+    navigator.clipboard.writeText(pixCode)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 3000)
   }
 
+  // Format price for display
   const formatPrice = (price: number) => {
     return price.toFixed(2).replace(".", ",")
   }
 
+  // Calculate shipping price
   const isShippingFree = cart.totalPrice >= 249.9
-  const shippingPrice = isShippingFree ? 0 : 17.9
+  const shippingPrice = isShippingFree ? 0 : 17.9 // Default shipping price
 
+  // Start countdown timer
   useEffect(() => {
     if (timeLeft > 0) {
       timerRef.current = setInterval(() => {
@@ -56,35 +59,23 @@ export default function PixPaymentPage() {
         })
       }, 1000)
     }
+
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [timeLeft]) // Adicionado timeLeft como dependência
+  }, [])
 
+  // Redirect if no PIX code is provided
   useEffect(() => {
-    if (!pixCode || !pixQrCodeUrl || !orderNumberFromUrl) {
-      // Se algum dado essencial estiver faltando, redireciona para o checkout
-      // Idealmente, deveria haver uma mensagem de erro mais específica
-      console.warn("Dados PIX ou número do pedido ausentes. Redirecionando para checkout.")
+    if (!pixCode || !pixQrCodeUrl) {
       router.push("/checkout")
     }
-  }, [pixCode, pixQrCodeUrl, orderNumberFromUrl, router])
+  }, [pixCode, pixQrCodeUrl, router])
 
-  const handlePaymentConfirmed = () => {
-    if (orderNumberFromUrl) {
-      router.push(`/thank-you?pedido=${orderNumberFromUrl}`)
-    } else {
-      // Fallback ou mensagem de erro se orderNumberFromUrl não estiver disponível
-      console.error("Número do pedido não disponível para redirecionamento.")
-      router.push("/checkout") // Ou uma página de erro
-    }
-  }
-
-  if (!pixCode || !pixQrCodeUrl || !orderNumberFromUrl) {
+  if (!pixCode || !pixQrCodeUrl) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F1542E]"></div>
-        <p className="ml-4 text-gray-600">Carregando dados do pagamento...</p>
       </div>
     )
   }
@@ -100,9 +91,35 @@ export default function PixPaymentPage() {
           >
             <div className="flex items-center">
               {showOrderSummary ? (
-                <ChevronUp className="text-gray-500 mr-2 h-5 w-5" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-gray-500 mr-2"
+                >
+                  <polyline points="18 15 12 9 6 15"></polyline>
+                </svg>
               ) : (
-                <ChevronDown className="text-gray-500 mr-2 h-5 w-5" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-gray-500 mr-2"
+                >
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
               )}
               <h3 className="font-medium text-gray-700">Resumo do Pedido</h3>
             </div>
@@ -111,12 +128,13 @@ export default function PixPaymentPage() {
 
           {showOrderSummary && (
             <div className="p-4 transition-all duration-300 ease-in-out">
+              {/* Items */}
               {cart.items.map((item, index) => (
                 <div key={index} className="flex justify-between py-2 border-b border-gray-100 last:border-0">
                   <div className="flex items-start">
                     <div className="w-12 h-12 bg-gray-100 rounded overflow-hidden mr-3 flex-shrink-0">
                       <Image
-                        src={item.imageSrc || "/placeholder.svg?width=48&height=48&query=product"}
+                        src={item.imageSrc || "/placeholder.svg"}
                         alt={item.name}
                         width={48}
                         height={48}
@@ -130,7 +148,7 @@ export default function PixPaymentPage() {
                         </span>
                         <p className="font-medium text-sm">{item.name}</p>
                       </div>
-                      <p className="text-xs text-gray-500">Petloo</p> {/* Exemplo, pode ser dinâmico */}
+                      <p className="text-xs text-gray-500">Petloo</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -138,6 +156,8 @@ export default function PixPaymentPage() {
                   </div>
                 </div>
               ))}
+
+              {/* Totals */}
               <div className="mt-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>Subtotal</span>
@@ -145,7 +165,7 @@ export default function PixPaymentPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Desconto</span>
-                  <span>---</span> {/* Ou valor real do desconto */}
+                  <span>---</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Entrega</span>
@@ -164,99 +184,149 @@ export default function PixPaymentPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6 p-6 text-center">
-          <h2 className="text-xl font-bold text-gray-800 mb-2">PIX gerado com sucesso!</h2>
-          <p className="text-gray-600 mb-4">
-            Aguardando pagamento. Após pagar, clique no botão abaixo ou aguarde a confirmação automática.
-          </p>
-          <div className="mb-4">
-            <div className="text-[#00A3C4] text-5xl font-bold">{formatTime(timeLeft)}</div>
-            <p className="text-sm text-gray-500">Tempo para conclusão da operação</p>
+        {/* PIX Payment Section */}
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
+          <div className="p-4 text-center">
+            <h2 className="text-xl font-bold text-gray-800 mb-2">PIX gerado com sucesso</h2>
+            <p className="text-gray-600 mb-4">
+              Estamos aguardando o pagamento! Após realizar o pagamento, aguarde nesta tela para confirmar seu pedido.
+            </p>
+
+            {/* Timer */}
+            <div className="mb-4">
+              <div className="text-[#00A3C4] text-6xl font-bold">{formatTime(timeLeft)}</div>
+              <p className="text-sm text-gray-500">Tempo para conclusão da operação</p>
+            </div>
+
+            <p className="text-gray-700 mb-3">
+              Pague através do código <strong>PIX copia e cola.</strong>
+            </p>
+
+            {/* PIX Code */}
+            <div className="flex mb-4">
+              <div className="flex-grow border border-gray-300 rounded-l-md p-3 bg-gray-50 overflow-hidden text-ellipsis whitespace-nowrap">
+                {pixCode}
+              </div>
+              <button
+                onClick={copyToClipboard}
+                className="bg-[#3B82F6] text-white px-4 py-2 rounded-r-md hover:bg-blue-600 flex items-center justify-center min-w-[100px]"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4 mr-1" /> Copiado
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-1" /> Copiar
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-          <p className="text-gray-700 mb-1">Pague com o código PIX Copia e Cola:</p>
-          <div className="flex mb-4">
-            <input
-              type="text"
-              value={pixCode}
-              readOnly
-              className="flex-grow border border-gray-300 rounded-l-md p-3 bg-gray-50 text-sm overflow-hidden text-ellipsis whitespace-nowrap"
-            />
-            <Button
-              onClick={copyToClipboard}
-              variant="default"
-              className="bg-[#3B82F6] hover:bg-blue-700 text-white rounded-l-none min-w-[110px]"
-            >
-              {copied ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
-              {copied ? "Copiado" : "Copiar"}
-            </Button>
+        </div>
+
+        {/* How to Pay Section */}
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
+          <div className="p-4">
+            <h3 className="font-bold text-lg text-gray-800 mb-4">Como pagar o seu pedido</h3>
+
+            <div className="space-y-4">
+              <div className="flex">
+                <div className="mr-3 text-[#00A3C4]">
+                  <FileText size={24} />
+                </div>
+                <div>
+                  <p>
+                    <strong>Copie o código</strong> acima clicando no botão Copiar
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex">
+                <div className="mr-3 text-[#00A3C4]">
+                  <Smartphone size={24} />
+                </div>
+                <div>
+                  <p>
+                    <strong>Abra o aplicativo de seu banco</strong> e selecione <strong>Copia e Cola</strong> na opção
+                    de <strong>pagamento por PIX</strong>. Certifique-se que os dados estão corretos e finalize o
+                    pagamento
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-          <p className="text-gray-500 mb-2 text-sm">ou</p>
-          <Button
-            onClick={() => setShowQrCode(true)}
-            variant="outline"
-            className="w-full mb-6 border-[#10B981] text-[#10B981] hover:bg-green-50"
+        </div>
+
+        {/* QR Code Button */}
+        <div className="text-center mb-6">
+          <p className="text-gray-500 mb-2">ou</p>
+          <button
+            onClick={() => setShowQrCode(!showQrCode)}
+            className="bg-[#10B981] text-white px-6 py-3 rounded-full font-medium hover:bg-green-600 transition-colors flex items-center justify-center mx-auto"
           >
-            <QrCode className="w-5 h-5 mr-2" />
-            Mostrar QR Code
-          </Button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="mr-2"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <rect x="7" y="7" width="3" height="3"></rect>
+              <rect x="14" y="7" width="3" height="3"></rect>
+              <rect x="7" y="14" width="3" height="3"></rect>
+              <rect x="14" y="14" width="3" height="3"></rect>
+            </svg>
+            MOSTRAR QR CODE
+          </button>
         </div>
 
-        {/* Botão "Já paguei via Pix" */}
-        <Button
-          onClick={handlePaymentConfirmed}
-          size="lg"
-          className="w-full bg-[#10B981] hover:bg-[#0d9269] text-white text-base mb-6"
-        >
-          <Check className="w-5 h-5 mr-2" />
-          Já paguei via Pix
-        </Button>
-
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6 p-6">
-          <h3 className="font-bold text-lg text-gray-800 mb-4">Como pagar o seu pedido</h3>
-          <div className="space-y-4 text-sm">
-            <div className="flex items-start">
-              <FileText size={20} className="mr-3 text-[#00A3C4] flex-shrink-0 mt-1" />
-              <p>
-                <strong>Copie o código</strong> acima e cole no app do seu banco na área PIX Copia e Cola.
-              </p>
-            </div>
-            <div className="flex items-start">
-              <Smartphone size={20} className="mr-3 text-[#00A3C4] flex-shrink-0 mt-1" />
-              <p>
-                Ou <strong>escaneie o QR Code</strong> com a câmera do seu celular no app do banco.
-              </p>
-            </div>
-          </div>
+        {/* Payment Completed Button */}
+        <div className="text-center mb-6">
+          <button
+            onClick={() => router.push(`/thank-you?pedido=${orderNumber}`)}
+            className="bg-[#10B981] text-white px-8 py-3 rounded-full font-medium hover:bg-green-600 transition-colors flex items-center justify-center mx-auto"
+          >
+            <Check className="w-5 h-5 mr-2" />
+            Já finalizei o pagamento
+          </button>
         </div>
 
+        {/* QR Code Modal */}
         {showQrCode && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 max-w-sm w-full text-center">
-              <h3 className="font-bold text-lg mb-4">QR Code PIX</h3>
+            <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+              <h3 className="font-bold text-lg mb-4 text-center">QR Code PIX</h3>
               <div className="flex justify-center mb-4">
-                {pixQrCodeUrl ? (
-                  <Image
-                    src={pixQrCodeUrl || "/placeholder.svg"}
-                    alt="QR Code PIX"
-                    width={250}
-                    height={250}
-                    className="border border-gray-300"
-                  />
-                ) : (
-                  <p className="text-red-500">Erro ao carregar QR Code.</p>
-                )}
+                <Image
+                  src={pixQrCodeUrl || "/placeholder.svg"}
+                  alt="QR Code PIX"
+                  width={200}
+                  height={200}
+                  className="border border-gray-200"
+                />
               </div>
-              <p className="text-sm text-gray-500 mb-4">Escaneie o QR Code com o aplicativo do seu banco.</p>
-              <Button onClick={() => setShowQrCode(false)} variant="outline" className="w-full">
+              <p className="text-sm text-gray-500 text-center mb-4">Escaneie o QR Code com o aplicativo do seu banco</p>
+              <button
+                onClick={() => setShowQrCode(false)}
+                className="w-full bg-gray-200 text-gray-800 py-2 rounded-md hover:bg-gray-300"
+              >
                 Fechar
-              </Button>
+              </button>
             </div>
           </div>
         )}
 
-        <div className="text-center text-sm text-gray-600">
-          <p>
-            PEDIDO <span className="text-[#10B981] font-bold">#{orderNumberFromUrl}</span> - {orderStatus}
+        {/* Order Number */}
+        <div className="text-center">
+          <p className="text-gray-700">
+            PEDIDO <span className="text-[#10B981] font-bold">#{orderNumber}</span> - {orderStatus}
           </p>
         </div>
       </div>
