@@ -17,22 +17,25 @@ interface ReviewCarouselProps {
   title?: string
 }
 
-export default function ReviewCarousel({ reviews, title }: ReviewCarouselProps) {
+export default function ReviewCarousel({ reviews = [], title }: ReviewCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
 
+  // Add a safety check to ensure reviews is an array
+  const safeReviews = Array.isArray(reviews) ? reviews : []
+
   const goToNext = () => {
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % reviews.length)
+    setCurrentIndex((prevIndex) => (prevIndex + 1) % safeReviews.length)
   }
 
   const goToPrevious = () => {
-    setCurrentIndex((prevIndex) => (prevIndex - 1 + reviews.length) % reviews.length)
+    setCurrentIndex((prevIndex) => (prevIndex - 1 + safeReviews.length) % safeReviews.length)
   }
 
   return (
     <div className="relative w-full">
       {title && <h3 className="text-lg font-semibold mb-4">{title}</h3>}
       <div className="bg-white rounded-lg shadow-md p-4 border border-gray-100 min-h-[420px]">
-        {reviews.map((review, index) => (
+        {safeReviews.map((review, index) => (
           <div
             key={index}
             className={`transition-opacity duration-300 absolute inset-0 p-4 flex flex-col ${
@@ -78,7 +81,7 @@ export default function ReviewCarousel({ reviews, title }: ReviewCarouselProps) 
         ))}
 
         {/* Navigation Arrows */}
-        {reviews.length > 1 && (
+        {safeReviews.length > 1 && (
           <>
             <button
               className="absolute left-2 top-1/2 -translate-y-1/2 bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-full z-20 w-8 h-8 flex items-center justify-center"
@@ -99,9 +102,9 @@ export default function ReviewCarousel({ reviews, title }: ReviewCarouselProps) 
         )}
 
         {/* Dots indicator */}
-        {reviews.length > 1 && (
+        {safeReviews.length > 1 && (
           <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
-            {reviews.map((_, index) => (
+            {safeReviews.map((_, index) => (
               <button
                 key={index}
                 className={`w-2 h-2 rounded-full ${index === currentIndex ? "bg-[#C1436D]" : "bg-gray-300"}`}

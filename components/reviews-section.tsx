@@ -19,8 +19,8 @@ interface ReviewsSectionProps {
   totalReviews: number
   distribution: ReviewDistribution[]
   reviews: Review[]
-  additionalReviews1: Review[]
-  additionalReviews2: Review[]
+  additionalReviews1?: Review[]
+  additionalReviews2?: Review[]
 }
 
 export default function ReviewsSection({
@@ -28,8 +28,8 @@ export default function ReviewsSection({
   totalReviews,
   distribution,
   reviews,
-  additionalReviews1,
-  additionalReviews2,
+  additionalReviews1 = [],
+  additionalReviews2 = [],
 }: ReviewsSectionProps) {
   // Calcular o total de avaliações para as barras de progresso
   const totalDistributionReviews = distribution.reduce((acc, item) => acc + item.count, 0)
@@ -40,7 +40,7 @@ export default function ReviewsSection({
   const reviewGroup3 = reviews.slice(6)
 
   return (
-    <section className="py-12 px-4 bg-[#F1E9DB] border-t border-gray-200">
+    <section className="py-12 px-4 bg-[#FFFCF6] border-t border-gray-200">
       <div className="max-w-5xl mx-auto">
         <h2 className="text-2xl md:text-3xl font-bold mb-6">Avaliações</h2>
         <div className="border-t border-b border-gray-200 py-8">

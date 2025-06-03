@@ -124,7 +124,7 @@ export default function CartPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F1E9DB] font-anek">
+    <main className="min-h-screen bg-[#FFFCF6] font-anek">
       <Header />
 
       <div className="pt-20 pb-16 px-4">

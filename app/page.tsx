@@ -174,7 +174,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F1E9DB] font-anek">
+    <main className="min-h-screen bg-[#FFFCF6] font-anek">
       <style jsx global>
         {floatingAnimation}
       </style>
@@ -199,7 +199,7 @@ export default function Home() {
         </div>
 
         {/* Informações do produto à direita */}
-        <div className="md:w-2/5 order-2 md:order-2 bg-[#F1E9DB] font-anek">
+        <div className="md:w-2/5 order-2 md:order-2 bg-[#FFFCF6] font-anek">
           {orderSuccess ? (
             <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
               <div className="flex justify-center mb-4">
@@ -373,7 +373,7 @@ export default function Home() {
       </section>
 
       {/* What is Looneca Section */}
-      <section className="bg-[#F1E9DB] py-6 px-4">
+      <section className="bg-[#FFFCF6] py-6 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-2xl md:text-3xl font-bold mb-4">Eternize seu pet em uma caneca</h2>
           <p className="text-lg mb-6">
@@ -394,7 +394,7 @@ export default function Home() {
       </section>
 
       {/* Nova Seção: O que é a caneca Looneca? */}
-      <section className="bg-[#F1E9DB] py-10 px-4 border-t border-gray-200">
+      <section className="bg-[#FFFCF6] py-10 px-4 border-t border-gray-200">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-bold text-center mb-6">O que é a caneca Looneca?</h2>
           <p className="text-lg text-center max-w-3xl mx-auto mb-10">
@@ -421,7 +421,7 @@ export default function Home() {
       </section>
 
       {/* Steps Section */}
-      <section id="order" className="py-8 px-4 bg-[#F1E9DB]">
+      <section id="order" className="py-8 px-4 bg-[#FFFCF6]">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-bold text-center mb-8">Passo a passo para pedir sua Looneca</h2>
 
@@ -499,7 +499,7 @@ export default function Home() {
       </section>
 
       {/* Unique Service Section */}
-      <section className="py-12 px-4 bg-[#F1E9DB] border-t border-gray-200">
+      <section className="py-12 px-4 bg-[#FFFCF6] border-t border-gray-200">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-bold text-center mb-10">
             Tratamos cada Looneca de forma única e personalizada
@@ -724,59 +724,13 @@ export default function Home() {
             author: "Lilian Cescon",
             verified: true,
             rating: 5,
-            comment: "Amei demais! Ficou igualzinho ao meu bebê! Muito obrigada!",
+            comment: "Amei demais! Ficou igualzinho ao meu bebê!",
             imageSrc: "/images/reviews/review9.jpg",
-          },
-        ]}
-        additionalReviews1={[
-          {
-            author: "Laís Dórea",
-            verified: true,
-            rating: 5,
-            comment: "Amei!!",
-            imageSrc: "/images/reviews/review10.jpg",
-          },
-          {
-            author: "Leilaine Assis",
-            verified: true,
-            rating: 5,
-            comment: "Amei poder eternizar a imagem do Theo. Obrigada Petloo por me proporcionar isso.",
-            imageSrc: "/images/reviews/review11.jpg",
-          },
-          {
-            author: "Ana",
-            verified: true,
-            rating: 5,
-            comment: "Meu Deus eu to apaixonada, muito obrigada por cada detalhe! ta perfeito",
-            imageSrc: "/images/reviews/review12.jpg",
-          },
-        ]}
-        additionalReviews2={[
-          {
-            author: "Jessica Mayer",
-            verified: true,
-            rating: 5,
-            comment: "Chegou. É linda! Valeu a espera.",
-            imageSrc: "/images/reviews/review13.jpg",
-          },
-          {
-            author: "Nicole Scheva",
-            verified: true,
-            rating: 5,
-            comment: "Gostaria muito de agradecer a vocês, deu certo o presente! Muito obrigada! de coração ❤️",
-            imageSrc: "/images/reviews/review14.jpg",
-          },
-          {
-            author: "Tânia Almeida",
-            verified: true,
-            rating: 5,
-            comment: "Meu frajola ficou perfeitooo",
-            imageSrc: "/images/reviews/review15.jpg",
           },
         ]}
       />
 
-      {/* Footer */}
+      {/* Footer Section */}
       <Footer />
     </main>
   )
