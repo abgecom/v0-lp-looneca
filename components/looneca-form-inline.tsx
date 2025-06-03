@@ -216,18 +216,25 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
     try {
       // Se o arquivo já for pequeno, não comprimir
       if (file.size <= 1024 * 1024) {
+        console.log("Arquivo pequeno, não comprimindo")
         return file
       }
+
+      console.log("Comprimindo imagem...")
 
       // Criar um canvas para redimensionar a imagem
       const img = new Image()
       const canvas = document.createElement("canvas")
       const ctx = canvas.getContext("2d")
 
+      if (!ctx) {
+        throw new Error("Não foi possível criar contexto do canvas")
+      }
+
       // Carregar a imagem
       await new Promise((resolve, reject) => {
         img.onload = resolve
-        img.onerror = reject
+        img.onerror = () => reject(new Error("Erro ao carregar imagem"))
         img.src = URL.createObjectURL(file)
       })
 
@@ -254,12 +261,18 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
       canvas.height = height
 
       // Desenhar a imagem redimensionada
-      ctx?.drawImage(img, 0, 0, width, height)
+      ctx.drawImage(img, 0, 0, width, height)
 
       // Converter para blob com qualidade reduzida
-      const blob = await new Promise<Blob>((resolve) => {
+      const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(
-          (blob) => resolve(blob as Blob),
+          (blob) => {
+            if (blob) {
+              resolve(blob)
+            } else {
+              reject(new Error("Erro ao comprimir imagem"))
+            }
+          },
           file.type,
           0.7, // Qualidade 70%
         )
@@ -284,6 +297,7 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
     } catch (error) {
       console.error("Erro ao comprimir imagem:", error)
       // Em caso de erro na compressão, retornar o arquivo original
+      console.log("Retornando arquivo original devido ao erro na compressão")
       return file
     }
   }
@@ -291,46 +305,99 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
   // Função para fazer upload de uma única imagem com retry
   const uploadSingleImage = async (file: File, retryCount = 0): Promise<string> => {
     try {
+      // Validar o arquivo antes do upload
+      if (!file || file.size === 0) {
+        throw new Error("Arquivo inválido ou vazio")
+      }
+
+      // Verificar se é uma imagem válida
+      if (!file.type.startsWith("image/")) {
+        throw new Error("Arquivo deve ser uma imagem")
+      }
+
+      // Verificar tamanho máximo (10MB)
+      const maxSize = 10 * 1024 * 1024 // 10MB
+      if (file.size > maxSize) {
+        throw new Error("Arquivo muito grande. Máximo 10MB")
+      }
+
+      console.log(`Iniciando upload: ${file.name}, Tamanho: ${(file.size / 1024 / 1024).toFixed(2)}MB`)
+
       // Comprimir a imagem antes do upload
       const compressedFile = await compressImage(file)
+
+      console.log(`Arquivo comprimido: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`)
 
       // Criar FormData para o upload
       const formData = new FormData()
       formData.append("file", compressedFile)
 
-      // Fazer upload usando fetch
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      })
+      // Fazer upload usando fetch com timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 segundos timeout
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error("Erro na resposta do servidor:", response.status, errorText)
-        throw new Error(`Erro no upload: ${response.status} - ${errorText}`)
-      }
-
-      // Tentar analisar a resposta como JSON
       try {
-        const data = await response.json()
-        if (!data.url) {
-          throw new Error("URL não encontrada na resposta")
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+          signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+
+        console.log(`Response status: ${response.status}`)
+
+        if (!response.ok) {
+          let errorMessage = `Erro HTTP ${response.status}`
+          try {
+            const errorText = await response.text()
+            console.error("Erro na resposta do servidor:", response.status, errorText)
+            errorMessage = errorText || errorMessage
+          } catch (e) {
+            console.error("Erro ao ler resposta de erro:", e)
+          }
+          throw new Error(errorMessage)
         }
+
+        // Tentar analisar a resposta como JSON
+        let data
+        try {
+          const responseText = await response.text()
+          console.log("Response text:", responseText)
+          data = JSON.parse(responseText)
+        } catch (parseError) {
+          console.error("Erro ao analisar resposta JSON:", parseError)
+          throw new Error("Resposta inválida do servidor")
+        }
+
+        if (!data || !data.url) {
+          console.error("Dados da resposta:", data)
+          throw new Error("URL não encontrada na resposta do servidor")
+        }
+
+        console.log("Upload bem-sucedido:", data.url)
         return data.url
-      } catch (parseError) {
-        console.error("Erro ao analisar resposta JSON:", parseError)
-        throw new Error("Resposta inválida do servidor")
+      } catch (fetchError) {
+        clearTimeout(timeoutId)
+        if (fetchError.name === "AbortError") {
+          throw new Error("Upload cancelado por timeout (30s)")
+        }
+        throw fetchError
       }
     } catch (error) {
       console.error(`Erro no upload (tentativa ${retryCount + 1}):`, error)
 
-      // Tentar novamente até 3 vezes em caso de falha
+      // Tentar novamente até 2 vezes em caso de falha
       if (retryCount < 2) {
         console.log(`Tentando novamente (${retryCount + 2}/3)...`)
+        // Aguardar um pouco antes de tentar novamente
+        await new Promise((resolve) => setTimeout(resolve, 1000 * (retryCount + 1)))
         return uploadSingleImage(file, retryCount + 1)
       }
 
-      throw error
+      // Se todas as tentativas falharam, lançar erro mais específico
+      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido no upload"
+      throw new Error(`Falha no upload após 3 tentativas: ${errorMessage}`)
     }
   }
 

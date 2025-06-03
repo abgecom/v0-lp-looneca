@@ -1248,6 +1248,20 @@ export default function CheckoutPage() {
                   Termos de Serviço
                 </Link>
               </div>
+
+              {/* Adicionar esta nova seção */}
+              <div className="mt-4 text-center">
+                <p className="text-sm text-gray-600 mb-3">Petloo - Todos os direitos reservados</p>
+                <div className="flex justify-center">
+                  <Image
+                    src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-KSAVnVrLk1AvbhF07h55u42sGHYCX4.png"
+                    alt="Site Seguro"
+                    width={200}
+                    height={60}
+                    className="h-12 w-auto"
+                  />
+                </div>
+              </div>
             </form>
           </div>
 
