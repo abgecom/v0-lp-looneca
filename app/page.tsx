@@ -728,6 +728,52 @@ export default function Home() {
             imageSrc: "/images/reviews/review9.jpg",
           },
         ]}
+         additionalReviews1={[
+          {
+            author: "Laís Dórea",
+            verified: true,
+            rating: 5,
+            comment: "Amei!!",
+            imageSrc: "/images/reviews/review10.jpg",
+          },
+          {
+            author: "Leilaine Assis",
+            verified: true,
+            rating: 5,
+            comment: "Amei poder eternizar a imagem do Theo. Obrigada Petloo por me proporcionar isso.",
+            imageSrc: "/images/reviews/review11.jpg",
+          },
+          {
+            author: "Ana",
+            verified: true,
+            rating: 5,
+            comment: "Meu Deus eu to apaixonada, muito obrigada por cada detalhe! ta perfeito",
+            imageSrc: "/images/reviews/review12.jpg",
+          },
+        ]}
+        additionalReviews2={[
+          {
+            author: "Jessica Mayer",
+            verified: true,
+            rating: 5,
+            comment: "Chegou. É linda! Valeu a espera.",
+            imageSrc: "/images/reviews/review13.jpg",
+          },
+          {
+            author: "Nicole Scheva",
+            verified: true,
+            rating: 5,
+            comment: "Gostaria muito de agradecer a vocês, deu certo o presente! Muito obrigada! de coração ❤️",
+            imageSrc: "/images/reviews/review14.jpg",
+          },
+          {
+            author: "Tânia Almeida",
+            verified: true,
+            rating: 5,
+            comment: "Meu frajola ficou perfeitooo",
+            imageSrc: "/images/reviews/review15.jpg",
+          },
+        ]}
       />
 
       {/* Footer Section */}
