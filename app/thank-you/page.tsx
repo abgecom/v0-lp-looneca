@@ -6,6 +6,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { ChevronDown, ChevronUp, Check, ArrowRight } from "lucide-react"
 import { useCart } from "@/contexts/cart-context"
+import { getPedidoByIdPagamento } from "@/actions/pedidos-actions"
 
 interface OrderData {
   pedido_numero: number
@@ -33,83 +34,119 @@ export default function ThankYouPage() {
   const [showOrderSummary, setShowOrderSummary] = useState(false)
   const [orderData, setOrderData] = useState<OrderData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [hasInitialized, setHasInitialized] = useState(false)
 
-  // Get order number from URL params
+  // Capturar parâmetros da URL
   const orderNumber = searchParams.get("pedido") || searchParams.get("orderNumber")
+  const idPagamento = searchParams.get("id_pagamento")
 
   useEffect(() => {
-    // If no order number, redirect to home
-    if (!orderNumber) {
+    // Evitar múltiplas execuções
+    if (hasInitialized) return
+    setHasInitialized(true)
+
+    // Se não tem nem pedido nem id_pagamento, redirecionar
+    if (!orderNumber && !idPagamento) {
       router.push("/")
       return
     }
 
-    // For now, we'll use mock data based on the reference image
-    // In a real implementation, you would fetch from Supabase using the order number
-    const mockOrderData: OrderData = {
-      pedido_numero: Number.parseInt(orderNumber) || 10410,
-      nome_cliente: "GABRIEL",
-      email_cliente: "gabrielcostalonga@gmail.com",
-      telefone_cliente: "+5527997831907",
-      cpf_cliente: "13699206793",
-      endereco_cliente: "Rua Milton Caldeira, 13",
-      numero_residencia_cliente: "13",
-      complemento_cliente: "",
-      bairro_cliente: "Vila Velha ES",
-      cidade_cliente: "Itapuã",
-      estado_cliente: "ES",
-      cep_cliente: "29101-650",
-      itens_escolhidos:
-        cart.items.length > 0
-          ? cart.items
-          : [
-              {
-                id: "shampoo-neutro",
-                name: "Shampoo Neutro para cães e gatos Petloo",
-                price: 49.9,
-                quantity: 1,
-                imageSrc: "/placeholder.svg?height=80&width=80",
-              },
-            ],
-      metodo_pagamento: "PIX",
-      total_pago: 67.8,
-      status_pagamento: "paid",
+    // Se temos id_pagamento, buscar dados reais do Supabase
+    if (idPagamento) {
+      getPedidoByIdPagamento(idPagamento)
+        .then((res) => {
+          if (res.success && res.data) {
+            setOrderData({
+              pedido_numero: res.data.pedido_numero,
+              nome_cliente: res.data.nome_cliente,
+              email_cliente: res.data.email_cliente,
+              telefone_cliente: res.data.telefone_cliente,
+              cpf_cliente: res.data.cpf_cliente,
+              endereco_cliente: res.data.endereco_cliente,
+              numero_residencia_cliente: res.data.numero_residencia_cliente,
+              complemento_cliente: res.data.complemento_cliente || "",
+              bairro_cliente: res.data.bairro_cliente,
+              cidade_cliente: res.data.cidade_cliente,
+              estado_cliente: res.data.estado_cliente,
+              cep_cliente: res.data.cep_cliente,
+              itens_escolhidos: res.data.itens_escolhidos || [],
+              metodo_pagamento: res.data.metodo_pagamento || "PIX",
+              total_pago: res.data.total_pago,
+              status_pagamento: res.data.status_pagamento || "paid",
+            })
+            // Limpar carrinho após pedido confirmado
+            cart.clearCart()
+          } else {
+            console.error("Erro ao buscar pedido:", res.error)
+            // Se não encontrar o pedido, usar dados mock como fallback
+            setOrderData(getMockOrderData())
+          }
+          setIsLoading(false)
+        })
+        .catch((error) => {
+          console.error("Erro na busca do pedido:", error)
+          setOrderData(getMockOrderData())
+          setIsLoading(false)
+        })
+    } else {
+      // Fallback para dados mock se não tiver id_pagamento (compatibilidade)
+      setOrderData(getMockOrderData())
+      setIsLoading(false)
+      cart.clearCart()
     }
+  }, [orderNumber, idPagamento, router, cart, hasInitialized])
 
-    setOrderData(mockOrderData)
-    setIsLoading(false)
-
-    // Clear cart after successful order
-    cart.clearCart()
-  }, [orderNumber, router, cart])
+  // Função para dados mock
+  const getMockOrderData = (): OrderData => ({
+    pedido_numero: Number.parseInt(orderNumber || "10410") || 10410,
+    nome_cliente: "GABRIEL",
+    email_cliente: "gabrielcostalonga@gmail.com",
+    telefone_cliente: "+5527997831907",
+    cpf_cliente: "13699206793",
+    endereco_cliente: "Rua Milton Caldeira, 13",
+    numero_residencia_cliente: "13",
+    complemento_cliente: "",
+    bairro_cliente: "Vila Velha ES",
+    cidade_cliente: "Itapuã",
+    estado_cliente: "ES",
+    cep_cliente: "29101-650",
+    itens_escolhidos:
+      cart.items.length > 0
+        ? cart.items
+        : [
+            {
+              id: "looneca-personalizada",
+              name: "Caneca Personalizada com seu Pet",
+              price: 49.9,
+              quantity: 1,
+              imageSrc: "/images/looneca-group-image.png",
+            },
+          ],
+    metodo_pagamento: "PIX",
+    total_pago: 67.8,
+    status_pagamento: "paid",
+  })
 
   // Format price for display
   const formatPrice = (price: number) => {
     return price.toFixed(2).replace(".", ",")
   }
 
-  // Calculate totals
-  const subtotal = orderData?.itens_escolhidos.reduce((total, item) => total + item.price * item.quantity, 0) || 49.9
+  // Calcular totais usando dados reais do pedido
+  const subtotal =
+    orderData?.itens_escolhidos?.reduce((total, item) => total + (item.price || 0) * (item.quantity || 1), 0) ||
+    (orderData?.total_pago ? orderData.total_pago - 17.9 : 49.9)
   const shipping = 17.9
   const discount = 0
   const total = orderData?.total_pago || 67.8
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F1542E]"></div>
-      </div>
-    )
-  }
-
-  if (!orderData) {
+  // Loading state melhorado
+  if (isLoading || !orderData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Pedido não encontrado</h1>
-          <Link href="/" className="text-[#F1542E] hover:underline">
-            Voltar para a loja
-          </Link>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F1542E] mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando informações do pedido...</p>
         </div>
       </div>
     )
@@ -135,30 +172,44 @@ export default function ThankYouPage() {
           {showOrderSummary && (
             <div className="p-4 transition-all duration-300 ease-in-out">
               {/* Items */}
-              {orderData.itens_escolhidos.map((item, index) => (
-                <div key={index} className="flex items-center py-3 border-b border-gray-100 last:border-0">
-                  <div className="relative">
-                    <div className="w-16 h-16 bg-gray-100 rounded overflow-hidden mr-3 flex-shrink-0">
-                      <Image
-                        src={item.imageSrc || "/placeholder.svg?height=64&width=64&query=product"}
-                        alt={item.name}
-                        width={64}
-                        height={64}
-                        className="w-full h-full object-cover"
-                      />
+              {orderData.itens_escolhidos && orderData.itens_escolhidos.length > 0 ? (
+                orderData.itens_escolhidos.map((item, index) => (
+                  <div
+                    key={`item-${index}-${item.id || index}`}
+                    className="flex items-center py-3 border-b border-gray-100 last:border-0"
+                  >
+                    <div className="relative">
+                      <div className="w-16 h-16 bg-gray-100 rounded overflow-hidden mr-3 flex-shrink-0">
+                        <Image
+                          src={item.imageSrc || "/images/looneca-group-image.png"}
+                          alt={item.name || "Produto"}
+                          width={64}
+                          height={64}
+                          className="w-full h-full object-cover"
+                          priority={index === 0}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement
+                            target.src = "/images/looneca-group-image.png"
+                          }}
+                        />
+                      </div>
+                      <div className="absolute -top-2 -right-2 bg-gray-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">
+                        {item.quantity || 1}
+                      </div>
                     </div>
-                    <div className="absolute -top-2 -right-2 bg-gray-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">
-                      {item.quantity}
+                    <div className="flex-grow">
+                      <p className="font-medium text-sm">{item.name || "Produto"}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">R$ {formatPrice((item.price || 0) * (item.quantity || 1))}</p>
                     </div>
                   </div>
-                  <div className="flex-grow">
-                    <p className="font-medium text-sm">{item.name}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">R$ {formatPrice(item.price * item.quantity)}</p>
-                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4 text-gray-500">
+                  <p>Nenhum item encontrado</p>
                 </div>
-              ))}
+              )}
 
               {/* Totals */}
               <div className="mt-4 space-y-2">
@@ -216,7 +267,7 @@ export default function ThankYouPage() {
               <p>{orderData.nome_cliente}</p>
               <p>{orderData.cpf_cliente}</p>
               <p>
-                {orderData.endereco_cliente} - {orderData.bairro_cliente}
+                {orderData.endereco_cliente}, {orderData.numero_residencia_cliente} - {orderData.bairro_cliente}
               </p>
               <p>
                 {orderData.cidade_cliente} {orderData.estado_cliente}

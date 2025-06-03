@@ -191,3 +191,25 @@ export async function criarPedido(data: PedidoData, req?: Request) {
     return { success: false, error: "Erro interno ao processar pedido" }
   }
 }
+
+// Adicionar a nova função getPedidoByIdPagamento após a função criarPedido
+
+export async function getPedidoByIdPagamento(idPagamento: string) {
+  try {
+    console.log("=== DEBUG BUSCAR PEDIDO POR ID PAGAMENTO ===")
+    console.log("ID Pagamento:", idPagamento)
+
+    const { data: pedido, error } = await supabase.from("pedidos").select("*").eq("id_pagamento", idPagamento).single()
+
+    if (error) {
+      console.error("Erro ao buscar pedido:", error)
+      return { success: false, error: "Pedido não encontrado" }
+    }
+
+    console.log("Pedido encontrado:", pedido)
+    return { success: true, data: pedido }
+  } catch (error) {
+    console.error("Erro ao buscar pedido:", error)
+    return { success: false, error: "Erro interno ao buscar pedido" }
+  }
+}

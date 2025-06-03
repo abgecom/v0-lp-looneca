@@ -5,6 +5,7 @@ import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Copy, Check, Smartphone, FileText } from "lucide-react"
 import { useCart } from "@/contexts/cart-context"
+import { getPedidoByIdPagamento } from "@/actions/pedidos-actions"
 
 export default function PixPaymentPage() {
   const router = useRouter()
@@ -15,13 +16,18 @@ export default function PixPaymentPage() {
   const cart = useCart()
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const [showOrderSummary, setShowOrderSummary] = useState(false)
+  const [pedidoData, setPedidoData] = useState<any>(null)
+  const [isLoadingPedido, setIsLoadingPedido] = useState(true)
 
-  // Get data from URL parameters
+  // Get data from URL parameters - mantendo exatamente como estava
   const pixCode = searchParams.get("pixCode") || ""
   const pixQrCodeUrl = searchParams.get("pixQrCodeUrl") || ""
-  const orderId = searchParams.get("orderId") || "10410" // Default to 10410 if not provided
-  const orderNumber = searchParams.get("pedido_numero") || "1028" // Default to 1028 if not provided, next will be 1029
+  const orderId = searchParams.get("orderId") || "10410" // Este é o id_pagamento
+  const orderNumber = searchParams.get("pedido_numero") || "1028"
   const orderStatus = searchParams.get("status") || "RESERVADO"
+
+  // Capturar id_pagamento da URL (pode vir como orderId ou id_pagamento)
+  const idPagamento = searchParams.get("orderId") || searchParams.get("id_pagamento")
 
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
@@ -44,7 +50,7 @@ export default function PixPaymentPage() {
 
   // Calculate shipping price
   const isShippingFree = cart.totalPrice >= 249.9
-  const shippingPrice = isShippingFree ? 0 : 17.9 // Default shipping price
+  const shippingPrice = isShippingFree ? 0 : 17.9
 
   // Start countdown timer
   useEffect(() => {
@@ -72,6 +78,21 @@ export default function PixPaymentPage() {
     }
   }, [pixCode, pixQrCodeUrl, router])
 
+  // Buscar dados do pedido pelo id_pagamento
+  useEffect(() => {
+    if (idPagamento) {
+      setIsLoadingPedido(true)
+      getPedidoByIdPagamento(idPagamento).then((res) => {
+        if (res.success && res.data) {
+          setPedidoData(res.data)
+        }
+        setIsLoadingPedido(false)
+      })
+    } else {
+      setIsLoadingPedido(false)
+    }
+  }, [idPagamento])
+
   if (!pixCode || !pixQrCodeUrl) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -79,6 +100,11 @@ export default function PixPaymentPage() {
       </div>
     )
   }
+
+  // Usar dados do pedido quando disponíveis, senão usar dados do carrinho
+  const itensParaExibir = pedidoData?.itens_escolhidos || cart.items
+  const totalPedido = pedidoData?.total_pago || cart.totalPrice + (isShippingFree ? 0 : shippingPrice)
+  const subtotalPedido = pedidoData ? pedidoData.total_pago - 17.9 : cart.totalPrice
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -129,7 +155,7 @@ export default function PixPaymentPage() {
           {showOrderSummary && (
             <div className="p-4 transition-all duration-300 ease-in-out">
               {/* Items */}
-              {cart.items.map((item, index) => (
+              {itensParaExibir.map((item, index) => (
                 <div key={index} className="flex justify-between py-2 border-b border-gray-100 last:border-0">
                   <div className="flex items-start">
                     <div className="w-12 h-12 bg-gray-100 rounded overflow-hidden mr-3 flex-shrink-0">
@@ -161,7 +187,7 @@ export default function PixPaymentPage() {
               <div className="mt-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>Subtotal</span>
-                  <span>R$ {formatPrice(cart.totalPrice)}</span>
+                  <span>R$ {formatPrice(subtotalPedido)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Desconto</span>
@@ -177,7 +203,7 @@ export default function PixPaymentPage() {
                 </div>
                 <div className="flex justify-between font-bold text-base pt-2 border-t border-gray-200">
                   <span>Total</span>
-                  <span>R$ {formatPrice(cart.totalPrice + (isShippingFree ? 0 : shippingPrice))}</span>
+                  <span>R$ {formatPrice(totalPedido)}</span>
                 </div>
               </div>
             </div>
@@ -290,7 +316,9 @@ export default function PixPaymentPage() {
         {/* Payment Completed Button */}
         <div className="text-center mb-6">
           <button
-            onClick={() => router.push(`/thank-you?pedido=${orderNumber}`)}
+            onClick={() =>
+              router.push(`/thank-you?id_pagamento=${idPagamento}&pedido=${pedidoData?.pedido_numero || orderNumber}`)
+            }
             className="bg-[#10B981] text-white px-8 py-3 rounded-full font-medium hover:bg-green-600 transition-colors flex items-center justify-center mx-auto"
           >
             <Check className="w-5 h-5 mr-2" />
@@ -323,11 +351,28 @@ export default function PixPaymentPage() {
           </div>
         )}
 
-        {/* Order Number */}
+        {/* Order Number - Dados dinâmicos do pedido */}
         <div className="text-center">
-          <p className="text-gray-700">
-            PEDIDO <span className="text-[#10B981] font-bold">#{orderNumber}</span> - {orderStatus}
-          </p>
+          {!isLoadingPedido && pedidoData ? (
+            <div className="space-y-2">
+              <p className="text-gray-700">
+                PEDIDO <span className="text-[#10B981] font-bold">#{pedidoData.pedido_numero}</span> -{" "}
+                {pedidoData.status_pagamento?.toUpperCase() || "AGUARDANDO"}
+              </p>
+              <p className="text-sm text-gray-600">Cliente: {pedidoData.nome_cliente}</p>
+              <p className="text-sm text-gray-600">
+                Endereço: {pedidoData.endereco_cliente}, {pedidoData.numero_residencia_cliente} -{" "}
+                {pedidoData.bairro_cliente}
+              </p>
+              <p className="text-sm text-gray-600">
+                {pedidoData.cidade_cliente} - {pedidoData.estado_cliente}
+              </p>
+            </div>
+          ) : (
+            <p className="text-gray-700">
+              PEDIDO <span className="text-[#10B981] font-bold">#{orderNumber}</span> - {orderStatus}
+            </p>
+          )}
         </div>
       </div>
     </div>
