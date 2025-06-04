@@ -131,6 +131,25 @@ export default function CheckoutPage() {
     if (cart.isInitialized && !checkoutEventTrackedRef.current) {
       trackFBEvent("InitiateCheckout")
       checkoutEventTrackedRef.current = true
+
+if (typeof window !== "undefined") {
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({
+    event: "begin_checkout",
+    ecommerce: {
+      currency: "BRL",
+      value: cart.totalPrice,
+      items: cart.items.map((item) => ({
+        item_id: item.id,
+        item_name: item.name,
+        price: item.price,
+        quantity: item.quantity
+      }))
+    }
+  });
+}
+
+
     }
   }, [cart.isInitialized])
 

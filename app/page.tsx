@@ -594,7 +594,7 @@ export default function Home() {
             <h3 className="text-xl font-bold mb-3">Serviço de garantia pós-venda</h3>
             <p className="text-sm">
               Estamos atentos a todas as mensagens e observações para que sua Looneca seja o mais fiel possível. Além
-              disso, se seu pedido chegar com alguma avaria, repararemos sem custo algum
+              disso, se seu pedido chegar com alguma avaria, repararemos sem custo algum.
             </p>
           </div>
         </div>
@@ -728,7 +728,7 @@ export default function Home() {
             imageSrc: "/images/reviews/review9.jpg",
           },
         ]}
-         additionalReviews1={[
+        additionalReviews1={[
           {
             author: "Laís Dórea",
             verified: true,
