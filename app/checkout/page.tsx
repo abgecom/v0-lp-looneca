@@ -13,6 +13,12 @@ import { processPayment } from "@/actions/payment-actions"
 import { calculatePaymentAmount } from "@/lib/payment-utils"
 import { trackFBEvent } from "@/components/facebook-pixel"
 
+function formatPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, ""); // remove tudo que não for número
+  return `+55${digits}`;
+}
+
+
 export default function CheckoutPage() {
   const router = useRouter()
   const cart = useCart()
@@ -289,7 +295,7 @@ useEffect(() => {
         email: formData.email,
         first_name: formData.name.split(" ")[0] || "",
         last_name: formData.name.split(" ").slice(1).join(" ") || "",
-        phone: formData.phone,
+        phone: formatPhone(formData.phone),
         _fbc: getCookie("_fbc"),
         _fbp: getCookie("_fbp"),
         fbclid: getFbclidFromUrl()
@@ -556,7 +562,18 @@ useEffect(() => {
         })
 
 if (typeof window !== "undefined") {
-  const eventId = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`; // Geração de ID único
+  const eventId = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+
+  const getCookie = (name: string): string | undefined => {
+    const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+    return match ? match[2] : undefined;
+  };
+
+  const getFbclidFromUrl = (): string | undefined => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("fbclid") || undefined;
+  };
+
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({
     event: "purchase",
@@ -571,12 +588,20 @@ if (typeof window !== "undefined") {
         item_id: item.id,
         item_name: item.name,
         price: item.price,
-        quantity: item.quantity,
+        quantity: item.quantity
       }))
+    },
+    user_data: {
+      email: formData.email,
+      first_name: formData.name.split(" ")[0] || "",
+      last_name: formData.name.split(" ").slice(1).join(" ") || "",
+      phone: formatPhone(formData.phone),
+      _fbc: getCookie("_fbc"),
+      _fbp: getCookie("_fbp"),
+      fbclid: getFbclidFromUrl()
     }
   });
 
-  // Também dispara o evento para o Pixel do Meta com event_id
   trackFBEvent("Purchase", {
     value: totalWithShipping,
     currency: "BRL",
