@@ -126,14 +126,10 @@ export default function CheckoutPage() {
     }
   }, [cart.isInitialized, cart.isEmpty, router])
 
-  // Disparar evento InitiateCheckout quando a página carregar
-  useEffect(() => {
-    if (cart.isInitialized && !checkoutEventTrackedRef.current) {
-      trackFBEvent("InitiateCheckout")
-      checkoutEventTrackedRef.current = true
-
+  
+// Disparar evento InitiateCheckout quando a página carregar
 useEffect(() => {
-  if (cart.items.length > 0) {
+  if (cart.isInitialized && !checkoutEventTrackedRef.current) {
     const eventId = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
 
     window.dataLayer = window.dataLayer || [];
@@ -152,19 +148,15 @@ useEffect(() => {
       },
     });
 
-    // Pixel do Facebook com deduplicação
     trackFBEvent("InitiateCheckout", {
       value: cart.totalPrice,
       currency: "BRL",
-      eventID: eventId
+      eventID: eventId,
     });
+
+    checkoutEventTrackedRef.current = true;
   }
-}, [cart.items]);
-
-
-
-    }
-  }, [cart.isInitialized])
+}, [cart.isInitialized, cart.totalPrice, cart.items]);
 
   // Disparar evento Purchase quando o pagamento for bem-sucedido ou quando o QR Code do PIX for exibido
   useEffect(() => {
