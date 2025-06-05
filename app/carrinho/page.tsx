@@ -41,11 +41,35 @@ export default function CartPage() {
 
   // Disparar evento AddToCart quando a página carregar
   useEffect(() => {
-    if (!cartEventTrackedRef.current) {
-      trackFBEvent("AddToCart")
-      cartEventTrackedRef.current = true
-    }
-  }, [])
+  if (!cartEventTrackedRef.current && cart.items.length > 0) {
+    const eventId = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: "add_to_cart",
+      event_id: eventId,
+      ecommerce: {
+        currency: "BRL",
+        value: cart.totalPrice,
+        items: cart.items.map((item) => ({
+          item_id: item.id,
+          item_name: item.name,
+          price: item.price,
+          quantity: item.quantity
+        }))
+      }
+    });
+
+    trackFBEvent("AddToCart", {
+      value: cart.totalPrice,
+      currency: "BRL",
+      eventID: eventId
+    });
+
+    cartEventTrackedRef.current = true;
+  }
+}, [cart.items]);
+
 
   // Atualizar os estados locais quando o carrinho mudar
   useEffect(() => {

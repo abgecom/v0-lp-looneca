@@ -132,7 +132,7 @@ export default function Footer() {
           {/* Coluna 3 - Newsletter */}
           <div>
             <p className="text-sm text-gray-600 mb-4">
-              Receba novidades sobre lançamentos e dicas sobre seus produtos preferidos!
+              Receba novidades sobre lançamentos e dicas sobre seus produtos preferidos.
             </p>
             <div className="flex">
               <input

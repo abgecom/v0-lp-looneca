@@ -132,22 +132,35 @@ export default function CheckoutPage() {
       trackFBEvent("InitiateCheckout")
       checkoutEventTrackedRef.current = true
 
-if (typeof window !== "undefined") {
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({
-    event: "begin_checkout",
-    ecommerce: {
-      currency: "BRL",
+useEffect(() => {
+  if (cart.items.length > 0) {
+    const eventId = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: "begin_checkout",
+      event_id: eventId,
+      ecommerce: {
+        currency: "BRL",
+        value: cart.totalPrice,
+        items: cart.items.map((item) => ({
+          item_id: item.id,
+          item_name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+        })),
+      },
+    });
+
+    // Pixel do Facebook com deduplicação
+    trackFBEvent("InitiateCheckout", {
       value: cart.totalPrice,
-      items: cart.items.map((item) => ({
-        item_id: item.id,
-        item_name: item.name,
-        price: item.price,
-        quantity: item.quantity
-      }))
-    }
-  });
-}
+      currency: "BRL",
+      eventID: eventId
+    });
+  }
+}, [cart.items]);
+
 
 
     }
@@ -551,9 +564,11 @@ if (typeof window !== "undefined") {
         })
 
 if (typeof window !== "undefined") {
+  const eventId = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`; // Geração de ID único
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({
     event: "purchase",
+    event_id: eventId,
     ecommerce: {
       transaction_id: paymentResult.orderId || "",
       affiliation: "Loja Petloo",
@@ -568,7 +583,15 @@ if (typeof window !== "undefined") {
       }))
     }
   });
+
+  // Também dispara o evento para o Pixel do Meta com event_id
+  trackFBEvent("Purchase", {
+    value: totalWithShipping,
+    currency: "BRL",
+    eventID: eventId
+  });
 }
+
 
 
         if (paymentMethod === "pix") {
