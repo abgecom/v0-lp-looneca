@@ -567,7 +567,7 @@ export default function Home() {
               <h3 className="text-xl font-bold mb-3">Acompanhe o processo de produção</h3>
               <p className="text-sm">
                 Estaremos sempre em contato um com o outro para que você veja o processo de produção e acompanhe o
-                andamento da confecção da sua Looneca
+                andamento da confecção da sua Looneca.
               </p>
             </div>
           </div>

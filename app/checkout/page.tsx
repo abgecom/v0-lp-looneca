@@ -522,7 +522,30 @@ if (typeof window !== "undefined") {
           paymentStatus: paymentResult.status || "pending",
         })
 
+if (typeof window !== "undefined") {
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({
+    event: "purchase",
+    ecommerce: {
+      transaction_id: paymentResult.orderId || "",
+      affiliation: "Loja Petloo",
+      value: totalWithShipping,
+      currency: "BRL",
+      payment_type: paymentMethod,
+      items: cart.items.map((item) => ({
+        item_id: item.id,
+        item_name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+      }))
+    }
+  });
+}
+
+
         if (paymentMethod === "pix") {
+
+
           // Redirecionar para a página de pagamento PIX
           router.push(
             `/pix-payment?pixCode=${encodeURIComponent(paymentResult.pixCode || "")}&pixQrCodeUrl=${encodeURIComponent(
