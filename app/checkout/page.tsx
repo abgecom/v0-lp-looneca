@@ -7,17 +7,16 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useCart } from "@/contexts/cart-context"
 import { saveOrderToDatabase } from "@/actions/order-actions"
-import { Loader2, Info, Check } from "lucide-react"
+import { Loader2, Info, Check, Plus, Minus, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { processPayment } from "@/actions/payment-actions"
 import { calculatePaymentAmount } from "@/lib/payment-utils"
 import { trackFBEvent } from "@/components/facebook-pixel"
 
 function formatPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, ""); // remove tudo que não for número
-  return `+55${digits}`;
+  const digits = phone.replace(/\D/g, "") // remove tudo que não for número
+  return `+55${digits}`
 }
-
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -30,6 +29,7 @@ export default function CheckoutPage() {
   const [pixCode, setPixCode] = useState<string | null>(null)
   const [pixQrCodeUrl, setPixQrCodeUrl] = useState<string | null>(null)
   const [showShippingOptions, setShowShippingOptions] = useState(false)
+  const [showOrderSummary, setShowOrderSummary] = useState(true) // Mudado para true (aberto por padrão)
 
   // Refs para rastrear eventos do Facebook Pixel
   const cepInputTrackedRef = useRef(false)
@@ -118,6 +118,29 @@ export default function CheckoutPage() {
     return price.toFixed(2).replace(".", ",")
   }
 
+  // Funções para controlar quantidade
+  const handleIncreaseQuantity = (itemId: string) => {
+    const item = cart.items.find((item) => item.id === itemId)
+    if (item) {
+      cart.updateQuantity(itemId, item.quantity + 1)
+    }
+  }
+
+  const handleDecreaseQuantity = (itemId: string) => {
+    const item = cart.items.find((item) => item.id === itemId)
+    if (item) {
+      if (item.quantity > 1) {
+        cart.updateQuantity(itemId, item.quantity - 1)
+      } else {
+        cart.removeItem(itemId)
+      }
+    }
+  }
+
+  const handleRemoveItem = (itemId: string) => {
+    cart.removeItem(itemId)
+  }
+
   // Verificar se o carrinho está vazio e redirecionar para a página inicial
   useEffect(() => {
     // Aguardar a inicialização do carrinho
@@ -132,37 +155,36 @@ export default function CheckoutPage() {
     }
   }, [cart.isInitialized, cart.isEmpty, router])
 
-  
-// Disparar evento InitiateCheckout quando a página carregar
-useEffect(() => {
-  if (cart.isInitialized && !checkoutEventTrackedRef.current) {
-    const eventId = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+  // Disparar evento InitiateCheckout quando a página carregar
+  useEffect(() => {
+    if (cart.isInitialized && !checkoutEventTrackedRef.current) {
+      const eventId = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`
 
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({
-      event: "begin_checkout",
-      event_id: eventId,
-      ecommerce: {
-        currency: "BRL",
+      window.dataLayer = window.dataLayer || []
+      window.dataLayer.push({
+        event: "begin_checkout",
+        event_id: eventId,
+        ecommerce: {
+          currency: "BRL",
+          value: cart.totalPrice,
+          items: cart.items.map((item) => ({
+            item_id: item.id,
+            item_name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+          })),
+        },
+      })
+
+      trackFBEvent("InitiateCheckout", {
         value: cart.totalPrice,
-        items: cart.items.map((item) => ({
-          item_id: item.id,
-          item_name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-        })),
-      },
-    });
+        currency: "BRL",
+        eventID: eventId,
+      })
 
-    trackFBEvent("InitiateCheckout", {
-      value: cart.totalPrice,
-      currency: "BRL",
-      eventID: eventId,
-    });
-
-    checkoutEventTrackedRef.current = true;
-  }
-}, [cart.isInitialized, cart.totalPrice, cart.items]);
+      checkoutEventTrackedRef.current = true
+    }
+  }, [cart.isInitialized, cart.totalPrice, cart.items])
 
   // Disparar evento Purchase quando o pagamento for bem-sucedido ou quando o QR Code do PIX for exibido
   useEffect(() => {
@@ -274,38 +296,37 @@ useEffect(() => {
     setFormData((prev) => ({ ...prev, cep: value }))
 
     // Disparar evento AddPaymentInfo na primeira vez que o usuário digitar no campo CEP
-   if (!cepInputTrackedRef.current && value.length > 0) {
-  cepInputTrackedRef.current = true;
+    if (!cepInputTrackedRef.current && value.length > 0) {
+      cepInputTrackedRef.current = true
 
-  if (typeof window !== "undefined") {
-    const getCookie = (name: string): string | undefined => {
-      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-      return match ? match[2] : undefined;
-    };
+      if (typeof window !== "undefined") {
+        const getCookie = (name: string): string | undefined => {
+          const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"))
+          return match ? match[2] : undefined
+        }
 
-    const getFbclidFromUrl = (): string | undefined => {
-      const params = new URLSearchParams(window.location.search);
-      return params.get("fbclid") || undefined;
-    };
+        const getFbclidFromUrl = (): string | undefined => {
+          const params = new URLSearchParams(window.location.search)
+          return params.get("fbclid") || undefined
+        }
 
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({
-      event: "user_identified",
-      user_data: {
-        email: formData.email,
-        first_name: formData.name.split(" ")[0] || "",
-        last_name: formData.name.split(" ").slice(1).join(" ") || "",
-        phone: formatPhone(formData.phone),
-        _fbc: getCookie("_fbc"),
-        _fbp: getCookie("_fbp"),
-        fbclid: getFbclidFromUrl()
+        window.dataLayer = window.dataLayer || []
+        window.dataLayer.push({
+          event: "user_identified",
+          user_data: {
+            email: formData.email,
+            first_name: formData.name.split(" ")[0] || "",
+            last_name: formData.name.split(" ").slice(1).join(" ") || "",
+            phone: formatPhone(formData.phone),
+            _fbc: getCookie("_fbc"),
+            _fbp: getCookie("_fbp"),
+            fbclid: getFbclidFromUrl(),
+          },
+        })
       }
-    });
-  }
 
-  trackFBEvent("AddPaymentInfo");
-}
-
+      trackFBEvent("AddPaymentInfo")
+    }
 
     // Se o usuário digitou o 8º dígito, validar e buscar o CEP automaticamente
     if (value.replace(/\D/g, "").length === 8) {
@@ -561,59 +582,55 @@ useEffect(() => {
           paymentStatus: paymentResult.status || "pending",
         })
 
-if (typeof window !== "undefined") {
-  const eventId = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+        if (typeof window !== "undefined") {
+          const eventId = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`
 
-  const getCookie = (name: string): string | undefined => {
-    const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
-    return match ? match[2] : undefined;
-  };
+          const getCookie = (name: string): string | undefined => {
+            const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"))
+            return match ? match[2] : undefined
+          }
 
-  const getFbclidFromUrl = (): string | undefined => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("fbclid") || undefined;
-  };
+          const getFbclidFromUrl = (): string | undefined => {
+            const params = new URLSearchParams(window.location.search)
+            return params.get("fbclid") || undefined
+          }
 
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({
-    event: "purchase",
-    event_id: eventId,
-    ecommerce: {
-      transaction_id: paymentResult.orderId || "",
-      affiliation: "Loja Petloo",
-      value: totalWithShipping,
-      currency: "BRL",
-      payment_type: paymentMethod,
-      items: cart.items.map((item) => ({
-        item_id: item.id,
-        item_name: item.name,
-        price: item.price,
-        quantity: item.quantity
-      }))
-    },
-    user_data: {
-      email: formData.email,
-      first_name: formData.name.split(" ")[0] || "",
-      last_name: formData.name.split(" ").slice(1).join(" ") || "",
-      phone: formatPhone(formData.phone),
-      _fbc: getCookie("_fbc"),
-      _fbp: getCookie("_fbp"),
-      fbclid: getFbclidFromUrl()
-    }
-  });
+          window.dataLayer = window.dataLayer || []
+          window.dataLayer.push({
+            event: "purchase",
+            event_id: eventId,
+            ecommerce: {
+              transaction_id: paymentResult.orderId || "",
+              affiliation: "Loja Petloo",
+              value: totalWithShipping,
+              currency: "BRL",
+              payment_type: paymentMethod,
+              items: cart.items.map((item) => ({
+                item_id: item.id,
+                item_name: item.name,
+                price: item.price,
+                quantity: item.quantity,
+              })),
+            },
+            user_data: {
+              email: formData.email,
+              first_name: formData.name.split(" ")[0] || "",
+              last_name: formData.name.split(" ").slice(1).join(" ") || "",
+              phone: formatPhone(formData.phone),
+              _fbc: getCookie("_fbc"),
+              _fbp: getCookie("_fbp"),
+              fbclid: getFbclidFromUrl(),
+            },
+          })
 
-  trackFBEvent("Purchase", {
-    value: totalWithShipping,
-    currency: "BRL",
-    eventID: eventId
-  });
-}
-
-
+          trackFBEvent("Purchase", {
+            value: totalWithShipping,
+            currency: "BRL",
+            eventID: eventId,
+          })
+        }
 
         if (paymentMethod === "pix") {
-
-
           // Redirecionar para a página de pagamento PIX
           router.push(
             `/pix-payment?pixCode=${encodeURIComponent(paymentResult.pixCode || "")}&pixQrCodeUrl=${encodeURIComponent(
@@ -734,8 +751,192 @@ if (typeof window !== "undefined") {
 
       <div className="max-w-6xl mx-auto py-8 px-4">
         <div className="flex flex-col md:flex-row gap-8">
-          {/* Left column - Customer information and payment */}
-          <div className="md:w-3/5">
+          {/* Mobile: Order summary first, Desktop: Right column - Order summary */}
+          <div className="md:w-2/5 order-1 md:order-2">
+            {/* Título colapsável para mobile */}
+            <div className="md:hidden mb-4">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200"
+                onClick={() => setShowOrderSummary(!showOrderSummary)}
+              >
+                <span className="font-medium">Resumo do pedido</span>
+                <svg
+                  className={`w-5 h-5 transition-transform ${showOrderSummary ? "rotate-180" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+
+            <div
+              className={`bg-white rounded-lg border border-gray-200 p-6 md:sticky md:top-6 ${showOrderSummary ? "block" : "hidden md:block"}`}
+            >
+              {cart.items.map((item, index) => (
+                <div key={index} className="mb-4">
+                  <div className="flex">
+                    <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
+                      <Image
+                        src={item.imageSrc || "/placeholder.svg"}
+                        alt={item.name}
+                        width={80}
+                        height={80}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="ml-4 flex-grow">
+                      <h3 className="font-medium">
+                        {item.name}
+                        <br />
+                        {item.color}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {item.petCount === 1 && "Pet 1: Cachorro Sem Raça Definida"}
+                        {item.petCount === 2 && (
+                          <>
+                            Pet 1: Cachorro Sem Raça Definida
+                            <br />
+                            Pet 2: Cachorro American Staffordshire Terrier
+                          </>
+                        )}
+                        {item.petCount === 3 && (
+                          <>
+                            Pet 1: Cachorro Sem Raça Definida
+                            <br />
+                            Pet 2: Cachorro American Staffordshire Terrier
+                            <br />
+                            Pet 3: Cachorro Golden Retriever
+                          </>
+                        )}
+                      </p>
+                      <div className="flex justify-between items-center mt-2">
+                        {/* Controles de quantidade */}
+                        <div className="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDecreaseQuantity(item.id)}
+                            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                          >
+                            {item.quantity === 1 ? (
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            ) : (
+                              <Minus className="w-4 h-4 text-gray-600" />
+                            )}
+                          </button>
+                          <span className="text-sm font-medium min-w-[2rem] text-center">{item.quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleIncreaseQuantity(item.id)}
+                            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                          >
+                            <Plus className="w-4 h-4 text-gray-600" />
+                          </button>
+                        </div>
+                        <span className="font-medium">R$ {formatPrice(item.price * item.quantity)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Produtos recorrentes - sem controles de quantidade */}
+              {cart.recurringProducts.appPetloo && (
+                <div className="mb-4">
+                  <div className="flex">
+                    <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
+                      <Image
+                        src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/imgapp1-VnnOgP7stsRZkKIeJkojR2Grh3ILVy.png"
+                        alt="App Petloo"
+                        width={80}
+                        height={80}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div className="ml-4 flex-grow">
+                      <h3 className="font-medium">App Petloo</h3>
+                      <p className="text-sm text-green-600 font-medium">GRÁTIS</p>
+                      <div className="flex justify-between mt-1">
+                        <span className="text-sm">Qtd: 1</span>
+                        <span className="font-medium">R$ 0,00</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {cart.recurringProducts.loobook && (
+                <div className="mb-4">
+                  <div className="flex">
+                    <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
+                      <Image
+                        src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/imglivro%2Bapp1-bYzQDKdaCXTRBQgXxgOwAH3pCxOgM4.png"
+                        alt="Livro digital Loobook"
+                        width={80}
+                        height={80}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div className="ml-4 flex-grow">
+                      <h3 className="font-medium">Livro digital Loobook</h3>
+                      <p className="text-sm text-green-600 font-medium">GRÁTIS</p>
+                      <div className="flex justify-between mt-1">
+                        <span className="text-sm">Qtd: 1</span>
+                        <span className="font-medium">R$ 0,00</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-4">
+                <p className="text-sm mb-2">Tem cupom de desconto ou vale presente?</p>
+                <div className="flex mb-4">
+                  <input
+                    type="text"
+                    placeholder="Código do cupom"
+                    className="flex-grow border border-gray-300 rounded-l-md px-3 py-2
+                    focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]"
+                  />
+                  <button className="bg-[#F1542E] text-white px-4 py-2 rounded-r-md hover:bg-[#e04020] transition-colors">
+                    Aplicar
+                  </button>
+                </div>
+              </div>
+
+              <div className="mb-4 border-t border-gray-200 pt-4">
+                <div className="flex justify-between font-medium">
+                  <span>Subtotal</span>
+                  <span>R$ {formatPrice(cart.totalPrice)}</span>
+                </div>
+                {showShippingOptions && (
+                  <div className="flex justify-between mt-2 font-medium">
+                    <span>Frete</span>
+                    {isShippingFree && shippingOption.type === "standard" ? (
+                      <span className="text-green-600">Grátis</span>
+                    ) : (
+                      <span>R$ {formatPrice(getShippingPrice())}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-gray-200 pt-4">
+                <div className="flex justify-between text-xl font-bold">
+                  <span>Total</span>
+                  <span>R$ {formatPrice(totalWithShipping)}</span>
+                </div>
+                <p className="text-sm text-gray-600 mt-2">
+                  Em até 12x{Number(formData.installments) > 1 ? "*" : ""} no cartão de crédito
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile: Order summary first, Desktop: Left column - Customer information and payment */}
+          <div className="md:w-3/5 order-2 md:order-1">
             <div className="mb-6">
               <Link href="/">
                 <Image
@@ -1373,148 +1574,6 @@ if (typeof window !== "undefined") {
                 </div>
               </div>
             </form>
-          </div>
-
-          {/* Right column - Order summary */}
-          <div className="md:w-2/5">
-            <div className="bg-white rounded-lg border border-gray-200 p-6 sticky top-6">
-              {cart.items.map((item, index) => (
-                <div key={index} className="mb-4">
-                  <div className="flex">
-                    <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
-                      <Image
-                        src={item.imageSrc || "/placeholder.svg"}
-                        alt={item.name}
-                        width={80}
-                        height={80}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="ml-4 flex-grow">
-                      <h3 className="font-medium">
-                        {item.name}
-                        <br />
-                        {item.color}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        {item.petCount === 1 && "Pet 1: Cachorro Sem Raça Definida"}
-                        {item.petCount === 2 && (
-                          <>
-                            Pet 1: Cachorro Sem Raça Definida
-                            <br />
-                            Pet 2: Cachorro American Staffordshire Terrier
-                          </>
-                        )}
-                        {item.petCount === 3 && (
-                          <>
-                            Pet 1: Cachorro Sem Raça Definida
-                            <br />
-                            Pet 2: Cachorro American Staffordshire Terrier
-                            <br />
-                            Pet 3: Cachorro Golden Retriever
-                          </>
-                        )}
-                      </p>
-                      <div className="flex justify-between mt-1">
-                        <span className="text-sm">Qtd: {item.quantity}</span>
-                        <span className="font-medium">R$ {formatPrice(item.price * item.quantity)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {/* Produtos recorrentes */}
-              {cart.recurringProducts.appPetloo && (
-                <div className="mb-4">
-                  <div className="flex">
-                    <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
-                      <Image
-                        src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/imgapp1-VnnOgP7stsRZkKIeJkojR2Grh3ILVy.png"
-                        alt="App Petloo"
-                        width={80}
-                        height={80}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <div className="ml-4 flex-grow">
-                      <h3 className="font-medium">App Petloo</h3>
-                      <p className="text-sm text-green-600 font-medium">GRÁTIS</p>
-                      <div className="flex justify-between mt-1">
-                        <span className="text-sm">Qtd: 1</span>
-                        <span className="font-medium">R$ 0,00</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {cart.recurringProducts.loobook && (
-                <div className="mb-4">
-                  <div className="flex">
-                    <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
-                      <Image
-                        src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/imglivro%2Bapp1-bYzQDKdaCXTRBQgXxgOwAH3pCxOgM4.png"
-                        alt="Livro digital Loobook"
-                        width={80}
-                        height={80}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <div className="ml-4 flex-grow">
-                      <h3 className="font-medium">Livro digital Loobook</h3>
-                      <p className="text-sm text-green-600 font-medium">GRÁTIS</p>
-                      <div className="flex justify-between mt-1">
-                        <span className="text-sm">Qtd: 1</span>
-                        <span className="font-medium">R$ 0,00</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-4">
-                <p className="text-sm mb-2">Tem cupom de desconto ou vale presente?</p>
-                <div className="flex mb-4">
-                  <input
-                    type="text"
-                    placeholder="Código do cupom"
-                    className="flex-grow border border-gray-300 rounded-l-md px-3 py-2
-                    focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]"
-                  />
-                  <button className="bg-[#F1542E] text-white px-4 py-2 rounded-r-md hover:bg-[#e04020] transition-colors">
-                    Aplicar
-                  </button>
-                </div>
-              </div>
-
-              <div className="mb-4 border-t border-gray-200 pt-4">
-                <div className="flex justify-between font-medium">
-                  <span>Subtotal</span>
-                  <span>R$ {formatPrice(cart.totalPrice)}</span>
-                </div>
-                {showShippingOptions && (
-                  <div className="flex justify-between mt-2 font-medium">
-                    <span>Frete</span>
-                    {isShippingFree && shippingOption.type === "standard" ? (
-                      <span className="text-green-600">Grátis</span>
-                    ) : (
-                      <span>R$ {formatPrice(getShippingPrice())}</span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="border-t border-gray-200 pt-4">
-                <div className="flex justify-between text-xl font-bold">
-                  <span>Total</span>
-                  <span>R$ {formatPrice(totalWithShipping)}</span>
-                </div>
-                <p className="text-sm text-gray-600 mt-2">
-                  Em até 12x{Number(formData.installments) > 1 ? "*" : ""} no cartão de crédito
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
