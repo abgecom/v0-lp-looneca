@@ -41,35 +41,34 @@ export default function CartPage() {
 
   // Disparar evento AddToCart quando a página carregar
   useEffect(() => {
-  if (!cartEventTrackedRef.current && cart.items.length > 0) {
-    const eventId = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+    if (!cartEventTrackedRef.current && cart.items.length > 0) {
+      const eventId = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`
 
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({
-      event: "add_to_cart",
-      event_id: eventId,
-      ecommerce: {
-        currency: "BRL",
+      window.dataLayer = window.dataLayer || []
+      window.dataLayer.push({
+        event: "add_to_cart",
+        event_id: eventId,
+        ecommerce: {
+          currency: "BRL",
+          value: cart.totalPrice,
+          items: cart.items.map((item) => ({
+            item_id: item.id,
+            item_name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+          })),
+        },
+      })
+
+      trackFBEvent("AddToCart", {
         value: cart.totalPrice,
-        items: cart.items.map((item) => ({
-          item_id: item.id,
-          item_name: item.name,
-          price: item.price,
-          quantity: item.quantity
-        }))
-      }
-    });
+        currency: "BRL",
+        eventID: eventId,
+      })
 
-    trackFBEvent("AddToCart", {
-      value: cart.totalPrice,
-      currency: "BRL",
-      eventID: eventId
-    });
-
-    cartEventTrackedRef.current = true;
-  }
-}, [cart.items]);
-
+      cartEventTrackedRef.current = true
+    }
+  }, [cart.items])
 
   // Atualizar os estados locais quando o carrinho mudar
   useEffect(() => {
@@ -182,8 +181,8 @@ export default function CartPage() {
             </div>
           ) : (
             <div className="flex flex-col lg:flex-row gap-8">
-              <div className="lg:w-2/3">
-                {/* Lista de produtos */}
+              {/* Lista de produtos */}
+              <div className="order-1 lg:w-2/3 lg:order-1">
                 <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
                   <div className="p-4 border-b border-gray-200 hidden md:flex">
                     <div className="w-2/5 font-semibold">Produto</div>
@@ -264,96 +263,11 @@ export default function CartPage() {
                     </div>
                   ))}
                 </div>
-
-                {/* Ofertas adicionais */}
-                <div className="space-y-4">
-                  <h2 className="text-xl font-bold">Parabéns, você ganhou dois bônus grátis</h2>
-                  <p className="text-[#4A4A4A] text-[0.9rem] mb-4">
-                    Você terá acesso vip ao App Petloo, onde você encontrará funcionalidades exclusivas 100% gratuitas e
-                    também receberá o nosso Loobook, um guia sobre alimentação, hábitos, saúde e comportamento do seu
-                    pet.
-                  </p>
-
-                  {additionalOffers.map((offer) => (
-                    <div
-                      key={offer.id}
-                      className={`bg-white rounded-lg shadow-md overflow-hidden transition-all duration-200 ${
-                        (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
-                        (offer.id === "loobook" && cart.recurringProducts.loobook)
-                          ? "border-2 border-green-500"
-                          : "border border-gray-200"
-                      }`}
-                    >
-                      <div className="p-4 flex flex-col md:flex-row">
-                        {/* Imagem da oferta */}
-                        <div className="w-full md:w-2/5 flex items-center mb-4 md:mb-0">
-                          <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
-                            <Image
-                              src={offer.imageSrc || "/placeholder.svg"}
-                              alt={offer.name}
-                              width={80}
-                              height={80}
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
-                          <div className="ml-4">
-                            <h3 className="font-semibold">{offer.name}</h3>
-                            <p className="text-sm text-gray-600">{offer.description}</p>
-                            <div className="mt-1 flex items-center">
-                              <span className="line-through text-gray-500 mr-2 text-sm">R$30,00/mês</span>
-                              <span className="font-bold text-green-600">GRÁTIS</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Benefícios e botão de seleção */}
-                        <div className="w-full md:w-3/5 flex flex-col md:flex-row">
-                          <div className="flex-grow">
-                            <ul className="space-y-1">
-                              {offer.benefits.map((benefit, index) => (
-                                <li key={index} className="flex items-start">
-                                  <Check className="w-4 h-4 text-green-500 mt-0.5 mr-2 flex-shrink-0" />
-                                  <span className="text-sm">{benefit}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-
-                          {/* Botão de seleção */}
-                          <div className="mt-4 md:mt-0 md:ml-4 flex items-center justify-end">
-                            <button
-                              onClick={() => toggleOffer(offer.id)}
-                              className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                                (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
-                                (offer.id === "loobook" && cart.recurringProducts.loobook)
-                                  ? "bg-green-500 text-white"
-                                  : "bg-gray-200 text-gray-500"
-                              }`}
-                              aria-label={
-                                (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
-                                (offer.id === "loobook" && cart.recurringProducts.loobook)
-                                  ? "Remover oferta"
-                                  : "Adicionar oferta"
-                              }
-                            >
-                              {(offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
-                              (offer.id === "loobook" && cart.recurringProducts.loobook) ? (
-                                <Check className="w-5 h-5" />
-                              ) : (
-                                <X className="w-5 h-5" />
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </div>
 
               {/* Resumo do pedido */}
-              <div className="lg:w-1/3">
-                <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
+              <div className="order-2 lg:w-1/3 lg:order-3 mb-6 lg:mb-0">
+                <div className="bg-white rounded-lg shadow-md p-6 lg:sticky lg:top-24">
                   <h2 className="text-xl font-bold mb-4">Resumo do Pedido</h2>
 
                   <div className="space-y-3 mb-6">
@@ -436,6 +350,90 @@ export default function CartPage() {
                     </Link>
                   </div>
                 </div>
+              </div>
+
+              {/* Ofertas adicionais */}
+              <div className="order-3 lg:order-2 space-y-4">
+                <h2 className="text-xl font-bold">Parabéns, você ganhou dois bônus grátis</h2>
+                <p className="text-[#4A4A4A] text-[0.9rem] mb-4">
+                  Você terá acesso vip ao App Petloo, onde você encontrará funcionalidades exclusivas 100% gratuitas e
+                  também receberá o nosso Loobook, um guia sobre alimentação, hábitos, saúde e comportamento do seu pet.
+                </p>
+
+                {additionalOffers.map((offer) => (
+                  <div
+                    key={offer.id}
+                    className={`bg-white rounded-lg shadow-md overflow-hidden transition-all duration-200 ${
+                      (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
+                      (offer.id === "loobook" && cart.recurringProducts.loobook)
+                        ? "border-2 border-green-500"
+                        : "border border-gray-200"
+                    }`}
+                  >
+                    <div className="p-4 flex flex-col md:flex-row">
+                      {/* Imagem da oferta */}
+                      <div className="w-full md:w-2/5 flex items-center mb-4 md:mb-0">
+                        <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
+                          <Image
+                            src={offer.imageSrc || "/placeholder.svg"}
+                            alt={offer.name}
+                            width={80}
+                            height={80}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                        <div className="ml-4">
+                          <h3 className="font-semibold">{offer.name}</h3>
+                          <p className="text-sm text-gray-600">{offer.description}</p>
+                          <div className="mt-1 flex items-center">
+                            <span className="line-through text-gray-500 mr-2 text-sm">R$30,00/mês</span>
+                            <span className="font-bold text-green-600">GRÁTIS</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Benefícios e botão de seleção */}
+                      <div className="w-full md:w-3/5 flex flex-col md:flex-row">
+                        <div className="flex-grow">
+                          <ul className="space-y-1">
+                            {offer.benefits.map((benefit, index) => (
+                              <li key={index} className="flex items-start">
+                                <Check className="w-4 h-4 text-green-500 mt-0.5 mr-2 flex-shrink-0" />
+                                <span className="text-sm">{benefit}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {/* Botão de seleção */}
+                        <div className="mt-4 md:mt-0 md:ml-4 flex items-center justify-end">
+                          <button
+                            onClick={() => toggleOffer(offer.id)}
+                            className={`flex items-center justify-center w-8 h-8 rounded-full ${
+                              (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
+                              (offer.id === "loobook" && cart.recurringProducts.loobook)
+                                ? "bg-green-500 text-white"
+                                : "bg-gray-200 text-gray-500"
+                            }`}
+                            aria-label={
+                              (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
+                              (offer.id === "loobook" && cart.recurringProducts.loobook)
+                                ? "Remover oferta"
+                                : "Adicionar oferta"
+                            }
+                          >
+                            {(offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
+                            (offer.id === "loobook" && cart.recurringProducts.loobook) ? (
+                              <Check className="w-5 h-5" />
+                            ) : (
+                              <X className="w-5 h-5" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
