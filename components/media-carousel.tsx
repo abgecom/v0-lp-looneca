@@ -7,38 +7,69 @@ type MediaItem = {
   type: "image" | "video"
   src: string
   alt?: string
+  variant?: string
 }
 
 interface MediaCarouselProps {
   items: MediaItem[]
+  currentIndex?: number
+  onIndexChange?: (index: number) => void
 }
 
-export default function MediaCarousel({ items }: MediaCarouselProps) {
-  const [currentIndex, setCurrentIndex] = useState(0)
+export default function MediaCarousel({ items, currentIndex: externalIndex, onIndexChange }: MediaCarouselProps) {
+  const [internalIndex, setInternalIndex] = useState(0)
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([])
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Efeito para pausar vídeos não visíveis e tocar o atual (se for vídeo)
+  // Use external index if provided, otherwise use internal state
+  const currentIndex = externalIndex !== undefined ? externalIndex : internalIndex
+
+  // Sync external index changes to scroll position
+  useEffect(() => {
+    if (externalIndex !== undefined && scrollContainerRef.current) {
+      const container = scrollContainerRef.current
+      const targetScrollLeft = container.offsetWidth * externalIndex
+
+      // Only scroll if not already at (or very close to) the target position
+      if (Math.abs(container.scrollLeft - targetScrollLeft) > 1) {
+        container.scrollTo({
+          left: targetScrollLeft,
+          behavior: "smooth",
+        })
+      }
+    }
+  }, [externalIndex])
+
+  // Efeito para pausar vídeos não visíveis
   useEffect(() => {
     videoRefs.current.forEach((videoEl, index) => {
-      if (videoEl) {
-        if (index === currentIndex && items[index].type === "video") {
-          // Opcional: videoEl.play(); // Descomente se quiser autoplay ao swipar para um vídeo
-        } else {
-          videoEl.pause()
-        }
+      if (videoEl && index !== currentIndex) {
+        videoEl.pause()
       }
     })
-  }, [currentIndex, items])
+  }, [currentIndex])
 
   // Atualiza o currentIndex baseado na posição do scroll
   const handleScroll = (event: UIEvent<HTMLDivElement>) => {
-    const scrollLeft = event.currentTarget.scrollLeft
-    const itemWidth = event.currentTarget.offsetWidth // Largura de cada item (w-full do container)
-    const newIndex = Math.round(scrollLeft / itemWidth)
-    if (newIndex !== currentIndex) {
-      setCurrentIndex(newIndex)
+    // Clear any existing timeout to avoid premature state updates
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current)
     }
+
+    // Set a timeout to run after scrolling has likely stopped
+    scrollTimeoutRef.current = setTimeout(() => {
+      const container = event.currentTarget
+      const itemWidth = container.offsetWidth
+      const newIndex = Math.round(container.scrollLeft / itemWidth)
+
+      if (newIndex !== currentIndex && newIndex >= 0 && newIndex < items.length) {
+        setInternalIndex(newIndex)
+        if (onIndexChange) {
+          onIndexChange(newIndex)
+        }
+      }
+    }, 150) // 150ms debounce
   }
 
   if (!items || items.length === 0) {
@@ -46,7 +77,6 @@ export default function MediaCarousel({ items }: MediaCarouselProps) {
   }
 
   return (
-    // Container pai para evitar scroll horizontal na página e centralizar o carrossel
     <div className="w-full overflow-x-hidden flex flex-col items-center py-4">
       {/* Slide principal arrastável */}
       <div
@@ -57,7 +87,7 @@ export default function MediaCarousel({ items }: MediaCarouselProps) {
         {items.map((item, index) => (
           <div
             key={`slide-${index}`}
-            className="snap-center flex-shrink-0 w-full h-full flex items-center justify-center p-1" // Adicionado p-1 para pequeno respiro
+            className="snap-center flex-shrink-0 w-full h-full flex items-center justify-center p-1"
             aria-roledescription="slide"
             aria-label={`Slide ${index + 1} de ${items.length}`}
           >
@@ -68,26 +98,26 @@ export default function MediaCarousel({ items }: MediaCarouselProps) {
                 width={1000}
                 height={1000}
                 className="w-full h-full object-contain rounded-lg"
-                priority={index === 0} // Priorizar a primeira imagem
-                draggable={false} // Evitar conflito com swipe
+                priority={index === 0}
+                draggable={false}
               />
             ) : (
               <video
                 ref={(el) => (videoRefs.current[index] = el)}
                 src={item.src}
-                muted // Muted por padrão, usuário pode desmutar
+                muted
                 loop
                 playsInline
-                controls // Controles para o usuário interagir
+                controls
                 className="w-full h-full object-contain rounded-lg"
-                preload="metadata" // Carregar metadados para dimensões e primeiro frame
+                preload="metadata"
               />
             )}
           </div>
         ))}
       </div>
 
-      {/* Miniaturas (apenas como referência visual, sem clique para navegação) */}
+      {/* Miniaturas (apenas como referência visual) */}
       {items.length > 1 && (
         <div className="flex gap-2 overflow-x-auto scroll-smooth mt-4 px-4 w-full max-w-md scrollbar-hide">
           {items.map((item, index) => (
@@ -95,17 +125,17 @@ export default function MediaCarousel({ items }: MediaCarouselProps) {
               key={`thumb-${index}`}
               className={`w-14 h-14 flex-shrink-0 rounded-md border-2 p-0.5 ${
                 index === currentIndex ? "border-black" : "border-transparent"
-              } pointer-events-none`} // pointer-events-none para desabilitar cliques
-              aria-hidden="true" // Esconder de leitores de tela, pois a navegação é pelo swipe
+              } pointer-events-none`}
+              aria-hidden="true"
             >
               {item.type === "image" ? (
                 <Image
                   src={item.src || "/placeholder.svg"}
-                  alt="" // Alt vazio pois é decorativo/referência
+                  alt=""
                   width={64}
                   height={64}
                   className="w-full h-full object-cover rounded-[3px]"
-                  loading="lazy" // Lazy load para miniaturas
+                  loading="lazy"
                 />
               ) : (
                 <div className="w-full h-full relative bg-black rounded-[3px] overflow-hidden">
@@ -128,7 +158,8 @@ export default function MediaCarousel({ items }: MediaCarouselProps) {
           ))}
         </div>
       )}
-      {/* Indicador de pontos (opcional, mas útil para swipe) */}
+
+      {/* Indicador de pontos */}
       {items.length > 1 && (
         <div className="flex justify-center gap-2 mt-3">
           {items.map((_, index) => (
@@ -139,7 +170,6 @@ export default function MediaCarousel({ items }: MediaCarouselProps) {
                   const itemWidth = scrollContainerRef.current.offsetWidth
                   scrollContainerRef.current.scrollTo({ left: itemWidth * index, behavior: "smooth" })
                 }
-                setCurrentIndex(index) // Atualiza o estado imediatamente
               }}
               className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ease-in-out ${
                 index === currentIndex ? "bg-black scale-125" : "bg-gray-300 hover:bg-gray-400"

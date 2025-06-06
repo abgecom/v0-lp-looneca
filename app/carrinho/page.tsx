@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Trash2, Minus, Plus, ArrowLeft, ShoppingBag, Check, X } from "lucide-react"
+import { Trash2, Minus, Plus, ArrowLeft, ShoppingBag, Check } from "lucide-react"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
 import { useCart } from "@/contexts/cart-context"
@@ -182,7 +182,7 @@ export default function CartPage() {
           ) : (
             <div className="flex flex-col lg:flex-row gap-8">
               {/* Lista de produtos */}
-              <div className="order-1 lg:w-2/3 lg:order-1">
+              <div className="order-1 lg:w-6/12 lg:order-1">
                 <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
                   <div className="p-4 border-b border-gray-200 hidden md:flex">
                     <div className="w-2/5 font-semibold">Produto</div>
@@ -266,7 +266,7 @@ export default function CartPage() {
               </div>
 
               {/* Resumo do pedido */}
-              <div className="order-2 lg:w-1/3 lg:order-3 mb-6 lg:mb-0">
+              <div className="order-2 lg:w-3/12 lg:order-3 mb-6 lg:mb-0">
                 <div className="bg-white rounded-lg shadow-md p-6 lg:sticky lg:top-24">
                   <h2 className="text-xl font-bold mb-4">Resumo do Pedido</h2>
 
@@ -353,7 +353,7 @@ export default function CartPage() {
               </div>
 
               {/* Ofertas adicionais */}
-              <div className="order-3 lg:order-2 space-y-4">
+              <div className="order-3 lg:w-3/12 lg:order-2 space-y-4">
                 <h2 className="text-xl font-bold">Parabéns, você ganhou dois bônus grátis</h2>
                 <p className="text-[#4A4A4A] text-[0.9rem] mb-4">
                   Você terá acesso vip ao App Petloo, onde você encontrará funcionalidades exclusivas 100% gratuitas e
@@ -409,12 +409,12 @@ export default function CartPage() {
                         <div className="mt-4 md:mt-0 md:ml-4 flex items-center justify-end">
                           <button
                             onClick={() => toggleOffer(offer.id)}
-                            className={`flex items-center justify-center w-8 h-8 rounded-full ${
+                            className={`flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-150 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                               (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
                               (offer.id === "loobook" && cart.recurringProducts.loobook)
-                                ? "bg-green-500 text-white"
-                                : "bg-gray-200 text-gray-500"
-                            }`}
+                                ? "bg-green-500 hover:bg-green-600 text-white focus:ring-green-500"
+                                : "bg-gray-200 hover:bg-gray-300 text-gray-600 focus:ring-gray-400"
+                            } cursor-pointer`}
                             aria-label={
                               (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
                               (offer.id === "loobook" && cart.recurringProducts.loobook)
@@ -424,9 +424,9 @@ export default function CartPage() {
                           >
                             {(offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
                             (offer.id === "loobook" && cart.recurringProducts.loobook) ? (
-                              <Check className="w-5 h-5" />
+                              <Check className="w-6 h-6" />
                             ) : (
-                              <X className="w-5 h-5" />
+                              <Plus className="w-6 h-6" /> // Alterado para Plus para indicar "adicionar"
                             )}
                           </button>
                         </div>
