@@ -214,26 +214,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return [...prevItems, newItem]
       }
     })
-
-if (typeof window !== "undefined") {
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({
-    event: "add_to_cart",
-    ecommerce: {
-      currency: "BRL",
-      value: newItem.price * newItem.quantity,
-      items: [
-        {
-          item_id: newItem.id,
-          item_name: newItem.name,
-          price: newItem.price,
-          quantity: newItem.quantity
-        }
-      ]
-    }
-  });
-}
-
   }
 
   const removeItem = (itemId: string) => {
