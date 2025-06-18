@@ -10,6 +10,19 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: { persistSession: false },
 })
 
+export interface PedidoItem {
+  id: string
+  name: string
+  color: string
+  petCount: number
+  quantity: number
+  price: number
+  imageSrc: string
+  productId?: string
+  variantId?: string
+  sku?: string
+}
+
 export interface PedidoData {
   customer: {
     email: string
@@ -24,7 +37,7 @@ export interface PedidoData {
     complemento?: string
     bairro: string
   }
-  itens: any[]
+  itens: PedidoItem[]
   recorrentes: {
     appPetloo: boolean
     loobook: boolean
@@ -41,40 +54,11 @@ export interface PedidoData {
   observacoes?: string
 }
 
-// Função para obter os dados do pet armazenados no localStorage
-async function getPetDataFromClient(req: Request) {
-  try {
-    // Tentativa de extrair o cabeçalho cookie
-    const cookieHeader = req.headers.get("cookie")
-    if (!cookieHeader) return null
-
-    // Analisar os cookies
-    const cookies = Object.fromEntries(
-      cookieHeader.split("; ").map((cookie) => {
-        const [name, ...rest] = cookie.split("=")
-        return [name, rest.join("=")]
-      }),
-    )
-
-    // Extrair dados do pet
-    const petDataCookie = cookies["looneca-pet-data"]
-    if (!petDataCookie) return null
-
-    // Decodificar e analisar JSON
-    const decodedData = decodeURIComponent(petDataCookie)
-    return JSON.parse(decodedData)
-  } catch (error) {
-    console.error("Erro ao obter dados do pet do cliente:", error)
-    return null
-  }
-}
-
 export async function criarPedido(data: PedidoData, req?: Request) {
   try {
-    console.log("=== DEBUG CRIAR PEDIDO ===")
-    console.log("Dados recebidos:", data)
+    console.log("=== DEBUG CRIAR PEDIDO (COM TRIGGER ATIVO) ===")
+    console.log("Dados recebidos (data):", JSON.stringify(data, null, 2))
 
-    // Obter o último número de pedido
     const { data: ultimoPedido, error: queryError } = await supabase
       .from("pedidos")
       .select("pedido_numero")
@@ -86,130 +70,109 @@ export async function criarPedido(data: PedidoData, req?: Request) {
       return { success: false, error: "Erro ao gerar número do pedido" }
     }
 
-    // Gerar novo número de pedido
     const novoNumero = ultimoPedido && ultimoPedido.length > 0 ? ultimoPedido[0].pedido_numero + 1 : 1001
-
     const { customer, itens, recorrentes, pagamento } = data
+    const itensEscolhidos: PedidoItem[] = itens // Estes são os itens que vão para a coluna jsonb
 
-    // Se não temos fotos ou raça, tentar buscar do LocalStorage via cookies
+    // Não precisamos mais extrair productIds, variantIds, skus aqui para popular colunas separadas.
+    // O trigger do banco de dados fará isso a partir de 'itens_escolhidos'.
+
     let fotos = data.fotos
     let raca = data.raca
     let observacoes = data.observacoes
-
-    console.log("Dados iniciais do pedido:", { fotos, raca, observacoes })
-
-    // Buscar os dados do carrinho armazenados no localStorage (via cookie)
     const cookieStore = cookies()
     const petDataCookie = cookieStore.get("looneca-pet-data")
-
-    console.log("Cookie encontrado:", petDataCookie)
 
     if (petDataCookie) {
       try {
         const petData = JSON.parse(petDataCookie.value)
-        console.log("Dados do pet recuperados do cookie:", petData)
         fotos = fotos || petData.photos
         raca = raca || petData.typeBreed
         observacoes = observacoes || petData.notes
-        console.log("Dados após recuperação do cookie:", { fotos, raca, observacoes })
       } catch (error) {
         console.error("Erro ao analisar cookie de dados do pet:", error)
       }
-    } else {
-      console.log("Cookie de dados do pet não encontrado")
     }
 
-    // Se ainda não temos os dados, tentar buscá-los do banco de dados usando o email
     if ((!fotos || !raca) && customer.email) {
-      console.log("Tentando buscar dados do pet no banco de dados para o email:", customer.email)
-
-      // Buscar na tabela looneca_pedidos
-      const { data: pedidosData, error: pedidosError } = await supabase
+      const { data: pedidosDataDb, error: pedidosErrorDb } = await supabase
         .from("looneca_pedidos")
         .select("fotos_urls, tipo_raca_pet, observacao")
+        .eq("email_cliente", customer.email)
         .order("data_criacao", { ascending: false })
         .limit(1)
-
-      if (!pedidosError && pedidosData && pedidosData.length > 0) {
-        console.log("Dados do pet encontrados na tabela looneca_pedidos:", pedidosData[0])
-        fotos = fotos || pedidosData[0].fotos_urls
-        raca = raca || pedidosData[0].tipo_raca_pet
-        observacoes = observacoes || pedidosData[0].observacao
-        console.log("Dados após recuperação do banco:", { fotos, raca, observacoes })
-      } else {
-        console.log("Nenhum dado encontrado na tabela looneca_pedidos:", pedidosError)
+      if (!pedidosErrorDb && pedidosDataDb && pedidosDataDb.length > 0) {
+        fotos = fotos || pedidosDataDb[0].fotos_urls
+        raca = raca || pedidosDataDb[0].tipo_raca_pet
+        observacoes = observacoes || pedidosDataDb[0].observacao
       }
     }
 
-    console.log("Dados finais antes de inserir:", { fotos, raca, observacoes })
-
-    // Inserir novo pedido
-    const { data: novoPedido, error: insertError } = await supabase
-      .from("pedidos")
-      .insert({
-        pedido_numero: novoNumero,
-        email_cliente: customer.email,
-        nome_cliente: customer.name,
-        telefone_cliente: customer.phone,
-        cpf_cliente: customer.cpf,
-        cep_cliente: customer.cep,
-        cidade_cliente: customer.cidade,
-        estado_cliente: customer.estado,
-        endereco_cliente: customer.endereco,
-        numero_residencia_cliente: customer.numero,
-        complemento_cliente: customer.complemento || "",
-        bairro_cliente: customer.bairro,
-        itens_escolhidos: itens,
-        produtos_recorrentes: recorrentes,
-        metodo_pagamento: pagamento.metodo,
-        total_pago: pagamento.total,
-        id_pagamento: pagamento.id,
-        status_pagamento: pagamento.status,
-        data_pagamento: pagamento.data,
-        atualizacao_pagamento: pagamento.data,
-        fotos_pet: fotos || null,
-        raca_pet: raca || "",
-      })
-      .select()
-
-    if (insertError) {
-      console.error("Erro ao inserir pedido:", insertError)
-      return { success: false, error: "Erro ao criar pedido" }
+    const dadosParaInserir = {
+      pedido_numero: novoNumero,
+      email_cliente: customer.email,
+      nome_cliente: customer.name,
+      telefone_cliente: customer.phone,
+      cpf_cliente: customer.cpf,
+      cep_cliente: customer.cep,
+      cidade_cliente: customer.cidade,
+      estado_cliente: customer.estado,
+      endereco_cliente: customer.endereco,
+      numero_residencia_cliente: customer.numero,
+      complemento_cliente: customer.complemento || "",
+      bairro_cliente: customer.bairro,
+      itens_escolhidos: itensEscolhidos, // O trigger usará esta coluna
+      produtos_recorrentes: recorrentes,
+      metodo_pagamento: pagamento.metodo,
+      total_pago: pagamento.total,
+      id_pagamento: pagamento.id,
+      status_pagamento: pagamento.status,
+      data_pagamento: pagamento.data,
+      atualizacao_pagamento: pagamento.data,
+      fotos_pet: fotos || null,
+      raca_pet: raca || "",
+      // As colunas product_ids, variant_ids, skus serão populadas pelo trigger
     }
 
-    console.log("Pedido criado com sucesso:", {
-      pedidoNumero: novoNumero,
-      email: customer.email,
-      totalFotos: fotos ? (Array.isArray(fotos) ? fotos.length : "objeto") : "nenhuma",
-      raca: raca || "não informada",
-      pedidoInserido: novoPedido[0],
-    })
+    console.log("--- OBJETO PARA INSERÇÃO (trigger irá popular IDs) ---", JSON.stringify(dadosParaInserir, null, 2))
 
-    return { success: true, pedido: novoPedido[0] }
+    const { data: novoPedido, error: insertError } = await supabase.from("pedidos").insert(dadosParaInserir).select(
+      // Mantemos o select explícito para verificar o resultado
+      "id, pedido_numero, email_cliente, nome_cliente, telefone_cliente, cpf_cliente, cep_cliente, cidade_cliente, estado_cliente, endereco_cliente, numero_residencia_cliente, complemento_cliente, bairro_cliente, itens_escolhidos, produtos_recorrentes, metodo_pagamento, total_pago, id_pagamento, status_pagamento, data_pagamento, atualizacao_pagamento, fotos_pet, raca_pet, criado_em, custumer, product_ids, variant_ids, skus",
+    )
+
+    if (insertError) {
+      console.error("!!! ERRO AO INSERIR PEDIDO (COM TRIGGER):", JSON.stringify(insertError, null, 2))
+      return { success: false, error: "Erro ao criar pedido no banco de dados" }
+    }
+
+    if (novoPedido && novoPedido.length > 0) {
+      console.log("✅ PEDIDO CRIADO (COM TRIGGER) - Detalhes dos Arrays Retornados pelo SELECT:")
+      console.log("Retorned product_ids:", JSON.stringify(novoPedido[0].product_ids))
+      console.log("Retorned variant_ids:", JSON.stringify(novoPedido[0].variant_ids))
+      console.log("Retorned skus:", JSON.stringify(novoPedido[0].skus))
+      console.log("Objeto completo retornado:", JSON.stringify(novoPedido[0], null, 2))
+    } else {
+      console.log("⚠️ PEDIDO CRIADO (COM TRIGGER), MAS NENHUM DADO RETORNADO PELO SELECT.")
+    }
+
+    return { success: true, pedido: novoPedido ? novoPedido[0] : null }
   } catch (error) {
-    console.error("Erro ao criar pedido:", error)
+    console.error("!!! ERRO GERAL NA FUNÇÃO CRIARPEDIDO (COM TRIGGER):", error)
     return { success: false, error: "Erro interno ao processar pedido" }
   }
 }
 
-// Adicionar a nova função getPedidoByIdPagamento após a função criarPedido
-
 export async function getPedidoByIdPagamento(idPagamento: string) {
   try {
-    console.log("=== DEBUG BUSCAR PEDIDO POR ID PAGAMENTO ===")
-    console.log("ID Pagamento:", idPagamento)
-
     const { data: pedido, error } = await supabase.from("pedidos").select("*").eq("id_pagamento", idPagamento).single()
-
     if (error) {
-      console.error("Erro ao buscar pedido:", error)
+      console.error("Erro ao buscar pedido por ID de pagamento:", error)
       return { success: false, error: "Pedido não encontrado" }
     }
-
-    console.log("Pedido encontrado:", pedido)
     return { success: true, data: pedido }
   } catch (error) {
-    console.error("Erro ao buscar pedido:", error)
+    console.error("Erro interno ao buscar pedido por ID de pagamento:", error)
     return { success: false, error: "Erro interno ao buscar pedido" }
   }
 }

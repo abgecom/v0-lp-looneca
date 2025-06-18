@@ -11,6 +11,9 @@ export interface CartItem {
   quantity: number
   price: number
   imageSrc: string
+  productId?: string // Novo campo Shopify
+  variantId?: string // Novo campo Shopify
+  sku?: string // Novo campo Shopify
 }
 
 interface CartContextType {
@@ -33,6 +36,37 @@ interface CartContextType {
   petTypeBreed: string
   petNotes: string
   setPetData: (photos: string[], typeBreed: string, notes: string) => void
+}
+
+function getVariantInfo(color: string, petCount: number) {
+  // Remove " Prisma" se existir e ajusta "Branco" para "Branca"
+  let normalizedColor = color.replace(" Prisma", "").trim()
+  if (normalizedColor === "Branco") normalizedColor = "Branca"
+
+  const map = {
+    Branca: {
+      1: { variantId: "49929335341378", sku: "LOONEBRANCA" },
+      2: { variantId: "49929335374146", sku: "LOONEBRANCA" },
+      3: { variantId: "49929335406914", sku: "LOONEBRANCA" },
+    },
+    Rosa: {
+      1: { variantId: "50000505209154", sku: "LOONEROSA" },
+      2: { variantId: "50000506782018", sku: "LOONEROSA" },
+      3: { variantId: "50000507142466", sku: "LOONEROSA" },
+    },
+    Roxo: {
+      1: { variantId: "50000508158274", sku: "LOONEROXO" },
+      2: { variantId: "50000508518722", sku: "LOONEROXO" },
+      3: { variantId: "50000508617026", sku: "LOONEROXO" },
+    },
+    Azul: {
+      1: { variantId: "50000509108546", sku: "LOONEAZUL" },
+      2: { variantId: "50000509239618", sku: "LOONEAZUL" },
+      3: { variantId: "50000509337922", sku: "LOONEAZUL" },
+    },
+  }
+
+  return map[normalizedColor]?.[petCount] || { variantId: "", sku: "" }
 }
 
 // Valor inicial do contexto
@@ -198,42 +232,48 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const addItem = (newItem: CartItem) => {
+    const variantInfo = getVariantInfo(newItem.color, newItem.petCount)
+
+    const enrichedItem = {
+      ...newItem,
+      productId: "9733623644482", // ID fixo do produto Shopify
+      variantId: variantInfo.variantId,
+      sku: variantInfo.sku,
+    }
+
     setItems((prevItems) => {
-      // Verificar se o item já existe no carrinho (mesma cor e quantidade de pets)
       const existingItemIndex = prevItems.findIndex(
-        (item) => item.id === newItem.id && item.color === newItem.color && item.petCount === newItem.petCount,
+        (item) =>
+          item.id === enrichedItem.id && item.color === enrichedItem.color && item.petCount === enrichedItem.petCount,
       )
 
       if (existingItemIndex >= 0) {
-        // Se o item já existe, atualizar a quantidade
         const updatedItems = [...prevItems]
-        updatedItems[existingItemIndex].quantity += newItem.quantity
+        updatedItems[existingItemIndex].quantity += enrichedItem.quantity
         return updatedItems
       } else {
-        // Se o item não existe, adicionar ao carrinho
-        return [...prevItems, newItem]
+        return [...prevItems, enrichedItem]
       }
     })
 
-if (typeof window !== "undefined") {
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({
-    event: "add_to_cart",
-    ecommerce: {
-      currency: "BRL",
-      value: newItem.price * newItem.quantity,
-      items: [
-        {
-          item_id: newItem.id,
-          item_name: newItem.name,
-          price: newItem.price,
-          quantity: newItem.quantity
-        }
-      ]
+    if (typeof window !== "undefined") {
+      window.dataLayer = window.dataLayer || []
+      window.dataLayer.push({
+        event: "add_to_cart",
+        ecommerce: {
+          currency: "BRL",
+          value: enrichedItem.price * enrichedItem.quantity,
+          items: [
+            {
+              item_id: enrichedItem.id,
+              item_name: enrichedItem.name,
+              price: enrichedItem.price,
+              quantity: enrichedItem.quantity,
+            },
+          ],
+        },
+      })
     }
-  });
-}
-
   }
 
   const removeItem = (itemId: string) => {

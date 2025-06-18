@@ -532,6 +532,10 @@ export default function CheckoutPage() {
           quantity: item.quantity,
           price: item.price,
           imageSrc: item.imageSrc,
+          // Adicione estas linhas para incluir os IDs
+          productId: item.productId,
+          variantId: item.variantId,
+          sku: item.sku,
         })),
         recurringProducts: cart.recurringProducts,
         paymentMethod,
