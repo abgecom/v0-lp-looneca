@@ -98,9 +98,9 @@ export default function Home() {
     { type: "image" as const, src: "/images/carousel/cat10.webp", alt: "Caneca Looneca personalizada" },
     { type: "image" as const, src: "/images/carousel/cat11.webp", alt: "Caneca Looneca personalizada" },
     { type: "image" as const, src: "/images/carousel/cat12.webp", alt: "Caneca Looneca personalizada" },
-    { type: "video" as const, src: "/images/carousel/cat13.mp4" },
-    { type: "video" as const, src: "/images/carousel/cat14.mp4" },
-    { type: "video" as const, src: "/images/carousel/cat15.mp4" },
+    { type: "video" as const, src: "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Fotos%20de%20cat%C3%A1logo/cat13-PbXsbMDD8NywEXSwKAfQQUVxCVRUqb.mp4" },
+    { type: "video" as const, src: "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Fotos%20de%20cat%C3%A1logo/cat14-tRL56mTZ8Yfs5soMExkTrNmdYBOXEP.mp4" },
+    { type: "video" as const, src: "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Fotos%20de%20cat%C3%A1logo/cat15-NqxBc8i5yjEjTpQKTopKwt3lU3sqrX.mp4" },
   ]
 
   // Function to handle color selection

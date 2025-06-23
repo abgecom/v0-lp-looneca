@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useRef, useEffect, type UIEvent } from "react"
 import Image from "next/image"
 
@@ -21,6 +23,10 @@ export default function MediaCarousel({ items, currentIndex: externalIndex, onIn
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([])
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const [isDragging, setIsDragging] = useState(false)
+  const [startX, setStartX] = useState(0)
+  const [scrollLeft, setScrollLeft] = useState(0)
 
   // Use external index if provided, otherwise use internal state
   const currentIndex = externalIndex !== undefined ? externalIndex : internalIndex
@@ -60,7 +66,11 @@ export default function MediaCarousel({ items, currentIndex: externalIndex, onIn
     // Set a timeout to run after scrolling has likely stopped
     scrollTimeoutRef.current = setTimeout(() => {
       const container = event.currentTarget
+      if (!container) return
+
       const itemWidth = container.offsetWidth
+      if (itemWidth === 0) return
+
       const newIndex = Math.round(container.scrollLeft / itemWidth)
 
       if (newIndex !== currentIndex && newIndex >= 0 && newIndex < items.length) {
@@ -69,7 +79,35 @@ export default function MediaCarousel({ items, currentIndex: externalIndex, onIn
           onIndexChange(newIndex)
         }
       }
-    }, 150) // 150ms debounce
+    }, 50)
+  }
+
+  // Mouse drag handlers for desktop
+  const handleMouseDown = (e: React.MouseEvent) => {
+    const container = scrollContainerRef.current
+    if (!container) return
+
+    setIsDragging(true)
+    setStartX(e.pageX - container.offsetLeft)
+    setScrollLeft(container.scrollLeft)
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const container = scrollContainerRef.current
+    if (!isDragging || !container) return
+
+    e.preventDefault()
+    const x = e.pageX - container.offsetLeft
+    const walk = (x - startX) * 2
+    container.scrollLeft = scrollLeft - walk
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  const handleMouseLeave = () => {
+    setIsDragging(false)
   }
 
   if (!items || items.length === 0) {
@@ -82,7 +120,11 @@ export default function MediaCarousel({ items, currentIndex: externalIndex, onIn
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth w-full max-w-md aspect-square scrollbar-hide relative"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        className={`flex overflow-x-auto snap-x snap-mandatory scroll-smooth w-full max-w-md aspect-square scrollbar-hide relative ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
       >
         {items.map((item, index) => (
           <div
@@ -127,6 +169,15 @@ export default function MediaCarousel({ items, currentIndex: externalIndex, onIn
                 index === currentIndex ? "border-black" : "border-transparent"
               } pointer-events-none`}
               aria-hidden="true"
+              onClick={() => {
+                const container = scrollContainerRef.current
+                if (!container) return
+
+                const itemWidth = container.offsetWidth
+                if (itemWidth === 0) return
+
+                container.scrollTo({ left: itemWidth * index, behavior: "smooth" })
+              }}
             >
               {item.type === "image" ? (
                 <Image
@@ -147,35 +198,9 @@ export default function MediaCarousel({ items, currentIndex: externalIndex, onIn
                     className="w-full h-full object-cover"
                     preload="metadata"
                   />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </div>
                 </div>
               )}
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Indicador de pontos */}
-      {items.length > 1 && (
-        <div className="flex justify-center gap-2 mt-3">
-          {items.map((_, index) => (
-            <button
-              key={`dot-${index}`}
-              onClick={() => {
-                if (scrollContainerRef.current) {
-                  const itemWidth = scrollContainerRef.current.offsetWidth
-                  scrollContainerRef.current.scrollTo({ left: itemWidth * index, behavior: "smooth" })
-                }
-              }}
-              className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ease-in-out ${
-                index === currentIndex ? "bg-black scale-125" : "bg-gray-300 hover:bg-gray-400"
-              }`}
-              aria-label={`Ir para o slide ${index + 1}`}
-            />
           ))}
         </div>
       )}
