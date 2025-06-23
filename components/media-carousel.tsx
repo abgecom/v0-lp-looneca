@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useRef, useEffect, type UIEvent } from "react"
 import Image from "next/image"
 
@@ -24,12 +22,18 @@ export default function MediaCarousel({ items, currentIndex: externalIndex, onIn
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  const [isDragging, setIsDragging] = useState(false)
-  const [startX, setStartX] = useState(0)
-  const [scrollLeft, setScrollLeft] = useState(0)
-
   // Use external index if provided, otherwise use internal state
   const currentIndex = externalIndex !== undefined ? externalIndex : internalIndex
+
+  // Function to update index and notify parent
+  const updateIndex = (newIndex: number) => {
+    if (newIndex !== currentIndex && newIndex >= 0 && newIndex < items.length) {
+      setInternalIndex(newIndex)
+      if (onIndexChange) {
+        onIndexChange(newIndex)
+      }
+    }
+  }
 
   // Sync external index changes to scroll position
   useEffect(() => {
@@ -72,42 +76,25 @@ export default function MediaCarousel({ items, currentIndex: externalIndex, onIn
       if (itemWidth === 0) return
 
       const newIndex = Math.round(container.scrollLeft / itemWidth)
-
-      if (newIndex !== currentIndex && newIndex >= 0 && newIndex < items.length) {
-        setInternalIndex(newIndex)
-        if (onIndexChange) {
-          onIndexChange(newIndex)
-        }
-      }
-    }, 50)
+      updateIndex(newIndex)
+    }, 100) // Reduced timeout for faster response
   }
 
-  // Mouse drag handlers for desktop
-  const handleMouseDown = (e: React.MouseEvent) => {
+  // Function to scroll to specific index
+  const scrollToIndex = (index: number) => {
     const container = scrollContainerRef.current
     if (!container) return
 
-    setIsDragging(true)
-    setStartX(e.pageX - container.offsetLeft)
-    setScrollLeft(container.scrollLeft)
-  }
+    const itemWidth = container.offsetWidth
+    if (itemWidth === 0) return
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const container = scrollContainerRef.current
-    if (!isDragging || !container) return
+    container.scrollTo({
+      left: itemWidth * index,
+      behavior: "smooth",
+    })
 
-    e.preventDefault()
-    const x = e.pageX - container.offsetLeft
-    const walk = (x - startX) * 2
-    container.scrollLeft = scrollLeft - walk
-  }
-
-  const handleMouseUp = () => {
-    setIsDragging(false)
-  }
-
-  const handleMouseLeave = () => {
-    setIsDragging(false)
+    // Update index immediately for better UX
+    updateIndex(index)
   }
 
   if (!items || items.length === 0) {
@@ -120,11 +107,7 @@ export default function MediaCarousel({ items, currentIndex: externalIndex, onIn
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
-        className={`flex overflow-x-auto snap-x snap-mandatory scroll-smooth w-full max-w-md aspect-square scrollbar-hide relative ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+        className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth w-full max-w-md aspect-square scrollbar-hide relative"
       >
         {items.map((item, index) => (
           <div
@@ -159,25 +142,18 @@ export default function MediaCarousel({ items, currentIndex: externalIndex, onIn
         ))}
       </div>
 
-      {/* Miniaturas (apenas como referência visual) */}
+      {/* Miniaturas (clicáveis) */}
       {items.length > 1 && (
         <div className="flex gap-2 overflow-x-auto scroll-smooth mt-4 px-4 w-full max-w-md scrollbar-hide">
           {items.map((item, index) => (
             <div
               key={`thumb-${index}`}
-              className={`w-14 h-14 flex-shrink-0 rounded-md border-2 p-0.5 ${
-                index === currentIndex ? "border-black" : "border-transparent"
-              } pointer-events-none`}
-              aria-hidden="true"
-              onClick={() => {
-                const container = scrollContainerRef.current
-                if (!container) return
-
-                const itemWidth = container.offsetWidth
-                if (itemWidth === 0) return
-
-                container.scrollTo({ left: itemWidth * index, behavior: "smooth" })
-              }}
+              className={`w-14 h-14 flex-shrink-0 rounded-md border-2 p-0.5 cursor-pointer transition-all duration-200 hover:scale-105 ${
+                index === currentIndex ? "border-black" : "border-transparent hover:border-gray-300"
+              }`}
+              role="button"
+              aria-label={`Ver ${item.type === "image" ? "imagem" : "vídeo"} ${index + 1}`}
+              onClick={() => scrollToIndex(index)}
             >
               {item.type === "image" ? (
                 <Image
@@ -198,9 +174,30 @@ export default function MediaCarousel({ items, currentIndex: externalIndex, onIn
                     className="w-full h-full object-cover"
                     preload="metadata"
                   />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
                 </div>
               )}
             </div>
+          ))}
+        </div>
+      )}
+
+      {/* Indicador de pontos */}
+      {items.length > 1 && (
+        <div className="flex justify-center gap-2 mt-3">
+          {items.map((_, index) => (
+            <button
+              key={`dot-${index}`}
+              onClick={() => scrollToIndex(index)}
+              className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ease-in-out ${
+                index === currentIndex ? "bg-black scale-125" : "bg-gray-300 hover:bg-gray-400"
+              }`}
+              aria-label={`Ir para o slide ${index + 1}`}
+            />
           ))}
         </div>
       )}
