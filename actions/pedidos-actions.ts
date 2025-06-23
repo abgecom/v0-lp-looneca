@@ -49,7 +49,7 @@ export interface PedidoData {
     status: string
     data: string
   }
-  fotos?: any
+  fotos?: string[]
   raca?: string
   observacoes?: string
 }
@@ -71,30 +71,31 @@ export async function criarPedido(data: PedidoData, req?: Request) {
     }
 
     const novoNumero = ultimoPedido && ultimoPedido.length > 0 ? ultimoPedido[0].pedido_numero + 1 : 1001
-    const { customer, itens, recorrentes, pagamento } = data
-    const itensEscolhidos: PedidoItem[] = itens // Estes são os itens que vão para a coluna jsonb
+    const { customer, itens, recorrentes, pagamento, fotos, raca, observacoes } = data
+    const itensEscolhidos: PedidoItem[] = itens
 
-    // Não precisamos mais extrair productIds, variantIds, skus aqui para popular colunas separadas.
-    // O trigger do banco de dados fará isso a partir de 'itens_escolhidos'.
+    // === EXTRAÇÃO DOS DADOS DO PET ===
+    let fotosPet = fotos || []
+    let racaPet = raca || ""
+    let observacoesPet = observacoes || ""
 
-    let fotos = data.fotos
-    let raca = data.raca
-    let observacoes = data.observacoes
+    // Fallback: tentar recuperar do cookie se não vieram nos dados
     const cookieStore = cookies()
     const petDataCookie = cookieStore.get("looneca-pet-data")
 
-    if (petDataCookie) {
+    if (petDataCookie && (!fotosPet.length || !racaPet)) {
       try {
         const petData = JSON.parse(petDataCookie.value)
-        fotos = fotos || petData.photos
-        raca = raca || petData.typeBreed
-        observacoes = observacoes || petData.notes
+        fotosPet = fotosPet.length > 0 ? fotosPet : petData.photos || []
+        racaPet = racaPet || petData.typeBreed || ""
+        observacoesPet = observacoesPet || petData.notes || ""
       } catch (error) {
         console.error("Erro ao analisar cookie de dados do pet:", error)
       }
     }
 
-    if ((!fotos || !raca) && customer.email) {
+    // Fallback: buscar dados de pedidos anteriores do mesmo cliente
+    if ((!fotosPet.length || !racaPet) && customer.email) {
       const { data: pedidosDataDb, error: pedidosErrorDb } = await supabase
         .from("looneca_pedidos")
         .select("fotos_urls, tipo_raca_pet, observacao")
@@ -102,11 +103,15 @@ export async function criarPedido(data: PedidoData, req?: Request) {
         .order("data_criacao", { ascending: false })
         .limit(1)
       if (!pedidosErrorDb && pedidosDataDb && pedidosDataDb.length > 0) {
-        fotos = fotos || pedidosDataDb[0].fotos_urls
-        raca = raca || pedidosDataDb[0].tipo_raca_pet
-        observacoes = observacoes || pedidosDataDb[0].observacao
+        fotosPet = fotosPet.length > 0 ? fotosPet : pedidosDataDb[0].fotos_urls || []
+        racaPet = racaPet || pedidosDataDb[0].tipo_raca_pet || ""
+        observacoesPet = observacoesPet || pedidosDataDb[0].observacao || ""
       }
     }
+
+    console.log("🚀 DEBUG fotos:", fotosPet)
+    console.log("🚀 DEBUG raca:", racaPet)
+    console.log("🚀 DEBUG observacoes:", observacoesPet)
 
     const dadosParaInserir = {
       pedido_numero: novoNumero,
@@ -121,7 +126,7 @@ export async function criarPedido(data: PedidoData, req?: Request) {
       numero_residencia_cliente: customer.numero,
       complemento_cliente: customer.complemento || "",
       bairro_cliente: customer.bairro,
-      itens_escolhidos: itensEscolhidos, // O trigger usará esta coluna
+      itens_escolhidos: itensEscolhidos,
       produtos_recorrentes: recorrentes,
       metodo_pagamento: pagamento.metodo,
       total_pago: pagamento.total,
@@ -129,17 +134,19 @@ export async function criarPedido(data: PedidoData, req?: Request) {
       status_pagamento: pagamento.status,
       data_pagamento: pagamento.data,
       atualizacao_pagamento: pagamento.data,
-      fotos_pet: fotos || null,
-      raca_pet: raca || "",
+      fotos_pet: fotosPet,
+      raca_pet: racaPet,
       // As colunas product_ids, variant_ids, skus serão populadas pelo trigger
     }
 
     console.log("--- OBJETO PARA INSERÇÃO (trigger irá popular IDs) ---", JSON.stringify(dadosParaInserir, null, 2))
 
-    const { data: novoPedido, error: insertError } = await supabase.from("pedidos").insert(dadosParaInserir).select(
-      // Mantemos o select explícito para verificar o resultado
-      "id, pedido_numero, email_cliente, nome_cliente, telefone_cliente, cpf_cliente, cep_cliente, cidade_cliente, estado_cliente, endereco_cliente, numero_residencia_cliente, complemento_cliente, bairro_cliente, itens_escolhidos, produtos_recorrentes, metodo_pagamento, total_pago, id_pagamento, status_pagamento, data_pagamento, atualizacao_pagamento, fotos_pet, raca_pet, criado_em, custumer, product_ids, variant_ids, skus",
-    )
+    const { data: novoPedido, error: insertError } = await supabase
+      .from("pedidos")
+      .insert(dadosParaInserir)
+      .select(
+        "id, pedido_numero, email_cliente, nome_cliente, telefone_cliente, cpf_cliente, cep_cliente, cidade_cliente, estado_cliente, endereco_cliente, numero_residencia_cliente, complemento_cliente, bairro_cliente, itens_escolhidos, produtos_recorrentes, metodo_pagamento, total_pago, id_pagamento, status_pagamento, data_pagamento, atualizacao_pagamento, fotos_pet, raca_pet, criado_em, custumer, product_ids, variant_ids, skus",
+      )
 
     if (insertError) {
       console.error("!!! ERRO AO INSERIR PEDIDO (COM TRIGGER):", JSON.stringify(insertError, null, 2))
@@ -151,6 +158,9 @@ export async function criarPedido(data: PedidoData, req?: Request) {
       console.log("Retorned product_ids:", JSON.stringify(novoPedido[0].product_ids))
       console.log("Retorned variant_ids:", JSON.stringify(novoPedido[0].variant_ids))
       console.log("Retorned skus:", JSON.stringify(novoPedido[0].skus))
+      console.log("✅ DADOS DO PET INSERIDOS:")
+      console.log("fotos_pet:", JSON.stringify(novoPedido[0].fotos_pet))
+      console.log("raca_pet:", novoPedido[0].raca_pet)
       console.log("Objeto completo retornado:", JSON.stringify(novoPedido[0], null, 2))
     } else {
       console.log("⚠️ PEDIDO CRIADO (COM TRIGGER), MAS NENHUM DADO RETORNADO PELO SELECT.")
@@ -165,11 +175,45 @@ export async function criarPedido(data: PedidoData, req?: Request) {
 
 export async function getPedidoByIdPagamento(idPagamento: string) {
   try {
-    const { data: pedido, error } = await supabase.from("pedidos").select("*").eq("id_pagamento", idPagamento).single()
+    console.log("🔍 Buscando pedido por ID de pagamento:", idPagamento)
+
+    // Primeiro, vamos buscar todos os registros para debug
+    const { data: allPedidos, error: debugError } = await supabase
+      .from("pedidos")
+      .select("id, pedido_numero, id_pagamento")
+      .eq("id_pagamento", idPagamento)
+
+    if (debugError) {
+      console.error("Erro na consulta de debug:", debugError)
+    } else {
+      console.log("📊 Registros encontrados:", allPedidos?.length || 0)
+      console.log("📋 Dados encontrados:", JSON.stringify(allPedidos, null, 2))
+    }
+
+    // Agora fazemos a consulta principal
+    const { data: pedidos, error } = await supabase
+      .from("pedidos")
+      .select("*")
+      .eq("id_pagamento", idPagamento)
+      .order("criado_em", { ascending: false }) // Pega o mais recente se houver múltiplos
+
     if (error) {
       console.error("Erro ao buscar pedido por ID de pagamento:", error)
+      return { success: false, error: "Erro na consulta do pedido" }
+    }
+
+    if (!pedidos || pedidos.length === 0) {
+      console.log("❌ Nenhum pedido encontrado para ID:", idPagamento)
       return { success: false, error: "Pedido não encontrado" }
     }
+
+    if (pedidos.length > 1) {
+      console.warn("⚠️ Múltiplos pedidos encontrados para ID:", idPagamento, "- Usando o mais recente")
+    }
+
+    const pedido = pedidos[0] // Pega o primeiro (mais recente devido ao order by)
+    console.log("✅ Pedido encontrado:", pedido.pedido_numero)
+
     return { success: true, data: pedido }
   } catch (error) {
     console.error("Erro interno ao buscar pedido por ID de pagamento:", error)

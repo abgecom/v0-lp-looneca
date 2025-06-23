@@ -1,30 +1,8 @@
 "use server"
 
-import { createClient } from "@supabase/supabase-js"
-import { v4 as uuidv4 } from "uuid"
+import { criarPedido } from "./pedidos-actions"
 
-// Verificar se as variáveis de ambiente estão definidas
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  console.error("Missing required environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
-}
-
-const supabaseUrl = process.env.SUPABASE_URL || ""
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: { persistSession: false },
-})
-
-interface OrderItem {
-  id: string
-  name: string
-  color: string
-  petCount: number
-  quantity: number
-  price: number
-  imageSrc: string
-}
-
-interface OrderData {
+export interface OrderData {
   customer: {
     name: string
     email: string
@@ -35,115 +13,88 @@ interface OrderData {
     cep: string
     address: string
     number: string
-    complement?: string
+    complement: string
     neighborhood: string
     city: string
     state: string
-    method?: string
-    price?: number
+    method: string
+    price: number
   }
-  items: OrderItem[]
+  items: Array<{
+    id: string
+    name: string
+    color: string
+    petCount: number
+    quantity: number
+    price: number
+    imageSrc: string
+    productId?: string
+    variantId?: string
+    sku?: string
+  }>
   recurringProducts: {
     appPetloo: boolean
     loobook: boolean
   }
-  paymentMethod: "credit_card" | "pix"
+  paymentMethod: string
   totalAmount: number
   installments: number
   paymentId: string
   paymentStatus: string
+  // === NOVOS CAMPOS PARA DADOS DO PET ===
+  petPhotos?: string[]
+  petTypeBreed?: string
+  petNotes?: string
 }
 
 export async function saveOrderToDatabase(orderData: OrderData) {
   try {
-    // Create order in Supabase
-    const { data: orderResult, error: orderError } = await supabase
-      .from("looneca_orders")
-      .insert({
-        customer_name: orderData.customer.name,
-        customer_email: orderData.customer.email,
-        customer_phone: orderData.customer.phone,
-        customer_cpf: orderData.customer.cpf,
-        shipping_address: {
-          cep: orderData.shipping.cep,
-          address: orderData.shipping.address,
-          number: orderData.shipping.number,
-          complement: orderData.shipping.complement || "",
-          neighborhood: orderData.shipping.neighborhood,
-          city: orderData.shipping.city,
-          state: orderData.shipping.state,
-          method: orderData.shipping.method || "",
-          price: orderData.shipping.price || 0,
-        },
-        items: orderData.items.map((item) => ({
-          id: item.id,
-          name: item.name,
-          color: item.color,
-          pet_count: item.petCount,
-          quantity: item.quantity,
-          price: item.price,
-          image_src: item.imageSrc,
-        })),
-        recurring_products: {
-          app_petloo: orderData.recurringProducts.appPetloo,
-          loobook: orderData.recurringProducts.loobook,
-        },
-        payment_method: orderData.paymentMethod,
-        total_amount: orderData.totalAmount,
-        installments: orderData.installments,
-        payment_id: orderData.paymentId,
-        payment_status: orderData.paymentStatus,
-        created_at: new Date().toISOString(),
-      })
-      .select()
+    console.log("🚀 DEBUG saveOrderToDatabase - orderData recebido:", JSON.stringify(orderData, null, 2))
 
-    if (orderError) {
-      console.error("Error saving order to database:", orderError)
-      throw new Error("Failed to save order")
-    }
-
-    const orderId = orderResult[0].id
-
-    // If the customer selected the Loobook product, create entries in the loobooks table
-    if (orderData.recurringProducts.loobook) {
-      // For each pet in the order, create a loobook entry
-      for (const item of orderData.items) {
-        if (item.petCount > 0) {
-          // Create a pet ID for each pet in the order
-          for (let i = 0; i < item.petCount; i++) {
-            const petId = uuidv4()
-
-            // Create a loobook entry for this pet
-            await supabase.from("loobooks").insert({
-              id: uuidv4(),
-              pet_id: petId,
-              color: item.color,
-              cover_url: item.imageSrc,
-              created_at: new Date().toISOString(),
-            })
-          }
-        }
-      }
-    }
-
-    // Record the payment in the payments table if it exists
-    try {
-      await supabase.from("payments").insert({
-        order_id: orderId,
-        payment_id: orderData.paymentId,
-        amount: orderData.totalAmount,
+    // Mapear os dados para o formato esperado por criarPedido
+    const pedidoData = {
+      customer: {
+        email: orderData.customer.email,
+        name: orderData.customer.name,
+        phone: orderData.customer.phone,
+        cpf: orderData.customer.cpf,
+        cep: orderData.shipping.cep,
+        cidade: orderData.shipping.city,
+        estado: orderData.shipping.state,
+        endereco: orderData.shipping.address,
+        numero: orderData.shipping.number,
+        complemento: orderData.shipping.complement,
+        bairro: orderData.shipping.neighborhood,
+      },
+      itens: orderData.items,
+      recorrentes: orderData.recurringProducts,
+      pagamento: {
+        metodo: orderData.paymentMethod,
+        total: orderData.totalAmount,
+        id: orderData.paymentId,
         status: orderData.paymentStatus,
-        payment_method: orderData.paymentMethod,
-        created_at: new Date().toISOString(),
-      })
-    } catch (error) {
-      // If the payments table doesn't exist or has a different structure, log the error but continue
-      console.error("Error recording payment:", error)
+        data: new Date().toISOString(),
+      },
+      // === MAPEAMENTO DOS DADOS DO PET ===
+      fotos: orderData.petPhotos || [],
+      raca: orderData.petTypeBreed || "",
+      observacoes: orderData.petNotes || "",
     }
 
-    return { success: true, orderId }
+    console.log("🚀 DEBUG saveOrderToDatabase - pedidoData mapeado:", JSON.stringify(pedidoData, null, 2))
+    console.log("🚀 DEBUG fotos enviadas para criarPedido:", pedidoData.fotos)
+    console.log("🚀 DEBUG raca enviada para criarPedido:", pedidoData.raca)
+
+    const result = await criarPedido(pedidoData)
+
+    if (!result.success) {
+      console.error("Erro ao criar pedido:", result.error)
+      throw new Error(result.error)
+    }
+
+    return result
   } catch (error) {
-    console.error("Error in saveOrderToDatabase:", error)
+    console.error("Erro em saveOrderToDatabase:", error)
     throw error
   }
 }

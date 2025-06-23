@@ -541,10 +541,17 @@ export default function CheckoutPage() {
         paymentMethod,
         totalAmount: totalWithShipping,
         installments: Number(formData.installments),
+        // === Adicionando dados do pet aqui ===
+        petPhotos: cart.petPhotos,
+        petTypeBreed: cart.petTypeBreed,
+        petNotes: cart.petNotes,
       }
 
       // Process payment
       const paymentResult = await processPayment({
+        // ... (argumentos existentes para processPayment)
+        // Os dados do pet não são diretamente necessários para processPayment,
+        // mas estarão em orderData para saveOrderToDatabase.
         amount: totalWithShipping,
         paymentMethod,
         installments: Number(formData.installments),
@@ -580,8 +587,11 @@ export default function CheckoutPage() {
 
       if (paymentResult.success) {
         // Save order to database
+        // A função saveOrderToDatabase (em order-actions.ts, não mostrada aqui)
+        // receberá todos os campos de orderData (incluindo petPhotos, petTypeBreed, petNotes)
+        // e deve mapeá-los para os campos 'fotos', 'raca', 'observacoes' ao chamar criarPedido.
         await saveOrderToDatabase({
-          ...orderData,
+          ...orderData, // orderData agora contém petPhotos, petTypeBreed, petNotes
           paymentId: paymentResult.orderId || "",
           paymentStatus: paymentResult.status || "pending",
         })
