@@ -107,12 +107,12 @@ export default function MediaCarousel({ items, currentIndex: externalIndex, onIn
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth w-full max-w-md aspect-square scrollbar-hide relative"
+        className="flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth w-full max-w-md aspect-square scrollbar-hide relative whitespace-nowrap"
       >
         {items.map((item, index) => (
           <div
             key={`slide-${index}`}
-            className="snap-center flex-shrink-0 w-full h-full flex items-center justify-center p-1"
+            className="snap-center flex-shrink-0 w-full h-full flex items-center justify-center p-1 inline-block"
             aria-roledescription="slide"
             aria-label={`Slide ${index + 1} de ${items.length}`}
           >
@@ -144,11 +144,11 @@ export default function MediaCarousel({ items, currentIndex: externalIndex, onIn
 
       {/* Miniaturas (clicáveis) */}
       {items.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto scroll-smooth mt-4 px-4 w-full max-w-md scrollbar-hide">
+        <div className="flex gap-2 overflow-x-auto overflow-y-hidden scroll-smooth mt-4 px-4 w-full max-w-md scrollbar-hide whitespace-nowrap">
           {items.map((item, index) => (
             <div
               key={`thumb-${index}`}
-              className={`w-14 h-14 flex-shrink-0 rounded-md border-2 p-0.5 cursor-pointer transition-all duration-200 hover:scale-105 ${
+              className={`w-14 h-14 flex-shrink-0 rounded-md border-2 p-0.5 cursor-pointer transition-all duration-200 hover:scale-105 inline-block ${
                 index === currentIndex ? "border-black" : "border-transparent hover:border-gray-300"
               }`}
               role="button"

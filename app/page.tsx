@@ -98,9 +98,18 @@ export default function Home() {
     { type: "image" as const, src: "/images/carousel/cat10.webp", alt: "Caneca Looneca personalizada" },
     { type: "image" as const, src: "/images/carousel/cat11.webp", alt: "Caneca Looneca personalizada" },
     { type: "image" as const, src: "/images/carousel/cat12.webp", alt: "Caneca Looneca personalizada" },
-    { type: "video" as const, src: "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Fotos%20de%20cat%C3%A1logo/cat13-PbXsbMDD8NywEXSwKAfQQUVxCVRUqb.mp4" },
-    { type: "video" as const, src: "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Fotos%20de%20cat%C3%A1logo/cat14-tRL56mTZ8Yfs5soMExkTrNmdYBOXEP.mp4" },
-    { type: "video" as const, src: "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Fotos%20de%20cat%C3%A1logo/cat15-NqxBc8i5yjEjTpQKTopKwt3lU3sqrX.mp4" },
+    {
+      type: "video" as const,
+      src: "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Fotos%20de%20cat%C3%A1logo/cat13-PbXsbMDD8NywEXSwKAfQQUVxCVRUqb.mp4",
+    },
+    {
+      type: "video" as const,
+      src: "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Fotos%20de%20cat%C3%A1logo/cat14-tRL56mTZ8Yfs5soMExkTrNmdYBOXEP.mp4",
+    },
+    {
+      type: "video" as const,
+      src: "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Fotos%20de%20cat%C3%A1logo/cat15-NqxBc8i5yjEjTpQKTopKwt3lU3sqrX.mp4",
+    },
   ]
 
   // Function to handle color selection
@@ -184,7 +193,7 @@ export default function Home() {
       <div className="pt-16"></div>
 
       {/* Hero Section */}
-      <section className="max-w-6xl mx-auto p-4 md:p-6 flex flex-col md:flex-row items-start justify-between gap-4 mt-2 pb-8">
+      <section className="max-w-6xl mx-auto p-4 md:p-6 flex flex-col md:flex-row items-start justify-between gap-4 mt-2 pb-8 overflow-x-hidden">
         {/* Carrossel à esquerda */}
         <div className="md:w-3/5 order-1 md:order-1">
           <MediaCarousel

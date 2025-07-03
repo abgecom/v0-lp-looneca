@@ -107,3 +107,16 @@
     @apply bg-background text-foreground font-anek;
   }
 }
+
+/* Prevenir scroll horizontal indesejado */
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+/* Garantir que containers não ultrapassem a largura da tela */
+* {
+  max-width: 100%;
+  box-sizing: border-box;
+}
