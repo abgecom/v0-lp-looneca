@@ -113,6 +113,23 @@ export async function criarPedido(data: PedidoData, req?: Request) {
     console.log("🚀 DEBUG raca:", racaPet)
     console.log("🚀 DEBUG observacoes:", observacoesPet)
 
+    // === VERIFICAÇÃO DE PEDIDO EXISTENTE ===
+    const { data: existing } = await supabase.from("pedidos").select("*").eq("id_pagamento", pagamento.id).maybeSingle()
+
+    if (existing) {
+      const isIncomplete = existing.fotos_pet === null || existing.raca_pet === "" || existing.raca_pet === "EMPTY"
+      const isNewComplete = fotosPet?.length > 0 || (racaPet && racaPet !== "" && racaPet !== "EMPTY")
+
+      if (isIncomplete && isNewComplete) {
+        console.log("⚠️ Substituindo pedido incompleto por um completo.")
+        await supabase.from("pedidos").delete().eq("id", existing.id)
+        // Depois segue com o insert do novo pedido normalmente
+      } else {
+        console.log("🚫 Pedido já existe e está completo. Ignorando novo.")
+        return { success: true, pedido: existing }
+      }
+    }
+
     const dadosParaInserir = {
       pedido_numero: novoNumero,
       email_cliente: customer.email,
