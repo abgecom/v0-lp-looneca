@@ -31,6 +31,7 @@ export interface OrderData {
     productId?: string
     variantId?: string
     sku?: string
+    accessories?: string[]
   }>
   recurringProducts: {
     appPetloo: boolean
@@ -50,6 +51,14 @@ export interface OrderData {
 export async function saveOrderToDatabase(orderData: OrderData) {
   try {
     console.log("🚀 DEBUG saveOrderToDatabase - orderData recebido:", JSON.stringify(orderData, null, 2))
+
+    const allAccessories: string[] = []
+    orderData.items.forEach((item) => {
+      if (item.accessories && item.accessories.length > 0) {
+        allAccessories.push(...item.accessories)
+      }
+    })
+    const acessoriosString = allAccessories.join(", ")
 
     // Mapear os dados para o formato esperado por criarPedido
     const pedidoData = {
@@ -79,11 +88,13 @@ export async function saveOrderToDatabase(orderData: OrderData) {
       fotos: orderData.petPhotos || [],
       raca: orderData.petTypeBreed || "",
       observacoes: orderData.petNotes || "",
+      acessorios: acessoriosString,
     }
 
     console.log("🚀 DEBUG saveOrderToDatabase - pedidoData mapeado:", JSON.stringify(pedidoData, null, 2))
     console.log("🚀 DEBUG fotos enviadas para criarPedido:", pedidoData.fotos)
     console.log("🚀 DEBUG raca enviada para criarPedido:", pedidoData.raca)
+    console.log("🚀 DEBUG acessorios enviados para criarPedido:", pedidoData.acessorios)
 
     const result = await criarPedido(pedidoData)
 

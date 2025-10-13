@@ -21,6 +21,7 @@ export interface PedidoItem {
   productId?: string
   variantId?: string
   sku?: string
+  accessories?: string[]
 }
 
 export interface PedidoData {
@@ -52,6 +53,7 @@ export interface PedidoData {
   fotos?: string[]
   raca?: string
   observacoes?: string
+  acessorios?: string
 }
 
 export async function criarPedido(data: PedidoData, req?: Request) {
@@ -71,34 +73,36 @@ export async function criarPedido(data: PedidoData, req?: Request) {
     }
 
     const novoNumero = ultimoPedido && ultimoPedido.length > 0 ? ultimoPedido[0].pedido_numero + 1 : 1001
-    const { customer, itens, recorrentes, pagamento, fotos, raca, observacoes } = data
+    const { customer, itens, recorrentes, pagamento, fotos, raca, observacoes, acessorios } = data
     const itensEscolhidos: PedidoItem[] = itens
 
     // === EXTRAÇÃO DOS DADOS DO PET ===
     let fotosPet = fotos || []
     let racaPet = raca || ""
     let observacoesPet = observacoes || ""
+    let acessoriosPet = acessorios || ""
 
     // Fallback: tentar recuperar do cookie se não vieram nos dados
     const cookieStore = cookies()
     const petDataCookie = cookieStore.get("looneca-pet-data")
 
-    if (petDataCookie && (!fotosPet.length || !racaPet)) {
+    if (petDataCookie && (!fotosPet.length || !racaPet || !acessoriosPet)) {
       try {
         const petData = JSON.parse(petDataCookie.value)
         fotosPet = fotosPet.length > 0 ? fotosPet : petData.photos || []
         racaPet = racaPet || petData.typeBreed || ""
         observacoesPet = observacoesPet || petData.notes || ""
+        acessoriosPet = acessoriosPet || petData.accessories || ""
       } catch (error) {
         console.error("Erro ao analisar cookie de dados do pet:", error)
       }
     }
 
     // Fallback: buscar dados de pedidos anteriores do mesmo cliente
-    if ((!fotosPet.length || !racaPet) && customer.email) {
+    if ((!fotosPet.length || !racaPet || !acessoriosPet) && customer.email) {
       const { data: pedidosDataDb, error: pedidosErrorDb } = await supabase
         .from("looneca_pedidos")
-        .select("fotos_urls, tipo_raca_pet, observacao")
+        .select("fotos_urls, tipo_raca_pet, observacao, acessorios")
         .eq("email_cliente", customer.email)
         .order("data_criacao", { ascending: false })
         .limit(1)
@@ -106,19 +110,26 @@ export async function criarPedido(data: PedidoData, req?: Request) {
         fotosPet = fotosPet.length > 0 ? fotosPet : pedidosDataDb[0].fotos_urls || []
         racaPet = racaPet || pedidosDataDb[0].tipo_raca_pet || ""
         observacoesPet = observacoesPet || pedidosDataDb[0].observacao || ""
+        acessoriosPet = acessoriosPet || pedidosDataDb[0].acessorios || ""
       }
     }
 
     console.log("🚀 DEBUG fotos:", fotosPet)
     console.log("🚀 DEBUG raca:", racaPet)
     console.log("🚀 DEBUG observacoes:", observacoesPet)
+    console.log("🚀 DEBUG acessorios:", acessoriosPet)
 
     // === VERIFICAÇÃO DE PEDIDO EXISTENTE ===
     const { data: existing } = await supabase.from("pedidos").select("*").eq("id_pagamento", pagamento.id).maybeSingle()
 
     if (existing) {
-      const isIncomplete = existing.fotos_pet === null || existing.raca_pet === "" || existing.raca_pet === "EMPTY"
-      const isNewComplete = fotosPet?.length > 0 || (racaPet && racaPet !== "" && racaPet !== "EMPTY")
+      const isIncomplete =
+        existing.fotos_pet === null ||
+        existing.raca_pet === "" ||
+        existing.raca_pet === "EMPTY" ||
+        existing.acessorios === ""
+      const isNewComplete =
+        fotosPet?.length > 0 || (racaPet && racaPet !== "" && racaPet !== "EMPTY") || acessoriosPet !== ""
 
       if (isIncomplete && isNewComplete) {
         console.log("⚠️ Substituindo pedido incompleto por um completo.")
@@ -153,6 +164,7 @@ export async function criarPedido(data: PedidoData, req?: Request) {
       atualizacao_pagamento: pagamento.data,
       fotos_pet: fotosPet,
       raca_pet: racaPet,
+      Acessorios: acessoriosPet,
       // As colunas product_ids, variant_ids, skus serão populadas pelo trigger
     }
 
@@ -162,7 +174,7 @@ export async function criarPedido(data: PedidoData, req?: Request) {
       .from("pedidos")
       .insert(dadosParaInserir)
       .select(
-        "id, pedido_numero, email_cliente, nome_cliente, telefone_cliente, cpf_cliente, cep_cliente, cidade_cliente, estado_cliente, endereco_cliente, numero_residencia_cliente, complemento_cliente, bairro_cliente, itens_escolhidos, produtos_recorrentes, metodo_pagamento, total_pago, id_pagamento, status_pagamento, data_pagamento, atualizacao_pagamento, fotos_pet, raca_pet, criado_em, custumer, product_ids, variant_ids, skus",
+        "id, pedido_numero, email_cliente, nome_cliente, telefone_cliente, cpf_cliente, cep_cliente, cidade_cliente, estado_cliente, endereco_cliente, numero_residencia_cliente, complemento_cliente, bairro_cliente, itens_escolhidos, produtos_recorrentes, metodo_pagamento, total_pago, id_pagamento, status_pagamento, data_pagamento, atualizacao_pagamento, fotos_pet, raca_pet, criado_em, custumer, product_ids, variant_ids, skus, Acessorios",
       )
 
     if (insertError) {
@@ -178,6 +190,7 @@ export async function criarPedido(data: PedidoData, req?: Request) {
       console.log("✅ DADOS DO PET INSERIDOS:")
       console.log("fotos_pet:", JSON.stringify(novoPedido[0].fotos_pet))
       console.log("raca_pet:", novoPedido[0].raca_pet)
+      console.log("Acessorios:", novoPedido[0].Acessorios)
       console.log("Objeto completo retornado:", JSON.stringify(novoPedido[0], null, 2))
     } else {
       console.log("⚠️ PEDIDO CRIADO (COM TRIGGER), MAS NENHUM DADO RETORNADO PELO SELECT.")
