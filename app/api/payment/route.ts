@@ -207,16 +207,31 @@ export async function POST(request: NextRequest) {
     console.log("[v0] Appmax response status:", appmaxResponse.status)
     console.log("[v0] Appmax response data:", JSON.stringify(responseData, null, 2))
 
-    if (!appmaxResponse.ok || !responseData.data) {
+    if (!appmaxResponse.ok || responseData.success === false || !responseData.data) {
       console.error("[v0] Appmax API error:", {
         status: appmaxResponse.status,
         statusText: appmaxResponse.statusText,
+        success: responseData.success,
+        text: responseData.text,
+        message: responseData.message,
         responseData,
       })
+
+      let errorMessage = "Erro ao processar pagamento. Tente novamente."
+      if (responseData.text === "Invalid Access Token") {
+        errorMessage =
+          "Erro de configuração do gateway de pagamento. Entre em contato com o suporte informando: Token de acesso inválido."
+        console.error("[v0] CRITICAL: APPMAX_API_KEY is invalid or expired!")
+      } else if (responseData.message) {
+        errorMessage = responseData.message
+      } else if (responseData.text) {
+        errorMessage = responseData.text
+      }
+
       return NextResponse.json(
         {
           success: false,
-          error: responseData.message || "Erro ao processar pagamento. Tente novamente.",
+          error: errorMessage,
           details: responseData,
         },
         { status: 400 },
