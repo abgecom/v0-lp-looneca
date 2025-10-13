@@ -145,20 +145,11 @@ export async function POST(request: NextRequest) {
         state: shipping.state,
         zipcode: shipping.cep.replace(/\D/g, ""),
       },
-      shipping: {
-        street: shipping.address,
-        number: shipping.number,
-        complement: shipping.complement || "",
-        district: shipping.neighborhood,
-        city: shipping.city,
-        state: shipping.state,
-        zipcode: shipping.cep.replace(/\D/g, ""),
-        price: shipping.price,
-      },
+      shipping: shipping.price, // Changed to numeric value as required by API
       products: items.map((item) => ({
         sku: item.id,
         name: `${item.name} - ${item.color} (${item.petCount} pet${item.petCount > 1 ? "s" : ""})`,
-        quantity: item.quantity,
+        qty: item.quantity, // Changed from 'quantity' to 'qty' as required by API
         price: item.price,
       })),
     }
