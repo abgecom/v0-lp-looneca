@@ -506,6 +506,7 @@ export async function POST(request: NextRequest) {
             cvv: card.cvv,
           },
           installments: Number(installments),
+          shipping: shipping,
         },
         process.env.APPMAX_API_KEY,
       )
