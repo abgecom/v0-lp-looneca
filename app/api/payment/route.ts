@@ -132,6 +132,7 @@ export async function POST(request: NextRequest) {
     // Montar payload para Appmax
     const appmaxPayload: any = {
       "access-token": process.env.APPMAX_API_KEY,
+      customer_id: customer.cpf.replace(/\D/g, ""), // Using CPF as unique customer identifier
       customer: {
         name: customer.name,
         email: customer.email,
@@ -177,12 +178,15 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    console.log("[v0] Appmax payload (without sensitive data):", {
-      customer: { email: customer.email, name: customer.name },
-      productsCount: items.length,
-      paymentType: appmaxPayload.payment.type,
-      hasAccessToken: !!appmaxPayload["access-token"],
-    })
+    const logPayload = { ...appmaxPayload }
+    if (logPayload.payment?.creditcard) {
+      logPayload.payment.creditcard = {
+        ...logPayload.payment.creditcard,
+        number: "****",
+        cvv: "***",
+      }
+    }
+    console.log("[v0] Complete Appmax payload:", JSON.stringify(logPayload, null, 2))
 
     // Fazer requisição para a API da Appmax
     console.log("[v0] Sending request to Appmax API...")
