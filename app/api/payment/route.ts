@@ -94,27 +94,29 @@ function calculateFinalAmount(originalAmount: number, paymentMethod: "credit_car
 async function createAppmaxCustomer(customerData: any, accessToken: string) {
   console.log("[v0] Step 1: Creating customer in Appmax...")
 
+  const nameParts = customerData.name.trim().split(" ")
+  const firstName = nameParts[0] || ""
+  const lastName = nameParts.slice(1).join(" ") || ""
+
   const customerPayload = {
-    "access-token": accessToken,
-    customer: {
-      name: customerData.name,
-      email: customerData.email,
-      cpf: customerData.cpf.replace(/\D/g, ""),
-      phone: customerData.phone.replace(/\D/g, ""),
-      street: customerData.street,
-      number: customerData.number,
-      complement: customerData.complement || "",
-      district: customerData.district,
-      city: customerData.city,
-      state: customerData.state,
-      zipcode: customerData.zipcode.replace(/\D/g, ""),
-    },
+    firstname: firstName,
+    lastname: lastName,
+    email: customerData.email,
+    document: customerData.cpf.replace(/\D/g, ""),
+    zipcode: customerData.zipcode.replace(/\D/g, ""),
+    address: customerData.street,
+    number: customerData.number,
+    neighborhood: customerData.district,
+    city: customerData.city,
+    state: customerData.state,
+    telephone: customerData.phone.replace(/\D/g, ""),
   }
 
   const response = await fetch("https://admin.appmax.com.br/api/v3/customer", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "access-token": accessToken,
     },
     body: JSON.stringify(customerPayload),
   })
@@ -140,7 +142,6 @@ async function createAppmaxOrder(orderData: any, accessToken: string) {
   console.log("[v0] Step 2: Creating order in Appmax...")
 
   const orderPayload = {
-    "access-token": accessToken,
     customer_id: orderData.customerId,
     products: orderData.products,
   }
@@ -154,6 +155,7 @@ async function createAppmaxOrder(orderData: any, accessToken: string) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "access-token": accessToken,
     },
     body: JSON.stringify(orderPayload),
   })
@@ -179,15 +181,14 @@ async function generateAppmaxPixPayment(pixData: any, accessToken: string) {
   console.log("[v0] Step 3: Generating PIX payment in Appmax...")
 
   const pixPayload = {
-    "access-token": accessToken,
     cart: {
       order_id: pixData.orderId,
     },
     customer: {
       name: pixData.customer.name,
       email: pixData.customer.email,
-      cpf: pixData.customer.cpf.replace(/\D/g, ""),
-      phone: pixData.customer.phone.replace(/\D/g, ""),
+      document: pixData.customer.cpf.replace(/\D/g, ""),
+      telephone: pixData.customer.phone.replace(/\D/g, ""),
     },
     payment: {
       pix: {
@@ -200,6 +201,7 @@ async function generateAppmaxPixPayment(pixData: any, accessToken: string) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "access-token": accessToken,
     },
     body: JSON.stringify(pixPayload),
   })
