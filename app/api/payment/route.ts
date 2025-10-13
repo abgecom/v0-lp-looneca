@@ -260,14 +260,23 @@ async function processAppmaxCreditCardPayment(paymentData: any, accessToken: str
   })
 
   const responseData = await response.json()
-  console.log("[v0] Credit card payment response:", {
+
+  console.log("[v0] Credit card payment full response:", {
     status: response.status,
-    success: responseData.success,
-    paymentStatus: responseData.data?.status,
+    statusText: response.statusText,
+    responseData: JSON.stringify(responseData, null, 2),
   })
 
   if (!response.ok || responseData.success === false) {
-    throw new Error(responseData.text || responseData.message || "Failed to process credit card payment")
+    const errorMessage =
+      responseData.text ||
+      responseData.message ||
+      responseData.error?.message ||
+      responseData.errors?.[0]?.message ||
+      JSON.stringify(responseData)
+
+    console.error("[v0] Credit card payment failed:", errorMessage)
+    throw new Error(errorMessage)
   }
 
   return {
