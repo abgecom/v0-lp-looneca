@@ -12,6 +12,7 @@ import { Loader2 } from "lucide-react"
 import Header from "@/components/header"
 import { useCart } from "@/contexts/cart-context"
 import { useRouter } from "next/navigation"
+import { ACCESSORY_PRICE } from "@/components/accessories-section"
 
 // Define a animação de flutuação
 const floatingAnimation = `
@@ -40,6 +41,7 @@ export default function Home() {
   const [isFormValid, setIsFormValid] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [orderSuccess, setOrderSuccess] = useState(false)
+  const [selectedAccessories, setSelectedAccessories] = useState<string[]>([])
   const router = useRouter()
   const { addItem } = useCart()
 
@@ -144,6 +146,16 @@ export default function Home() {
     setIsFormValid(isValid)
   }
 
+  const handleAccessoriesChange = (accessories: string[]) => {
+    setSelectedAccessories(accessories)
+  }
+
+  const calculateTotalPrice = () => {
+    const basePrice = PRECOS[selectedPetCount as keyof typeof PRECOS]
+    const accessoriesPrice = selectedAccessories.length * ACCESSORY_PRICE
+    return basePrice + accessoriesPrice
+  }
+
   const handleAddToCart = async () => {
     if (!formRef.current) return
 
@@ -155,14 +167,17 @@ export default function Home() {
         // Adicionar ao carrinho
         const currentItem = carouselItems.find((item) => item.variant === selectedColor) || carouselItems[0]
 
+        const totalPrice = calculateTotalPrice()
+
         const newItem = {
           id: `looneca-${Date.now()}`,
           name: "Caneca Personalizada Looneca Prisma",
           color: selectedColor,
           petCount: selectedPetCount,
           quantity: quantity,
-          price: PRECOS[selectedPetCount as keyof typeof PRECOS],
+          price: totalPrice,
           imageSrc: currentItem.src,
+          accessories: selectedAccessories,
         }
 
         console.log("Adicionando item ao carrinho:", newItem)
@@ -264,7 +279,7 @@ export default function Home() {
               <div className="mb-4">
                 <div className="flex items-center">
                   <span className="text-2xl font-bold text-[#F1542E]">
-                    R$ {PRECOS[selectedPetCount as keyof typeof PRECOS].toFixed(2).replace(".", ",")}
+                    R$ {calculateTotalPrice().toFixed(2).replace(".", ",")}
                   </span>
                   <span className="ml-2 text-sm line-through text-gray-500">
                     R${" "}
@@ -272,17 +287,19 @@ export default function Home() {
                   </span>
                   <span className="ml-2 text-xs bg-[#F1542E] text-white px-2 py-1 rounded">
                     Economize R${" "}
-                    {(
-                      PRECOS_ORIGINAIS[selectedPetCount as keyof typeof PRECOS_ORIGINAIS] -
-                      PRECOS[selectedPetCount as keyof typeof PRECOS]
-                    )
+                    {(PRECOS_ORIGINAIS[selectedPetCount as keyof typeof PRECOS_ORIGINAIS] - calculateTotalPrice())
                       .toFixed(2)
                       .replace(".", ",")}
                   </span>
                 </div>
+                {selectedAccessories.length > 0 && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Inclui {selectedAccessories.length} {selectedAccessories.length === 1 ? "acessório" : "acessórios"}{" "}
+                    (+ R$ {(selectedAccessories.length * ACCESSORY_PRICE).toFixed(2).replace(".", ",")})
+                  </p>
+                )}
                 <p className="text-sm text-gray-600 mt-1">
-                  Em até 12x de R$ {(PRECOS[selectedPetCount as keyof typeof PRECOS] / 12).toFixed(2).replace(".", ",")}
-                  *
+                  Em até 12x de R$ {(calculateTotalPrice() / 12).toFixed(2).replace(".", ",")}*
                 </p>
               </div>
 
@@ -356,6 +373,7 @@ export default function Home() {
               <LoonecaFormInline
                 petCount={selectedPetCount}
                 onFormValidityChange={handleFormValidityChange}
+                onAccessoriesChange={handleAccessoriesChange}
                 ref={formRef}
               />
 
@@ -399,33 +417,6 @@ export default function Home() {
               />
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Nova Seção: O que é a caneca Looneca? */}
-      <section className="bg-[#FFFCF6] py-10 px-4 border-t border-gray-200">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-2xl md:text-3xl font-bold text-center mb-6">O que é a caneca Looneca?</h2>
-          <p className="text-lg text-center max-w-3xl mx-auto mb-10">
-            É um produto personalizado Petloo, recebemos fotos do seu pet e modelamos uma miniatura com todas as
-            características especiais dele. No final, você receberá uma obra de arte como essas para uso, decoração ou
-            guardar como lembrança.
-          </p>
-
-          <div className="flex justify-center">
-            <div className="max-w-4xl w-full">
-              <Image
-                src="/images/looneca-group-image.png"
-                alt="Canecas Looneca personalizadas"
-                width={1200}
-                height={600}
-                className="w-full h-auto rounded-lg shadow-lg"
-              />
-            </div>
-          </div>
-          <p className="text-lg text-center mt-6 mb-0">
-            No final, você receberá uma obra de arte como essas para uso, decoração ou guardar como lembrança.
-          </p>
         </div>
       </section>
 

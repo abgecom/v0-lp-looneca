@@ -12,6 +12,7 @@ import Link from "next/link"
 import { processPayment } from "@/actions/payment-actions"
 import { calculatePaymentAmount } from "@/lib/payment-utils"
 import { trackFBEvent } from "@/components/facebook-pixel"
+import { ACCESSORY_PRICE, getAccessoryName } from "@/components/accessories-section"
 
 function formatPhone(phone: string): string {
   const digits = phone.replace(/\D/g, "") // remove tudo que não for número
@@ -536,6 +537,8 @@ export default function CheckoutPage() {
           productId: item.productId,
           variantId: item.variantId,
           sku: item.sku,
+          // --- Incluir acessórios associados a este item ---
+          accessories: item.accessories?.map((acc: any) => acc.id || acc) || [], // Ajuste para garantir que sejam IDs
         })),
         recurringProducts: cart.recurringProducts,
         paymentMethod,
@@ -545,6 +548,14 @@ export default function CheckoutPage() {
         petPhotos: cart.petPhotos,
         petTypeBreed: cart.petTypeBreed,
         petNotes: cart.petNotes,
+        // === Adicionando dados dos acessórios ===
+        accessories:
+          cart.accessories?.map((accessory) => ({
+            id: accessory.id,
+            name: accessory.name,
+            price: accessory.price,
+            quantity: accessory.quantity,
+          })) || [],
       }
 
       // Process payment
@@ -583,6 +594,8 @@ export default function CheckoutPage() {
               }
             : undefined,
         recurringProducts: cart.recurringProducts,
+        // Adicionar dados dos acessórios para o processPayment, se necessário
+        accessories: cart.accessories || [],
       })
 
       if (paymentResult.success) {
@@ -826,6 +839,21 @@ export default function CheckoutPage() {
                           </>
                         )}
                       </p>
+                      {item.accessories && item.accessories.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-gray-100">
+                          <p className="text-xs font-medium text-gray-700 mb-1">Acessórios:</p>
+                          <ul className="text-xs text-gray-600 space-y-0.5">
+                            {item.accessories.map((accessory: any) => (
+                              <li key={accessory.id || accessory} className="flex justify-between">
+                                <span>{getAccessoryName(accessory.id || accessory)}</span>
+                                <span className="text-[#F1542E] font-medium">
+                                  + R$ {ACCESSORY_PRICE.toFixed(2).replace(".", ",")}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                       <div className="flex justify-between items-center mt-2">
                         {/* Controles de quantidade */}
                         <div className="flex items-center space-x-2">
@@ -856,8 +884,7 @@ export default function CheckoutPage() {
                 </div>
               ))}
 
-              {/* Produtos recorrentes - sem controles de quantidade */}
-              {cart.recurringProducts.appPetloo && (
+              {false && cart.recurringProducts.appPetloo && (
                 <div className="mb-4">
                   <div className="flex">
                     <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
@@ -881,7 +908,7 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              {cart.recurringProducts.loobook && (
+              {false && cart.recurringProducts.loobook && (
                 <div className="mb-4">
                   <div className="flex">
                     <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
@@ -904,6 +931,52 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               )}
+
+              {/* Exibir acessóriosos */}
+              {cart.accessories &&
+                cart.accessories.length > 0 &&
+                cart.accessories.map((accessory, index) => (
+                  <div key={index} className="mb-4">
+                    <div className="flex">
+                      <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
+                        <Image
+                          src={accessory.imageSrc || "/placeholder.svg"}
+                          alt={accessory.name}
+                          width={80}
+                          height={80}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="ml-4 flex-grow">
+                        <h3 className="font-medium">{getAccessoryName(accessory.name)}</h3>
+                        <p className="text-sm text-gray-600">
+                          {accessory.color && `Cor: ${accessory.color}`}
+                          {accessory.size && ` Tamanho: ${accessory.size}`}
+                        </p>
+                        <div className="flex justify-between items-center mt-2">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              type="button"
+                              // Implemente lógica para diminuir quantidade ou remover acessório
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                            >
+                              <Minus className="w-4 h-4 text-gray-600" />
+                            </button>
+                            <span className="text-sm font-medium min-w-[2rem] text-center">{accessory.quantity}</span>
+                            <button
+                              type="button"
+                              // Implemente lógica para aumentar quantidade
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                            >
+                              <Plus className="w-4 h-4 text-gray-600" />
+                            </button>
+                          </div>
+                          <span className="font-medium">R$ {formatPrice(accessory.price * accessory.quantity)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
 
               <div className="mt-4">
                 <p className="text-sm mb-2">Tem cupom de desconto ou vale presente?</p>
@@ -1332,7 +1405,7 @@ export default function CheckoutPage() {
                       <label className="ml-2 font-medium cursor-pointer">Cartão de Crédito</label>
                       <div className="ml-auto flex items-center space-x-2">
                         <Image
-                          src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Fotos%20da%20p%C3%A1gina%20%28outras%29/ChatGPT%20Image%2022%20de%20mai.%20de%202025%2C%2013_19_05%201-0EoPpUJ22eUxcZyJrWdCQNjsh8sOX6.png"
+                          src="/images/design-mode/ChatGPT%20Image%2022%20de%20mai.%20de%202025%2C%2013_19_05%201.png"
                           alt="Métodos de pagamento"
                           width={100}
                           height={30}
@@ -1450,7 +1523,7 @@ export default function CheckoutPage() {
                       <label className="ml-2 font-medium cursor-pointer">PIX</label>
                       <div className="ml-auto">
                         <Image
-                          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/pix-pQeEaHw1QkFcUBY4A45g43gFx34OWl.svg"
+                          src="/images/design-mode/pix.svg"
                           alt="PIX"
                           width={32}
                           height={32}
@@ -1467,7 +1540,7 @@ export default function CheckoutPage() {
                           </div>
                           <div className="flex items-center">
                             <Image
-                              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/pix-pQeEaHw1QkFcUBY4A45g43gFx34OWl.svg"
+                              src="/images/design-mode/pix.svg"
                               alt="PIX"
                               width={32}
                               height={32}
@@ -1579,7 +1652,7 @@ export default function CheckoutPage() {
                 <p className="text-sm text-gray-600 mb-3">Petloo - Todos os direitos reservados</p>
                 <div className="flex justify-center">
                   <Image
-                    src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-KSAVnVrLk1AvbhF07h55u42sGHYCX4.png"
+                    src="/images/design-mode/image.png"
                     alt="Site Seguro"
                     width={200}
                     height={60}

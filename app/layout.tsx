@@ -5,7 +5,6 @@ import { Inter } from "next/font/google"
 import { CartProvider } from "@/contexts/cart-context"
 import { GoogleAnalytics } from "@next/third-parties/google"
 import FacebookPixel from "@/components/facebook-pixel"
-import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
 import Script from "next/script"
 
@@ -39,7 +38,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <CartProvider>{children}</CartProvider>
           <GoogleAnalytics gaId="G-XXXXXXXXXX" />
           <FacebookPixel />
-          <Analytics />
         </Suspense>
       </body>
     </html>

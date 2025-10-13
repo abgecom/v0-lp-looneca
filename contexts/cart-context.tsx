@@ -14,6 +14,7 @@ export interface CartItem {
   productId?: string // Novo campo Shopify
   variantId?: string // Novo campo Shopify
   sku?: string // Novo campo Shopify
+  accessories?: string[] // Array of selected accessory IDs
 }
 
 interface CartContextType {

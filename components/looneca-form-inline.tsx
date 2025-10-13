@@ -8,6 +8,7 @@ import { Upload, AlertCircle, X, Check, Loader2 } from "lucide-react"
 import Image from "next/image"
 import PetAutocomplete from "./pet-autocomplete"
 import { useCart } from "@/contexts/cart-context"
+import AccessoriesSection from "./accessories-section"
 
 interface PetFormData {
   tipoRacaPet: string
@@ -17,6 +18,7 @@ interface PetFormData {
 interface LoonecaFormInlineProps {
   petCount: number
   onFormValidityChange?: (isValid: boolean) => void
+  onAccessoriesChange?: (accessories: string[]) => void
 }
 
 export type LoonecaFormRef = {
@@ -24,7 +26,7 @@ export type LoonecaFormRef = {
 }
 
 const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
-  ({ petCount, onFormValidityChange }, ref) => {
+  ({ petCount, onFormValidityChange, onAccessoriesChange }, ref) => {
     const [observacao, setObservacao] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [formError, setFormError] = useState<string | null>(null)
@@ -34,18 +36,16 @@ const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
       { tipoRacaPet: "", fotosUrls: [] },
       { tipoRacaPet: "", fotosUrls: [] },
     ])
+    const [selectedAccessories, setSelectedAccessories] = useState<string[]>([])
 
-    // Usar o contexto do carrinho para armazenar os dados
     const { setPetData } = useCart()
 
-    // Expor o método handleSubmit para o componente pai
     useImperativeHandle(ref, () => ({
       handleSubmit: async () => {
         return await handleSubmit()
       },
     }))
 
-    // Atualizar a validade do formulário quando os dados mudarem
     useEffect(() => {
       const isValid = validateForm()
       if (onFormValidityChange) {
@@ -53,8 +53,13 @@ const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
       }
     }, [petsData, petCount, onFormValidityChange])
 
+    useEffect(() => {
+      if (onAccessoriesChange) {
+        onAccessoriesChange(selectedAccessories)
+      }
+    }, [selectedAccessories, onAccessoriesChange])
+
     const validateForm = (): boolean => {
-      // Verificar se todos os pets selecionados têm tipo/raça e pelo menos uma foto
       for (let i = 0; i < petCount; i++) {
         if (!petsData[i].tipoRacaPet || petsData[i].fotosUrls.length === 0) {
           return false
@@ -75,11 +80,14 @@ const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
       setPetsData(newPetsData)
     }
 
+    const handleAccessoriesChange = (accessories: string[]) => {
+      setSelectedAccessories(accessories)
+    }
+
     const handleSubmit = async () => {
       setFormError(null)
       setIsSubmitting(true)
 
-      // Validar campos obrigatórios
       if (!validateForm()) {
         setFormError("Por favor, preencha todos os campos obrigatórios para cada pet.")
         setIsSubmitting(false)
@@ -87,21 +95,18 @@ const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
       }
 
       try {
-        // Preparar dados para envio
         const petDataToSubmit = petsData.slice(0, petCount)
 
-        // Combinar todos os tipos/raças e URLs de fotos
         const combinedTipoRacaPet = petDataToSubmit.map((pet) => pet.tipoRacaPet).join(", ")
         const combinedFotosUrls = petDataToSubmit.flatMap((pet) => pet.fotosUrls)
 
-        // DEBUG: Log dos dados antes de salvar
         console.log("=== DEBUG LOONECA FORM ===")
         console.log("petDataToSubmit:", petDataToSubmit)
         console.log("combinedTipoRacaPet:", combinedTipoRacaPet)
         console.log("combinedFotosUrls:", combinedFotosUrls)
         console.log("observacao:", observacao)
+        console.log("selectedAccessories:", selectedAccessories)
 
-        // Salvar dados no contexto do carrinho
         setPetData(combinedFotosUrls, combinedTipoRacaPet, observacao)
         console.log("Dados do pet salvos no contexto do carrinho:", {
           photos: combinedFotosUrls,
@@ -140,12 +145,10 @@ const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
           </div>
         )}
 
-        {/* Formulários para cada pet */}
         {Array.from({ length: petCount }).map((_, index) => (
           <div key={index} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
             <h3 className="font-semibold text-lg mb-4">{petCount > 1 ? `Pet ${index + 1}` : "Informações do Pet"}</h3>
 
-            {/* Tipo e Raça do Pet - Agora usando o componente de Autocomplete */}
             <div className="mb-4">
               <PetAutocomplete
                 id={`tipoRacaPet-${index}`}
@@ -157,7 +160,6 @@ const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
               />
             </div>
 
-            {/* Upload de Fotos */}
             <div className="mb-4">
               <OptimizedPetImageUpload
                 onImagesUploaded={(urls) => handleImagesUploaded(index, urls)}
@@ -167,7 +169,8 @@ const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
           </div>
         ))}
 
-        {/* Observações - Comum para todos os pets */}
+        <AccessoriesSection onSelectionChange={handleAccessoriesChange} petCount={petCount} />
+
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <label htmlFor="observacao" className="block text-sm font-medium text-gray-700 mb-1">
             Alguma história especial que gostaria de compartilhar conosco?
@@ -197,7 +200,6 @@ const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
 
 LoonecaFormInline.displayName = "LoonecaFormInline"
 
-// Componente de upload de imagens otimizado para cada pet
 interface OptimizedPetImageUploadProps {
   onImagesUploaded: (urls: string[]) => void
   petIndex: number
@@ -211,10 +213,8 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
-  // Função para comprimir a imagem antes do upload
   const compressImage = async (file: File): Promise<File> => {
     try {
-      // Se o arquivo já for pequeno, não comprimir
       if (file.size <= 1024 * 1024) {
         console.log("Arquivo pequeno, não comprimindo")
         return file
@@ -222,7 +222,6 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
 
       console.log("Comprimindo imagem...")
 
-      // Criar um canvas para redimensionar a imagem
       const img = new Image()
       const canvas = document.createElement("canvas")
       const ctx = canvas.getContext("2d")
@@ -231,7 +230,6 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
         throw new Error("Não foi possível criar contexto do canvas")
       }
 
-      // Carregar a imagem
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve()
         img.onerror = (e) => {
@@ -242,7 +240,6 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
         img.src = URL.createObjectURL(file)
       })
 
-      // Calcular as novas dimensões mantendo a proporção
       const MAX_WIDTH = 1920
       const MAX_HEIGHT = 1920
       let width = img.width
@@ -260,14 +257,11 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
         }
       }
 
-      // Definir as dimensões do canvas
       canvas.width = width
       canvas.height = height
 
-      // Desenhar a imagem redimensionada
       ctx.drawImage(img, 0, 0, width, height)
 
-      // Converter para blob com qualidade reduzida
       const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(
           (blob) => {
@@ -278,14 +272,12 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
             }
           },
           file.type,
-          0.7, // Qualidade 70%
+          0.7,
         )
       })
 
-      // Limpar URL temporária
       URL.revokeObjectURL(img.src)
 
-      // Criar um novo arquivo a partir do blob
       const compressedFile = new File([blob], file.name, {
         type: file.type,
         lastModified: Date.now(),
@@ -300,26 +292,21 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
       return compressedFile
     } catch (error) {
       console.error("Erro ao comprimir imagem:", error)
-      // Em caso de erro na compressão, retornar o arquivo original
       console.log("Retornando arquivo original devido ao erro na compressão")
       return file
     }
   }
 
-  // Função para fazer upload de uma única imagem com retry
   const uploadSingleImage = async (file: File, retryCount = 0): Promise<string> => {
     try {
-      // Validar o arquivo antes do upload
       if (!file || file.size === 0) {
         throw new Error("Arquivo inválido ou vazio")
       }
 
-      // Verificar se é uma imagem válida
       if (!file.type.startsWith("image/")) {
         throw new Error("Arquivo deve ser uma imagem")
       }
 
-      // Verificar tamanho máximo (10MB)
       const maxSize = 10 * 1024 * 1024 // 10MB
       if (file.size > maxSize) {
         throw new Error("Arquivo muito grande. Máximo 10MB")
@@ -327,16 +314,13 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
 
       console.log(`Iniciando upload: ${file.name}, Tamanho: ${(file.size / 1024 / 1024).toFixed(2)}MB`)
 
-      // Comprimir a imagem antes do upload
       const compressedFile = await compressImage(file)
 
       console.log(`Arquivo comprimido: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`)
 
-      // Criar FormData para o upload
       const formData = new FormData()
       formData.append("file", compressedFile)
 
-      // Fazer upload usando fetch com timeout
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 segundos timeout
 
@@ -363,7 +347,6 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
           throw new Error(errorMessage)
         }
 
-        // Tentar analisar a resposta como JSON
         let data
         try {
           const responseText = await response.text()
@@ -391,15 +374,12 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
     } catch (error) {
       console.error(`Erro no upload (tentativa ${retryCount + 1}):`, error)
 
-      // Tentar novamente até 2 vezes em caso de falha
       if (retryCount < 2) {
         console.log(`Tentando novamente (${retryCount + 2}/3)...`)
-        // Aguardar um pouco antes de tentar novamente
         await new Promise((resolve) => setTimeout(resolve, 1000 * (retryCount + 1)))
         return uploadSingleImage(file, retryCount + 1)
       }
 
-      // Se todas as tentativas falharam, lançar erro mais específico
       const errorMessage = error instanceof Error ? error.message : "Erro desconhecido no upload"
       throw new Error(`Falha no upload após 3 tentativas: ${errorMessage}`)
     }
@@ -412,17 +392,14 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
     setError(null)
     setIsUploading(true)
 
-    // Adicionar arquivos à lista com status 'uploading'
     const newImages = Array.from(files).map((file) => ({
-      url: URL.createObjectURL(file), // URL temporária para preview
+      url: URL.createObjectURL(file),
       file,
       status: "uploading" as const,
     }))
 
-    // Atualizar estado com as novas imagens
     setUploadedImages((prev) => [...prev, ...newImages])
 
-    // Fazer upload de cada imagem sequencialmente para evitar sobrecarga
     const uploadedUrls: string[] = []
     const failedUploads: number[] = []
 
@@ -433,7 +410,6 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
         const url = await uploadSingleImage(image.file)
         uploadedUrls.push(url)
 
-        // Atualizar o status da imagem para 'success'
         setUploadedImages((prev) =>
           prev.map((img) => (img === image ? { ...img, url, status: "success" as const } : img)),
         )
@@ -441,24 +417,20 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
         console.error(`Erro no upload da imagem ${i}:`, error)
         failedUploads.push(i)
 
-        // Atualizar o status da imagem para 'error'
         setUploadedImages((prev) => prev.map((img) => (img === image ? { ...img, status: "error" as const } : img)))
       }
     }
 
-    // Atualizar as URLs no componente pai
     const allUrls = [...uploadedImages.filter((img) => img.status === "success").map((img) => img.url), ...uploadedUrls]
 
     onImagesUploaded(allUrls)
 
-    // Mostrar erro se algum upload falhou
     if (failedUploads.length > 0) {
       setError(`${failedUploads.length} imagem(ns) não pôde(puderam) ser enviada(s). Tente novamente.`)
     }
 
     setIsUploading(false)
 
-    // Limpar o input de arquivo
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
@@ -469,12 +441,10 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
     const removedImage = newImages.splice(index, 1)[0]
     setUploadedImages(newImages)
 
-    // Revogar URL temporária para liberar memória
     if (removedImage.url.startsWith("blob:")) {
       URL.revokeObjectURL(removedImage.url)
     }
 
-    // Atualizar as URLs no componente pai
     onImagesUploaded(newImages.filter((img) => img.status === "success").map((img) => img.url))
   }
 
@@ -482,7 +452,6 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
     fileInputRef.current?.click()
   }
 
-  // Limpar URLs temporárias ao desmontar o componente
   useEffect(() => {
     return () => {
       uploadedImages.forEach((image) => {
@@ -536,7 +505,6 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
           {uploadedImages.map((image, index) => (
             <div key={index} className="relative group">
               <div className="aspect-square rounded-md overflow-hidden border border-gray-200 bg-gray-50">
-                {/* Imagem ou indicador de carregamento */}
                 <div className="relative w-full h-full">
                   <Image
                     src={image.url || "/placeholder.svg"}
@@ -546,7 +514,6 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
                     className={`w-full h-full object-cover ${image.status === "uploading" ? "opacity-50" : ""}`}
                   />
 
-                  {/* Indicador de status */}
                   {image.status === "uploading" && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="bg-white bg-opacity-70 rounded-full p-2">
@@ -565,7 +532,6 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
                 </div>
               </div>
 
-              {/* Botão de remover */}
               <button
                 type="button"
                 onClick={() => removeImage(index)}
@@ -575,7 +541,6 @@ function OptimizedPetImageUpload({ onImagesUploaded, petIndex }: OptimizedPetIma
                 <X className="w-4 h-4 text-red-500" />
               </button>
 
-              {/* Indicador de status */}
               <div
                 className={`absolute bottom-1 left-1 rounded-full px-2 py-0.5 text-xs shadow-md ${
                   image.status === "uploading"

@@ -9,6 +9,7 @@ import Header from "@/components/header"
 import Footer from "@/components/footer"
 import { useCart } from "@/contexts/cart-context"
 import { trackFBEvent } from "@/components/facebook-pixel"
+import { ACCESSORY_PRICE, getAccessoryName } from "@/components/accessories-section"
 
 // Adicionar interfaces para as ofertas adicionais
 interface AdditionalOffer {
@@ -210,6 +211,19 @@ export default function CartPage() {
                           <h3 className="font-semibold">{item.name}</h3>
                           <p className="text-sm text-gray-600">Cor: {item.color}</p>
                           <p className="text-sm text-gray-600">Pets: {item.petCount}</p>
+                          {item.accessories && item.accessories.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-xs font-medium text-gray-700">Acessórios:</p>
+                              <ul className="text-xs text-gray-600 list-disc list-inside">
+                                {item.accessories.map((accessoryId: string) => (
+                                  <li key={accessoryId}>{getAccessoryName(accessoryId)}</li>
+                                ))}
+                              </ul>
+                              <p className="text-xs text-[#F1542E] font-medium mt-1">
+                                + R$ {(item.accessories.length * ACCESSORY_PRICE).toFixed(2).replace(".", ",")}
+                              </p>
+                            </div>
+                          )}
                           <button
                             onClick={() => cart.removeItem(item.id)}
                             className="text-red-500 text-sm flex items-center mt-2 md:hidden"
