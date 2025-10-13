@@ -19,6 +19,10 @@ export const PAGARME_CONFIG = {
     CHARGES: "/charges",
   },
 
+  features: {
+    subscriptionsEnabled: false, // Set to true to re-enable subscription creation
+  },
+
   // Subscription configuration
   subscription: {
     planId: process.env.PETLOO_PLAN_ID || "",

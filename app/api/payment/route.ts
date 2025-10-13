@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js"
 import { criarPedido } from "@/actions/pedidos-actions"
 import { buscarDadosFormularioInicial } from "@/actions/cart-data-actions"
 
+const ENABLE_SUBSCRIPTION_CREATION = false
+
 // Taxas de juros para cartão de crédito
 const INTEREST_RATES = {
   1: 0.0, // 0% para pagamento à vista
@@ -204,9 +206,9 @@ export async function POST(request: NextRequest) {
       recurringProducts,
     } = body
 
-    // Verificar se há produtos recorrentes
-    const hasRecurringProducts = recurringProducts.appPetloo || recurringProducts.loobook
-    console.log("Has recurring products:", hasRecurringProducts)
+    const hasRecurringProducts =
+      ENABLE_SUBSCRIPTION_CREATION && (recurringProducts.appPetloo || recurringProducts.loobook)
+    console.log("Has recurring products:", hasRecurringProducts, "(Feature enabled:", ENABLE_SUBSCRIPTION_CREATION, ")")
 
     // Calcular valor final com juros
     const finalAmount = calculateFinalAmount(originalAmount, paymentMethod, installments)
@@ -392,12 +394,20 @@ export async function POST(request: NextRequest) {
 
       // Criar assinatura se o pagamento for aprovado e houver produtos recorrentes
       let subscriptionResult = null
-      if (isPaymentApproved && hasRecurringProducts && customerId && cardId && paymentMethod === "credit_card") {
+      if (
+        ENABLE_SUBSCRIPTION_CREATION &&
+        isPaymentApproved &&
+        hasRecurringProducts &&
+        customerId &&
+        cardId &&
+        paymentMethod === "credit_card"
+      ) {
         console.log("Creating subscription after successful payment")
         subscriptionResult = await createSubscription(customerId, cardId, responseData.id, customerData)
         console.log("Subscription creation result:", subscriptionResult.success)
-      } else if (hasRecurringProducts) {
-        console.log("Skipping subscription creation:", {
+      } else if (hasRecurringProducts || recurringProducts.appPetloo || recurringProducts.loobook) {
+        console.log("Skipping subscription creation (feature disabled or conditions not met):", {
+          featureEnabled: ENABLE_SUBSCRIPTION_CREATION,
           isPaymentApproved,
           hasRecurringProducts,
           hasCustomerId: !!customerId,

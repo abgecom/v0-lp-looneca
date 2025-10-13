@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import crypto from "crypto"
 import { calculateSubscriptionStartDate } from "@/lib/pagarme/api"
+import { PAGARME_CONFIG } from "@/lib/pagarme/config"
 
 // Verificar se as variáveis de ambiente estão definidas
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -37,6 +38,11 @@ function verifySignature(signature: string, payload: string): boolean {
 // Função para criar assinatura após pagamento aprovado
 async function createSubscriptionAfterPayment(order: any): Promise<any> {
   try {
+    if (!PAGARME_CONFIG.features.subscriptionsEnabled) {
+      console.log("Subscription creation is disabled via feature flag")
+      return { success: false, reason: "feature_disabled" }
+    }
+
     console.log("Checking if subscription is needed for order:", order.id)
 
     // Log detalhado dos metadados do pedido
@@ -283,8 +289,7 @@ export async function POST(request: NextRequest) {
           console.log(`Updated order ${orderId} status to ${status}`)
         }
 
-        // Se o pagamento foi aprovado, verificar se precisa criar assinatura
-        if (status === "paid" || status === "authorized") {
+        if (PAGARME_CONFIG.features.subscriptionsEnabled && (status === "paid" || status === "authorized")) {
           try {
             // Obter detalhes completos do pedido
             const orderDetails = await getOrderDetails(orderId)
@@ -295,6 +300,11 @@ export async function POST(request: NextRequest) {
           } catch (error) {
             console.error("Error handling subscription creation after payment:", error)
           }
+        } else {
+          console.log("Skipping subscription creation:", {
+            featureEnabled: PAGARME_CONFIG.features.subscriptionsEnabled,
+            status,
+          })
         }
       }
     }

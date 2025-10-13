@@ -27,6 +27,8 @@ export default function CartPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const cartEventTrackedRef = useRef(false)
 
+  const ENABLE_SUBSCRIPTION_OFFERS = false
+
   // Estado para armazenar os dados do carrinho
   const [cartItems, setCartItems] = useState<any[]>([])
   const [cartTotalPrice, setCartTotalPrice] = useState(0)
@@ -278,25 +280,25 @@ export default function CartPage() {
                       <span>R$ {formatPrice(cartTotalPrice)}</span>
                     </div>
 
-                    {/* Mostrar ofertas gratuitas selecionadas */}
-                    {additionalOffers.map((offer) => {
-                      const isSelected =
-                        offer.id === "app-petloo"
-                          ? cart.recurringProducts.appPetloo
-                          : offer.id === "loobook"
-                            ? cart.recurringProducts.loobook
-                            : false
+                    {ENABLE_SUBSCRIPTION_OFFERS &&
+                      additionalOffers.map((offer) => {
+                        const isSelected =
+                          offer.id === "app-petloo"
+                            ? cart.recurringProducts.appPetloo
+                            : offer.id === "loobook"
+                              ? cart.recurringProducts.loobook
+                              : false
 
-                      if (isSelected) {
-                        return (
-                          <div key={offer.id} className="flex justify-between text-sm">
-                            <span>{offer.name}</span>
-                            <span className="text-green-600">Grátis</span>
-                          </div>
-                        )
-                      }
-                      return null
-                    })}
+                        if (isSelected) {
+                          return (
+                            <div key={offer.id} className="flex justify-between text-sm">
+                              <span>{offer.name}</span>
+                              <span className="text-green-600">Grátis</span>
+                            </div>
+                          )
+                        }
+                        return null
+                      })}
 
                     <div className="border-t border-gray-200 pt-3 mt-3">
                       <div className="flex justify-between font-bold">
@@ -352,89 +354,91 @@ export default function CartPage() {
                 </div>
               </div>
 
-              {/* Ofertas adicionais */}
-              <div className="order-3 lg:w-3/12 lg:order-2 space-y-4">
-                <h2 className="text-xl font-bold">Parabéns, você ganhou dois bônus grátis</h2>
-                <p className="text-[#4A4A4A] text-[0.9rem] mb-4">
-                  Você terá acesso vip ao App Petloo, onde você encontrará funcionalidades exclusivas 100% gratuitas e
-                  também receberá o nosso Loobook, um guia sobre alimentação, hábitos, saúde e comportamento do seu pet.
-                </p>
+              {ENABLE_SUBSCRIPTION_OFFERS && (
+                <div className="order-3 lg:w-3/12 lg:order-2 space-y-4">
+                  <h2 className="text-xl font-bold">Parabéns, você ganhou dois bônus grátis</h2>
+                  <p className="text-[#4A4A4A] text-[0.9rem] mb-4">
+                    Você terá acesso vip ao App Petloo, onde você encontrará funcionalidades exclusivas 100% gratuitas e
+                    também receberá o nosso Loobook, um guia sobre alimentação, hábitos, saúde e comportamento do seu
+                    pet.
+                  </p>
 
-                {additionalOffers.map((offer) => (
-                  <div
-                    key={offer.id}
-                    className={`bg-white rounded-lg shadow-md overflow-hidden transition-all duration-200 ${
-                      (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
-                      (offer.id === "loobook" && cart.recurringProducts.loobook)
-                        ? "border-2 border-green-500"
-                        : "border border-gray-200"
-                    }`}
-                  >
-                    <div className="p-4 flex flex-col md:flex-row">
-                      {/* Imagem da oferta */}
-                      <div className="w-full md:w-2/5 flex items-center mb-4 md:mb-0">
-                        <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
-                          <Image
-                            src={offer.imageSrc || "/placeholder.svg"}
-                            alt={offer.name}
-                            width={80}
-                            height={80}
-                            className="w-full h-full object-contain"
-                          />
+                  {additionalOffers.map((offer) => (
+                    <div
+                      key={offer.id}
+                      className={`bg-white rounded-lg shadow-md overflow-hidden transition-all duration-200 ${
+                        (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
+                        (offer.id === "loobook" && cart.recurringProducts.loobook)
+                          ? "border-2 border-green-500"
+                          : "border border-gray-200"
+                      }`}
+                    >
+                      <div className="p-4 flex flex-col md:flex-row">
+                        {/* Imagem da oferta */}
+                        <div className="w-full md:w-2/5 flex items-center mb-4 md:mb-0">
+                          <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
+                            <Image
+                              src={offer.imageSrc || "/placeholder.svg"}
+                              alt={offer.name}
+                              width={80}
+                              height={80}
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                          <div className="ml-4">
+                            <h3 className="font-semibold">{offer.name}</h3>
+                            <p className="text-sm text-gray-600">{offer.description}</p>
+                            <div className="mt-1 flex items-center">
+                              <span className="line-through text-gray-500 mr-2 text-sm">R$30,00/mês</span>
+                              <span className="font-bold text-green-600">GRÁTIS</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="ml-4">
-                          <h3 className="font-semibold">{offer.name}</h3>
-                          <p className="text-sm text-gray-600">{offer.description}</p>
-                          <div className="mt-1 flex items-center">
-                            <span className="line-through text-gray-500 mr-2 text-sm">R$30,00/mês</span>
-                            <span className="font-bold text-green-600">GRÁTIS</span>
+
+                        {/* Benefícios e botão de seleção */}
+                        <div className="w-full md:w-3/5 flex flex-col md:flex-row">
+                          <div className="flex-grow">
+                            <ul className="space-y-1">
+                              {offer.benefits.map((benefit, index) => (
+                                <li key={index} className="flex items-start">
+                                  <Check className="w-4 h-4 text-green-500 mt-0.5 mr-2 flex-shrink-0" />
+                                  <span className="text-sm">{benefit}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          {/* Botão de seleção */}
+                          <div className="mt-4 md:mt-0 md:ml-4 flex items-center justify-end">
+                            <button
+                              onClick={() => toggleOffer(offer.id)}
+                              className={`flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-150 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                                (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
+                                (offer.id === "loobook" && cart.recurringProducts.loobook)
+                                  ? "bg-green-500 hover:bg-green-600 text-white focus:ring-green-500"
+                                  : "bg-gray-200 hover:bg-gray-300 text-gray-600 focus:ring-gray-400"
+                              } cursor-pointer`}
+                              aria-label={
+                                (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
+                                (offer.id === "loobook" && cart.recurringProducts.loobook)
+                                  ? "Remover oferta"
+                                  : "Adicionar oferta"
+                              }
+                            >
+                              {(offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
+                              (offer.id === "loobook" && cart.recurringProducts.loobook) ? (
+                                <Check className="w-6 h-6" />
+                              ) : (
+                                <Plus className="w-6 h-6" />
+                              )}
+                            </button>
                           </div>
                         </div>
                       </div>
-
-                      {/* Benefícios e botão de seleção */}
-                      <div className="w-full md:w-3/5 flex flex-col md:flex-row">
-                        <div className="flex-grow">
-                          <ul className="space-y-1">
-                            {offer.benefits.map((benefit, index) => (
-                              <li key={index} className="flex items-start">
-                                <Check className="w-4 h-4 text-green-500 mt-0.5 mr-2 flex-shrink-0" />
-                                <span className="text-sm">{benefit}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        {/* Botão de seleção */}
-                        <div className="mt-4 md:mt-0 md:ml-4 flex items-center justify-end">
-                          <button
-                            onClick={() => toggleOffer(offer.id)}
-                            className={`flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-150 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                              (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
-                              (offer.id === "loobook" && cart.recurringProducts.loobook)
-                                ? "bg-green-500 hover:bg-green-600 text-white focus:ring-green-500"
-                                : "bg-gray-200 hover:bg-gray-300 text-gray-600 focus:ring-gray-400"
-                            } cursor-pointer`}
-                            aria-label={
-                              (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
-                              (offer.id === "loobook" && cart.recurringProducts.loobook)
-                                ? "Remover oferta"
-                                : "Adicionar oferta"
-                            }
-                          >
-                            {(offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
-                            (offer.id === "loobook" && cart.recurringProducts.loobook) ? (
-                              <Check className="w-6 h-6" />
-                            ) : (
-                              <Plus className="w-6 h-6" /> // Alterado para Plus para indicar "adicionar"
-                            )}
-                          </button>
-                        </div>
-                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
