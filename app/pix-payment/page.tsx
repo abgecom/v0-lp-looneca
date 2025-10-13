@@ -19,15 +19,67 @@ export default function PixPaymentPage() {
   const [pedidoData, setPedidoData] = useState<any>(null)
   const [isLoadingPedido, setIsLoadingPedido] = useState(true)
 
-  // Get data from URL parameters - mantendo exatamente como estava
-  const pixCode = searchParams.get("pixCode") || ""
-  const pixQrCodeUrl = searchParams.get("pixQrCodeUrl") || ""
-  const orderId = searchParams.get("orderId") || "10410" // Este é o id_pagamento
-  const orderNumber = searchParams.get("pedido_numero") || "1028"
+  const [pixData, setPixData] = useState<{
+    pixCode: string
+    pixQrCodeUrl: string
+    orderId: string
+    amount: number
+    pedidoNumero?: string
+  } | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedPixData = sessionStorage.getItem("pixPaymentData")
+      if (savedPixData) {
+        try {
+          const parsedData = JSON.parse(savedPixData)
+          console.log("[v0] PIX data loaded from sessionStorage")
+          setPixData({
+            pixCode: parsedData.copiacola || "",
+            pixQrCodeUrl: parsedData.qrcode || "",
+            orderId: parsedData.orderId || "",
+            amount: parsedData.amount || 0,
+            pedidoNumero: parsedData.pedidoNumero,
+          })
+          setIsLoading(false)
+          // Clear sessionStorage after loading
+          sessionStorage.removeItem("pixPaymentData")
+          return
+        } catch (error) {
+          console.error("[v0] Error parsing PIX data from sessionStorage:", error)
+        }
+      }
+
+      // Fallback to URL parameters if sessionStorage is empty
+      const pixCodeParam = searchParams.get("pixCode") || ""
+      const pixQrCodeUrlParam = searchParams.get("pixQrCodeUrl") || ""
+      const orderIdParam = searchParams.get("orderId") || ""
+      const amountParam = Number.parseFloat(searchParams.get("amount") || "0")
+
+      if (pixCodeParam || pixQrCodeUrlParam) {
+        console.log("[v0] PIX data loaded from URL parameters (fallback)")
+        setPixData({
+          pixCode: pixCodeParam,
+          pixQrCodeUrl: pixQrCodeUrlParam,
+          orderId: orderIdParam,
+          amount: amountParam,
+        })
+      }
+
+      setIsLoading(false)
+    }
+  }, [searchParams])
+
+  // Get data from pixData state
+  const pixCode = pixData?.pixCode || ""
+  const pixQrCodeUrl = pixData?.pixQrCodeUrl || ""
+  const orderId = pixData?.orderId || ""
+  const orderNumber = pixData?.pedidoNumero || searchParams.get("pedido_numero") || "1028"
   const orderStatus = searchParams.get("status") || "RESERVADO"
 
   // Capturar id_pagamento da URL (pode vir como orderId ou id_pagamento)
-  const idPagamento = searchParams.get("orderId") || searchParams.get("id_pagamento")
+  const idPagamento = orderId || searchParams.get("id_pagamento")
 
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
@@ -73,10 +125,11 @@ export default function PixPaymentPage() {
 
   // Redirect if no PIX code is provided
   useEffect(() => {
-    if (!pixCode || !pixQrCodeUrl) {
+    if (!isLoading && (!pixCode || !pixQrCodeUrl)) {
+      console.log("[v0] No PIX data available, redirecting to checkout")
       router.push("/checkout")
     }
-  }, [pixCode, pixQrCodeUrl, router])
+  }, [pixCode, pixQrCodeUrl, router, isLoading])
 
   // Buscar dados do pedido pelo id_pagamento
   useEffect(() => {
@@ -93,7 +146,7 @@ export default function PixPaymentPage() {
     }
   }, [idPagamento])
 
-  if (!pixCode || !pixQrCodeUrl) {
+  if (isLoading || !pixCode || !pixQrCodeUrl) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F1542E]"></div>
@@ -103,8 +156,9 @@ export default function PixPaymentPage() {
 
   // Usar dados do pedido quando disponíveis, senão usar dados do carrinho
   const itensParaExibir = pedidoData?.itens_escolhidos || cart.items
-  const totalPedido = pedidoData?.total_pago || cart.totalPrice + (isShippingFree ? 0 : shippingPrice)
-  const subtotalPedido = pedidoData ? pedidoData.total_pago - 17.9 : cart.totalPrice
+  const totalPedido =
+    pedidoData?.total_pago || pixData?.amount || cart.totalPrice + (isShippingFree ? 0 : shippingPrice)
+  const subtotalPedido = pedidoData ? pedidoData.total_pago - 17.9 : pixData?.amount || cart.totalPrice
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">

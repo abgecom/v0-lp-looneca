@@ -658,12 +658,16 @@ export default function CheckoutPage() {
         }
 
         if (paymentMethod === "pix") {
-          // Redirecionar para a página de pagamento PIX
-          router.push(
-            `/pix-payment?pixCode=${encodeURIComponent(paymentResult.pixCode || "")}&pixQrCodeUrl=${encodeURIComponent(
-              paymentResult.pixQrCodeUrl || "",
-            )}&orderId=${paymentResult.orderId || ""}&status=RESERVADO`,
-          )
+          const pixDataToSave = {
+            orderId: paymentResult.orderId,
+            amount: paymentResult.finalAmount,
+            qrcode: paymentResult.pixQrCodeUrl,
+            copiacola: paymentResult.pixCode,
+            pedidoNumero: paymentResult.pedidoNumero,
+          }
+          sessionStorage.setItem("pixPaymentData", JSON.stringify(pixDataToSave))
+
+          router.push(`/pix-payment?orderId=${paymentResult.orderId || ""}&amount=${paymentResult.finalAmount || 0}`)
         } else {
           // Replace this line:
           // setPaymentSuccess(true)
