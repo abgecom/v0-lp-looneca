@@ -222,15 +222,26 @@ async function generateAppmaxPixPayment(pixData: any, accessToken: string) {
 async function processAppmaxCreditCardPayment(paymentData: any, accessToken: string) {
   console.log("[v0] Step 3: Processing credit card payment in Appmax...")
 
+  const nameParts = paymentData.customer.name.trim().split(" ")
+  const firstName = nameParts[0] || ""
+  const lastName = nameParts.slice(1).join(" ") || ""
+
   const paymentPayload = {
     cart: {
       order_id: paymentData.orderId,
     },
     customer: {
-      name: paymentData.customer.name,
+      firstname: firstName,
+      lastname: lastName,
       email: paymentData.customer.email,
-      document: paymentData.customer.cpf.replace(/\D/g, ""),
       telephone: paymentData.customer.phone.replace(/\D/g, ""),
+      document: paymentData.customer.cpf.replace(/\D/g, ""),
+      postcode: paymentData.shipping.cep.replace(/\D/g, ""),
+      address_street: paymentData.shipping.address,
+      address_street_number: paymentData.shipping.number,
+      address_street_district: paymentData.shipping.neighborhood,
+      address_city: paymentData.shipping.city,
+      address_state: paymentData.shipping.state,
     },
     payment: {
       creditcard: {
