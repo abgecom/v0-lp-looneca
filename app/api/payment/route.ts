@@ -132,7 +132,6 @@ export async function POST(request: NextRequest) {
     // Montar payload para Appmax
     const appmaxPayload: any = {
       "access-token": process.env.APPMAX_API_KEY,
-      customer_id: customer.cpf.replace(/\D/g, ""), // Using CPF as unique customer identifier
       customer: {
         name: customer.name,
         email: customer.email,
