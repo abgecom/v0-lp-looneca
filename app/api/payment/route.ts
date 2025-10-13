@@ -147,11 +147,6 @@ async function createAppmaxOrder(orderData: any, accessToken: string) {
     products: orderData.products,
   }
 
-  // Add payment info for credit card
-  if (orderData.payment) {
-    orderPayload.payment = orderData.payment
-  }
-
   const response = await fetch("https://admin.appmax.com.br/api/v3/order", {
     method: "POST",
     headers: {
@@ -221,6 +216,63 @@ async function generateAppmaxPixPayment(pixData: any, accessToken: string) {
   return {
     pixQrCode: responseData.data.pix_qrcode,
     pixEmv: responseData.data.pix_emv,
+  }
+}
+
+async function processAppmaxCreditCardPayment(paymentData: any, accessToken: string) {
+  console.log("[v0] Step 3: Processing credit card payment in Appmax...")
+
+  const paymentPayload = {
+    cart: {
+      order_id: paymentData.orderId,
+    },
+    customer: {
+      name: paymentData.customer.name,
+      email: paymentData.customer.email,
+      document: paymentData.customer.cpf.replace(/\D/g, ""),
+      telephone: paymentData.customer.phone.replace(/\D/g, ""),
+    },
+    payment: {
+      creditcard: {
+        holder_name: paymentData.card.holderName,
+        number: paymentData.card.number.replace(/\s/g, ""),
+        expiration_month: paymentData.card.expirationMonth,
+        expiration_year: paymentData.card.expirationYear,
+        cvv: paymentData.card.cvv,
+      },
+      installments: String(paymentData.installments),
+    },
+  }
+
+  console.log("[v0] Credit card payment payload:", {
+    orderId: paymentData.orderId,
+    installments: paymentData.installments,
+    holderName: paymentData.card.holderName,
+  })
+
+  const response = await fetch("https://admin.appmax.com.br/api/v3/payment/creditcard", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "access-token": accessToken,
+    },
+    body: JSON.stringify(paymentPayload),
+  })
+
+  const responseData = await response.json()
+  console.log("[v0] Credit card payment response:", {
+    status: response.status,
+    success: responseData.success,
+    paymentStatus: responseData.data?.status,
+  })
+
+  if (!response.ok || responseData.success === false) {
+    throw new Error(responseData.text || responseData.message || "Failed to process credit card payment")
+  }
+
+  return {
+    status: responseData.data?.status || "pending",
+    transactionId: responseData.data?.id,
   }
 }
 
@@ -387,29 +439,9 @@ export async function POST(request: NextRequest) {
       products,
     }
 
-    // Add payment info for credit card
-    if (paymentMethod === "credit_card" && card) {
-      const [expMonth, expYear] = card.expirationDate.split("/")
-      orderData.payment = {
-        type: "creditcard",
-        creditcard: {
-          holder_name: card.holderName,
-          number: card.number.replace(/\s/g, ""),
-          expiration_month: expMonth,
-          expiration_year: `20${expYear}`,
-          cvv: card.cvv,
-        },
-        installments: Number(installments),
-      }
-      console.log("[v0] Payment method: Credit Card", {
-        installments,
-        holderName: card.holderName,
-      })
-    }
-
     const orderResult = await createAppmaxOrder(orderData, process.env.APPMAX_API_KEY)
     const appmaxOrderId = orderResult.orderId
-    const orderStatus = orderResult.status
+    let orderStatus = orderResult.status
 
     let pixQrCode = null
     let pixEmv = null
@@ -431,6 +463,39 @@ export async function POST(request: NextRequest) {
       pixQrCode = pixResult.pixQrCode
       pixEmv = pixResult.pixEmv
       console.log("[v0] PIX payment generated successfully")
+    }
+
+    if (paymentMethod === "credit_card" && card) {
+      console.log("[v0] Payment method: Credit Card - processing payment...")
+      const [expMonth, expYear] = card.expirationDate.split("/")
+
+      const paymentResult = await processAppmaxCreditCardPayment(
+        {
+          orderId: appmaxOrderId,
+          customer: {
+            name: customer.name,
+            email: customer.email,
+            cpf: customer.cpf,
+            phone: customer.phone,
+          },
+          card: {
+            holderName: card.holderName,
+            number: card.number,
+            expirationMonth: expMonth,
+            expirationYear: `20${expYear}`,
+            cvv: card.cvv,
+          },
+          installments: Number(installments),
+        },
+        process.env.APPMAX_API_KEY,
+      )
+
+      // Update order status with the payment result
+      orderStatus = paymentResult.status
+      console.log("[v0] Credit card payment processed:", {
+        status: paymentResult.status,
+        transactionId: paymentResult.transactionId,
+      })
     }
 
     console.log("[v0] Appmax order created successfully:", {
@@ -504,7 +569,6 @@ export async function POST(request: NextRequest) {
       paymentMethod: paymentMethod,
     }
 
-    // Adicionar informações específicas do método de pagamento
     if (paymentMethod === "pix" && pixQrCode) {
       response.pixCode = pixEmv || pixQrCode
       response.pixQrCodeUrl = pixQrCode
@@ -517,7 +581,6 @@ export async function POST(request: NextRequest) {
       console.log("[v0] Credit card payment - installments:", installments)
     }
 
-    // Adicionar número do pedido à resposta
     if (pedidoResult.success && pedidoResult.pedido) {
       response.pedidoNumero = pedidoResult.pedido.pedido_numero
       console.log("[v0] Order number:", response.pedidoNumero)
