@@ -91,6 +91,136 @@ function calculateFinalAmount(originalAmount: number, paymentMethod: "credit_car
   return originalAmount
 }
 
+async function createAppmaxCustomer(customerData: any, accessToken: string) {
+  console.log("[v0] Step 1: Creating customer in Appmax...")
+
+  const customerPayload = {
+    "access-token": accessToken,
+    customer: {
+      name: customerData.name,
+      email: customerData.email,
+      cpf: customerData.cpf.replace(/\D/g, ""),
+      phone: customerData.phone.replace(/\D/g, ""),
+      street: customerData.street,
+      number: customerData.number,
+      complement: customerData.complement || "",
+      district: customerData.district,
+      city: customerData.city,
+      state: customerData.state,
+      zipcode: customerData.zipcode.replace(/\D/g, ""),
+    },
+  }
+
+  const response = await fetch("https://admin.appmax.com.br/api/v3/customer", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(customerPayload),
+  })
+
+  const responseData = await response.json()
+  console.log("[v0] Customer creation response:", {
+    status: response.status,
+    success: responseData.success,
+    hasId: !!responseData.data?.id,
+  })
+
+  // Even if the customer already exists, the API may return the customer data
+  if (responseData.data?.id) {
+    console.log("[v0] Customer ID obtained:", responseData.data.id)
+    return responseData.data.id
+  }
+
+  // If no ID was returned, throw an error
+  throw new Error(responseData.text || responseData.message || "Failed to create customer")
+}
+
+async function createAppmaxOrder(orderData: any, accessToken: string) {
+  console.log("[v0] Step 2: Creating order in Appmax...")
+
+  const orderPayload = {
+    "access-token": accessToken,
+    customer_id: orderData.customerId,
+    products: orderData.products,
+  }
+
+  // Add payment info for credit card
+  if (orderData.payment) {
+    orderPayload.payment = orderData.payment
+  }
+
+  const response = await fetch("https://admin.appmax.com.br/api/v3/order", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(orderPayload),
+  })
+
+  const responseData = await response.json()
+  console.log("[v0] Order creation response:", {
+    status: response.status,
+    success: responseData.success,
+    hasId: !!responseData.data?.id,
+  })
+
+  if (!response.ok || responseData.success === false || !responseData.data?.id) {
+    throw new Error(responseData.text || responseData.message || "Failed to create order")
+  }
+
+  return {
+    orderId: responseData.data.id,
+    status: responseData.data.status,
+  }
+}
+
+async function generateAppmaxPixPayment(pixData: any, accessToken: string) {
+  console.log("[v0] Step 3: Generating PIX payment in Appmax...")
+
+  const pixPayload = {
+    "access-token": accessToken,
+    cart: {
+      order_id: pixData.orderId,
+    },
+    customer: {
+      name: pixData.customer.name,
+      email: pixData.customer.email,
+      cpf: pixData.customer.cpf.replace(/\D/g, ""),
+      phone: pixData.customer.phone.replace(/\D/g, ""),
+    },
+    payment: {
+      pix: {
+        document_number: pixData.customer.cpf.replace(/\D/g, ""),
+      },
+    },
+  }
+
+  const response = await fetch("https://admin.appmax.com.br/api/v3/payment/pix", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(pixPayload),
+  })
+
+  const responseData = await response.json()
+  console.log("[v0] PIX payment response:", {
+    status: response.status,
+    success: responseData.success,
+    hasQrCode: !!responseData.data?.pix_qrcode,
+  })
+
+  if (!response.ok || responseData.success === false) {
+    throw new Error(responseData.text || responseData.message || "Failed to generate PIX payment")
+  }
+
+  return {
+    pixQrCode: responseData.data.pix_qrcode,
+    pixEmv: responseData.data.pix_emv,
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     if (!process.env.APPMAX_API_KEY) {
@@ -127,40 +257,39 @@ export async function POST(request: NextRequest) {
     const finalAmount = calculateFinalAmount(originalAmount, paymentMethod, installments)
     console.log("[v0] Calculated final amount:", { originalAmount, finalAmount, installments })
 
-    console.log("[v0] Creating order with Appmax API")
+    console.log("[v0] Starting Appmax payment flow...")
 
-    // Montar payload para Appmax
-    const appmaxPayload: any = {
-      "access-token": process.env.APPMAX_API_KEY,
-      customer: {
+    const customerId = await createAppmaxCustomer(
+      {
         name: customer.name,
         email: customer.email,
-        cpf: customer.cpf.replace(/\D/g, ""),
-        phone: customer.phone.replace(/\D/g, ""),
+        cpf: customer.cpf,
+        phone: customer.phone,
         street: shipping.address,
         number: shipping.number,
-        complement: shipping.complement || "",
+        complement: shipping.complement,
         district: shipping.neighborhood,
         city: shipping.city,
         state: shipping.state,
-        zipcode: shipping.cep.replace(/\D/g, ""),
+        zipcode: shipping.cep,
       },
-      shipping: shipping.price, // Changed to numeric value as required by API
+      process.env.APPMAX_API_KEY,
+    )
+
+    const orderData: any = {
+      customerId,
       products: items.map((item) => ({
         sku: item.id,
         name: `${item.name} - ${item.color} (${item.petCount} pet${item.petCount > 1 ? "s" : ""})`,
-        qty: item.quantity, // Changed from 'quantity' to 'qty' as required by API
+        qty: item.quantity,
         price: item.price,
       })),
     }
 
-    // Adicionar informações de pagamento
-    if (paymentMethod === "pix") {
-      appmaxPayload.payment = { type: "pix" }
-      console.log("[v0] Payment method: PIX")
-    } else if (paymentMethod === "credit_card" && card) {
+    // Add payment info for credit card
+    if (paymentMethod === "credit_card" && card) {
       const [expMonth, expYear] = card.expirationDate.split("/")
-      appmaxPayload.payment = {
+      orderData.payment = {
         type: "creditcard",
         creditcard: {
           holder_name: card.holderName,
@@ -177,69 +306,35 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const logPayload = { ...appmaxPayload }
-    if (logPayload.payment?.creditcard) {
-      logPayload.payment.creditcard = {
-        ...logPayload.payment.creditcard,
-        number: "****",
-        cvv: "***",
-      }
-    }
-    console.log("[v0] Complete Appmax payload:", JSON.stringify(logPayload, null, 2))
+    const orderResult = await createAppmaxOrder(orderData, process.env.APPMAX_API_KEY)
+    const appmaxOrderId = orderResult.orderId
+    const orderStatus = orderResult.status
 
-    // Fazer requisição para a API da Appmax
-    console.log("[v0] Sending request to Appmax API...")
-    const appmaxResponse = await fetch("https://admin.appmax.com.br/api/v3/order", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(appmaxPayload),
-    })
+    let pixQrCode = null
+    let pixEmv = null
 
-    const responseData = await appmaxResponse.json()
-    console.log("[v0] Appmax response status:", appmaxResponse.status)
-    console.log("[v0] Appmax response data:", JSON.stringify(responseData, null, 2))
-
-    if (!appmaxResponse.ok || responseData.success === false || !responseData.data) {
-      console.error("[v0] Appmax API error:", {
-        status: appmaxResponse.status,
-        statusText: appmaxResponse.statusText,
-        success: responseData.success,
-        text: responseData.text,
-        message: responseData.message,
-        responseData,
-      })
-
-      let errorMessage = "Erro ao processar pagamento. Tente novamente."
-      if (responseData.text === "Invalid Access Token") {
-        errorMessage =
-          "Erro de configuração do gateway de pagamento. Entre em contato com o suporte informando: Token de acesso inválido."
-        console.error("[v0] CRITICAL: APPMAX_API_KEY is invalid or expired!")
-      } else if (responseData.message) {
-        errorMessage = responseData.message
-      } else if (responseData.text) {
-        errorMessage = responseData.text
-      }
-
-      return NextResponse.json(
+    if (paymentMethod === "pix") {
+      console.log("[v0] Payment method: PIX")
+      const pixResult = await generateAppmaxPixPayment(
         {
-          success: false,
-          error: errorMessage,
-          details: responseData,
+          orderId: appmaxOrderId,
+          customer: {
+            name: customer.name,
+            email: customer.email,
+            cpf: customer.cpf,
+            phone: customer.phone,
+          },
         },
-        { status: 400 },
+        process.env.APPMAX_API_KEY,
       )
+      pixQrCode = pixResult.pixQrCode
+      pixEmv = pixResult.pixEmv
+      console.log("[v0] PIX payment generated successfully")
     }
-
-    // Extrair dados da resposta da Appmax
-    const appmaxOrderId = responseData.data.id
-    const pixQrCode = responseData.data.pix_qr_code
-    const pixEmv = responseData.data.pix_emv
 
     console.log("[v0] Appmax order created successfully:", {
       orderId: appmaxOrderId,
-      status: responseData.data.status,
+      status: orderStatus,
       hasPix: !!pixQrCode,
     })
 
@@ -284,7 +379,7 @@ export async function POST(request: NextRequest) {
         metodo: paymentMethod,
         total: finalAmount,
         id: appmaxOrderId,
-        status: responseData.data.status || "pending",
+        status: orderStatus || "pending",
         data: new Date().toISOString(),
       },
       fotos,
@@ -301,7 +396,7 @@ export async function POST(request: NextRequest) {
     const response: any = {
       success: true,
       orderId: appmaxOrderId,
-      status: responseData.data.status || "pending",
+      status: orderStatus || "pending",
       finalAmount: finalAmount,
       originalAmount: originalAmount,
       interestAmount: finalAmount - originalAmount,
