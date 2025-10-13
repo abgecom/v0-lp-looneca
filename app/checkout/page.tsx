@@ -658,6 +658,14 @@ export default function CheckoutPage() {
         }
 
         if (paymentMethod === "pix") {
+          console.log("[v0] PIX payment result:", {
+            orderId: paymentResult.orderId,
+            amount: paymentResult.finalAmount,
+            pixQrCodeUrl: paymentResult.pixQrCodeUrl,
+            pixCode: paymentResult.pixCode,
+            pedidoNumero: paymentResult.pedidoNumero,
+          })
+
           const pixDataToSave = {
             orderId: paymentResult.orderId,
             amount: paymentResult.finalAmount,
@@ -665,6 +673,8 @@ export default function CheckoutPage() {
             copiacola: paymentResult.pixCode,
             pedidoNumero: paymentResult.pedidoNumero,
           }
+
+          console.log("[v0] Saving PIX data to sessionStorage:", pixDataToSave)
           sessionStorage.setItem("pixPaymentData", JSON.stringify(pixDataToSave))
 
           router.push(`/pix-payment?orderId=${paymentResult.orderId || ""}&amount=${paymentResult.finalAmount || 0}`)

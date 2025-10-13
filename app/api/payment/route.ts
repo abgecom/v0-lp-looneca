@@ -69,6 +69,7 @@ interface PaymentRequest {
     quantity: number
     price: number
     imageSrc?: string
+    accessories?: string[]
   }>
   card?: PaymentCard
   recurringProducts: {
@@ -244,6 +245,22 @@ export async function POST(request: NextRequest) {
       customerEmail: body.customer.email,
     })
 
+    console.log("[v0] Items received:", {
+      itemCount: body.items.length,
+      items: body.items.map((item) => ({
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        accessories: item.accessories,
+        accessoryCount: item.accessories?.length || 0,
+      })),
+    })
+
+    console.log("[v0] Shipping received:", {
+      method: body.shipping.method,
+      price: body.shipping.price,
+    })
+
     const {
       amount: originalAmount,
       paymentMethod,
@@ -254,6 +271,22 @@ export async function POST(request: NextRequest) {
       card,
       recurringProducts,
     } = body
+
+    const itemsTotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+
+    const accessoriesTotal = items.reduce((sum, item) => {
+      const accessoryCount = item.accessories?.length || 0
+      return sum + accessoryCount * 15.0 * item.quantity
+    }, 0)
+
+    console.log("[v0] Order breakdown:", {
+      itemsTotal,
+      accessoriesTotal,
+      shippingPrice: shipping.price,
+      calculatedTotal: itemsTotal + accessoriesTotal + shipping.price,
+      originalAmount,
+      difference: originalAmount - (itemsTotal + accessoriesTotal + shipping.price),
+    })
 
     // Calcular valor final com juros
     const finalAmount = calculateFinalAmount(originalAmount, paymentMethod, installments)
@@ -278,14 +311,80 @@ export async function POST(request: NextRequest) {
       process.env.APPMAX_API_KEY,
     )
 
-    const orderData: any = {
-      customerId,
-      products: items.map((item) => ({
+    const products: any[] = []
+
+    console.log("[v0] Building products array...")
+
+    // Add base products
+    items.forEach((item, index) => {
+      console.log(`[v0] Processing item ${index + 1}:`, {
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        accessories: item.accessories,
+      })
+
+      products.push({
         sku: item.id,
         name: `${item.name} - ${item.color} (${item.petCount} pet${item.petCount > 1 ? "s" : ""})`,
         qty: item.quantity,
         price: item.price,
+      })
+
+      // Add accessories as separate line items if they exist
+      if (item.accessories && item.accessories.length > 0) {
+        console.log(`[v0] Adding ${item.accessories.length} accessories for item ${index + 1}`)
+        item.accessories.forEach((accessory: string) => {
+          products.push({
+            sku: `ACC-${accessory.toUpperCase()}`,
+            name: `Acessório: ${accessory}`,
+            qty: item.quantity, // Same quantity as the main item
+            price: 15.0, // ACCESSORY_PRICE
+          })
+          console.log(`[v0] Added accessory: ${accessory} (qty: ${item.quantity}, price: 15.0)`)
+        })
+      } else {
+        console.log(`[v0] No accessories for item ${index + 1}`)
+      }
+    })
+
+    // Add shipping as a line item
+    console.log("[v0] Adding shipping:", {
+      price: shipping.price,
+      method: shipping.method,
+    })
+
+    if (shipping.price > 0) {
+      products.push({
+        sku: "SHIPPING",
+        name: `Frete - ${shipping.method}`,
+        qty: 1,
+        price: shipping.price,
+      })
+      console.log("[v0] Shipping added to products array")
+    } else {
+      console.log("[v0] Shipping price is 0, not adding to products array")
+    }
+
+    const productsTotal = products.reduce((sum, p) => sum + p.price * p.qty, 0)
+
+    console.log("[v0] Products array for Appmax:", {
+      totalProducts: products.length,
+      productsTotal,
+      expectedTotal: finalAmount,
+      difference: finalAmount - productsTotal,
+      products: products.map((p) => ({
+        sku: p.sku,
+        name: p.name,
+        qty: p.qty,
+        price: p.price,
+        total: p.price * p.qty,
       })),
+    })
+
+    const orderData: any = {
+      customerId,
+      products,
     }
 
     // Add payment info for credit card

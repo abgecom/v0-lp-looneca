@@ -299,7 +299,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Calcular totais
   const totalItems = items.reduce((total, item) => total + item.quantity, 0)
-  const totalPrice = items.reduce((total, item) => total + item.price * item.quantity, 0)
+  const ACCESSORY_PRICE = 15
+  const totalPrice = items.reduce((total, item) => {
+    // Base price for the item
+    const itemTotal = item.price * item.quantity
+
+    // Add accessory prices (each accessory costs ACCESSORY_PRICE per item quantity)
+    const accessoriesTotal = (item.accessories?.length || 0) * ACCESSORY_PRICE * item.quantity
+
+    return total + itemTotal + accessoriesTotal
+  }, 0)
 
   // Verificar se o carrinho está vazio
   const isEmpty = items.length === 0

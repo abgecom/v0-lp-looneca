@@ -31,20 +31,34 @@ export default function PixPaymentPage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedPixData = sessionStorage.getItem("pixPaymentData")
+      console.log("[v0] Raw sessionStorage data:", savedPixData)
+
       if (savedPixData) {
         try {
           const parsedData = JSON.parse(savedPixData)
-          console.log("[v0] PIX data loaded from sessionStorage")
+          console.log("[v0] Parsed PIX data from sessionStorage:", parsedData)
+
+          let qrcodeUrl = parsedData.qrcode || ""
+          if (qrcodeUrl && !qrcodeUrl.startsWith("data:") && !qrcodeUrl.startsWith("http")) {
+            qrcodeUrl = `data:image/png;base64,${qrcodeUrl}`
+          }
+
           setPixData({
             pixCode: parsedData.copiacola || "",
-            pixQrCodeUrl: parsedData.qrcode || "",
+            pixQrCodeUrl: qrcodeUrl,
             orderId: parsedData.orderId || "",
             amount: parsedData.amount || 0,
             pedidoNumero: parsedData.pedidoNumero,
           })
+
+          console.log("[v0] Final pixData state:", {
+            pixCode: parsedData.copiacola || "",
+            pixQrCodeUrl: qrcodeUrl,
+            orderId: parsedData.orderId || "",
+            amount: parsedData.amount || 0,
+          })
+
           setIsLoading(false)
-          // Clear sessionStorage after loading
-          sessionStorage.removeItem("pixPaymentData")
           return
         } catch (error) {
           console.error("[v0] Error parsing PIX data from sessionStorage:", error)
@@ -386,7 +400,7 @@ export default function PixPaymentPage() {
             <div className="bg-white rounded-lg p-6 max-w-sm w-full">
               <h3 className="font-bold text-lg mb-4 text-center">QR Code PIX</h3>
               <div className="flex justify-center mb-4">
-                <Image
+                <img
                   src={pixQrCodeUrl || "/placeholder.svg"}
                   alt="QR Code PIX"
                   width={200}
