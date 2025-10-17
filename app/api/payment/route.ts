@@ -249,7 +249,7 @@ async function processAppmaxCreditCardPayment(paymentData: any, accessToken: str
     holderName: paymentData.card.holderName,
   })
 
-  const response = await fetch("https://admin.appmax.com.br/api/v3/payment/creditcard", {
+  const response = await fetch("https://admin.appmax.com.br/api/v3/payment/credit-card", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
