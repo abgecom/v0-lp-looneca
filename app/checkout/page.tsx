@@ -679,7 +679,9 @@ export default function CheckoutPage() {
 
           router.push(`/pix-payment?orderId=${paymentResult.orderId || ""}&amount=${paymentResult.finalAmount || 0}`)
         } else {
-          router.push(`/thank-you?pedido=${paymentResult.pedidoNumero || paymentResult.orderId}`)
+          router.push(
+            `/thank-you?id_pagamento=${paymentResult.orderId}&pedido=${paymentResult.pedidoNumero || paymentResult.orderId}`,
+          )
         }
       } else {
         setPaymentError(paymentResult.error || "Ocorreu um erro ao processar o pagamento. Tente novamente.")
