@@ -59,6 +59,7 @@ export interface PaymentResponse {
   installments?: number
   installmentAmount?: number
   error?: string
+  pedidoNumero?: string
 }
 
 export async function processPayment(data: PaymentData): Promise<PaymentResponse> {
