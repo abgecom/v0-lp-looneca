@@ -233,8 +233,8 @@ async function processAppmaxCreditCardPayment(paymentData: any, accessToken: str
       CreditCard: {
         name: paymentData.card.holderName,
         number: paymentData.card.number.replace(/\s/g, ""),
-        month: paymentData.card.expirationMonth,
-        year: paymentData.card.expirationYear,
+        month: Number.parseInt(paymentData.card.expirationMonth, 10),
+        year: Number.parseInt(paymentData.card.expirationYear, 10),
         cvv: paymentData.card.cvv,
         document_number: paymentData.customer.cpf.replace(/\D/g, ""),
         Installments: String(paymentData.installments),
