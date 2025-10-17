@@ -230,14 +230,15 @@ async function processAppmaxCreditCardPayment(paymentData: any, accessToken: str
       customer_id: paymentData.customerId,
     },
     payment: {
-      creditcard: {
-        holder_name: paymentData.card.holderName,
+      CreditCard: {
+        name: paymentData.card.holderName,
         number: paymentData.card.number.replace(/\s/g, ""),
-        expiration_month: paymentData.card.expirationMonth,
-        expiration_year: paymentData.card.expirationYear,
+        month: paymentData.card.expirationMonth,
+        year: paymentData.card.expirationYear,
         cvv: paymentData.card.cvv,
+        document_number: paymentData.customer.cpf.replace(/\D/g, ""),
+        Installments: String(paymentData.installments),
       },
-      installments: String(paymentData.installments),
     },
   }
 
