@@ -1,8 +1,8 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useRef, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
 import PetAutocomplete from "@/components/pet-autocomplete"
@@ -11,30 +11,41 @@ import Image from "next/image"
 import { salvarDadosUpsell } from "@/actions/upsell-actions"
 
 export default function UpsellPage() {
+  const router = useRouter()
   const [email, setEmail] = useState("")
-  const [tipoRacaPet, setTipoRacaPet] = useState("")
+  const [quantidadePets, setQuantidadePets] = useState(1)
+  const [tipoRacaPets, setTipoRacaPets] = useState<string[]>([""])
   const [fotosUrls, setFotosUrls] = useState<string[]>([])
   const [observacao, setObservacao] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [formSuccess, setFormSuccess] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setTipoRacaPets((prev) => {
+      const newArray = Array(quantidadePets).fill("")
+      return newArray.map((_, index) => prev[index] || "")
+    })
+  }, [quantidadePets])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setFormError(null)
     setIsSubmitting(true)
 
-    // Validação básica
-    if (!email || !tipoRacaPet || fotosUrls.length === 0) {
+    const allBreedsCompleted = tipoRacaPets.slice(0, quantidadePets).every((breed) => breed.trim() !== "")
+
+    if (!email || !allBreedsCompleted || fotosUrls.length === 0) {
       setFormError("Por favor, preencha todos os campos obrigatórios.")
       setIsSubmitting(false)
       return
     }
 
     try {
+      const tipoRacaPetConcatenado = tipoRacaPets.slice(0, quantidadePets).join(", ")
+
       const result = await salvarDadosUpsell({
         email,
-        tipoRacaPet,
+        tipoRacaPet: tipoRacaPetConcatenado,
         fotosUrls,
         observacao,
       })
@@ -45,12 +56,20 @@ export default function UpsellPage() {
         return
       }
 
-      setFormSuccess(true)
+      router.push("/upsell/obrigado")
     } catch (error) {
       console.error("Erro ao enviar formulário:", error)
       setFormError("Ocorreu um erro ao enviar seus dados. Tente novamente.")
       setIsSubmitting(false)
     }
+  }
+
+  const handlePetBreedChange = (index: number, value: string) => {
+    setTipoRacaPets((prev) => {
+      const newArray = [...prev]
+      newArray[index] = value
+      return newArray
+    })
   }
 
   return (
@@ -60,103 +79,114 @@ export default function UpsellPage() {
       <main className="flex-1 py-12 px-4">
         <div className="max-w-2xl mx-auto">
           <div className="bg-white rounded-lg shadow-md p-6">
-            {!formSuccess ? (
-              <>
-                <h1 className="text-2xl font-bold text-gray-900 mb-2 text-center">
-                  Parabéns pela sua Looneca Adicional!
-                </h1>
-                <p className="text-gray-600 mb-6 text-center">
-                  Por favor, envie as informações do pet para sua segunda caneca com 50% OFF.
-                </p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2 text-center">Parabéns pela sua Looneca Adicional!</h1>
+            <p className="text-gray-600 mb-6 text-center">
+              Por favor, envie as informações do pet para sua segunda caneca com 50% OFF.
+            </p>
 
-                {formError && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-start">
-                    <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
-                    <span>{formError}</span>
-                  </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* E-mail */}
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                      E-mail do Pedido <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="seuemail@exemplo.com"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Use o mesmo e-mail do pedido original para vincularmos sua segunda caneca.
-                    </p>
-                  </div>
-
-                  {/* Tipo e Raça do Pet */}
-                  <div>
-                    <PetAutocomplete
-                      id="tipoRacaPet"
-                      value={tipoRacaPet}
-                      onChange={setTipoRacaPet}
-                      required={true}
-                      label="Tipo e Raça do Pet"
-                      placeholder="Comece a digitar para buscar..."
-                    />
-                  </div>
-
-                  {/* Fotos do Pet */}
-                  <div>
-                    <UpsellImageUpload onImagesUploaded={setFotosUrls} />
-                  </div>
-
-                  {/* Observações */}
-                  <div>
-                    <label htmlFor="observacao" className="block text-sm font-medium text-gray-700 mb-1">
-                      Observações (opcional)
-                    </label>
-                    <textarea
-                      id="observacao"
-                      value={observacao}
-                      onChange={(e) => setObservacao(e.target.value)}
-                      placeholder="Alguma informação adicional sobre o seu pet..."
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]"
-                    />
-                  </div>
-
-                  {/* Botão de Enviar */}
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full bg-[#F1542E] text-white py-3 px-4 rounded-md font-medium hover:bg-[#d94825] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Enviando...
-                      </>
-                    ) : (
-                      "Enviar Informações"
-                    )}
-                  </button>
-                </form>
-              </>
-            ) : (
-              <div className="text-center py-8">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-                  <Check className="w-8 h-8 text-green-600" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Dados Enviados com Sucesso!</h2>
-                <p className="text-gray-600">
-                  Nossa equipe já está cuidando da sua segunda Looneca. Em breve você receberá atualizações no seu
-                  e-mail.
-                </p>
+            {formError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-start">
+                <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+                <span>{formError}</span>
               </div>
             )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* E-mail */}
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  E-mail do Pedido <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="seuemail@exemplo.com"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Use o mesmo e-mail do pedido original para vincularmos sua segunda caneca.
+                </p>
+              </div>
+
+              {/* Quantidade de Pets */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Quantos pets você incluiu na sua caneca? <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-3 mb-2">
+                  {[1, 2, 3].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setQuantidadePets(num)}
+                      className={`flex-1 py-3 rounded-lg font-semibold transition-colors ${
+                        quantidadePets === num
+                          ? "bg-[#F1542E] text-white"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-amber-600 font-medium">
+                  Atenção: A quantidade de pets selecionada deve ser a mesma que você escolheu na oferta anterior.
+                </p>
+              </div>
+
+              {/* Campos de Tipo e Raça dos Pets */}
+              {Array.from({ length: quantidadePets }).map((_, index) => (
+                <div key={index}>
+                  <PetAutocomplete
+                    id={`tipoRacaPet-${index}`}
+                    value={tipoRacaPets[index] || ""}
+                    onChange={(value) => handlePetBreedChange(index, value)}
+                    required={true}
+                    label={quantidadePets === 1 ? "Tipo e Raça do Pet" : `Tipo e Raça do Pet ${index + 1}`}
+                    placeholder="Comece a digitar para buscar..."
+                  />
+                </div>
+              ))}
+
+              {/* Fotos do Pet */}
+              <div>
+                <UpsellImageUpload onImagesUploaded={setFotosUrls} quantidadePets={quantidadePets} />
+              </div>
+
+              {/* Observações */}
+              <div>
+                <label htmlFor="observacao" className="block text-sm font-medium text-gray-700 mb-1">
+                  Observações (opcional)
+                </label>
+                <textarea
+                  id="observacao"
+                  value={observacao}
+                  onChange={(e) => setObservacao(e.target.value)}
+                  placeholder="Alguma informação adicional sobre o seu pet..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]"
+                />
+              </div>
+
+              {/* Botão de Enviar */}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full bg-[#F1542E] text-white py-3 px-4 rounded-md font-medium hover:bg-[#d94825] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  "Enviar Informações"
+                )}
+              </button>
+            </form>
           </div>
         </div>
       </main>
@@ -168,9 +198,10 @@ export default function UpsellPage() {
 
 interface UpsellImageUploadProps {
   onImagesUploaded: (urls: string[]) => void
+  quantidadePets: number
 }
 
-function UpsellImageUpload({ onImagesUploaded }: UpsellImageUploadProps) {
+function UpsellImageUpload({ onImagesUploaded, quantidadePets }: UpsellImageUploadProps) {
   const [uploadedImages, setUploadedImages] = useState<
     { url: string; file: File; status: "uploading" | "success" | "error" }[]
   >([])
@@ -407,8 +438,16 @@ function UpsellImageUpload({ onImagesUploaded }: UpsellImageUploadProps) {
         />
         <div className="flex flex-col items-center justify-center py-3">
           <Upload className="w-8 h-8 mb-1 text-[#F1542E]" />
-          <p className="text-sm font-medium">{isUploading ? "Enviando..." : "Clique para enviar fotos do seu pet"}</p>
-          <p className="text-xs text-gray-500 mt-1">Envie fotos de vários ângulos para melhor resultado</p>
+          <p className="text-sm font-medium">
+            {isUploading
+              ? "Enviando..."
+              : `Clique para enviar fotos ${quantidadePets > 1 ? "de todos os seus pets" : "do seu pet"}`}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            {quantidadePets > 1
+              ? "Envie fotos de todos os pets"
+              : "Envie fotos de vários ângulos para melhor resultado"}
+          </p>
         </div>
       </div>
 
