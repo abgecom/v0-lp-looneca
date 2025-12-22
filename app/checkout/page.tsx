@@ -525,40 +525,50 @@ export default function CheckoutPage() {
           method: shippingOption.name,
           price: getShippingPrice(),
         },
-        items: cart.items.map((item) => ({
-          id: item.id,
-          name: item.name,
-          color: item.color,
-          petCount: item.petCount,
-          quantity: item.quantity,
-          price: item.price,
-          imageSrc: item.imageSrc,
-          // Adicione estas linhas para incluir os IDs
-          productId: item.productId,
-          variantId: item.variantId,
-          sku: item.sku,
-          // --- Incluir acessórios associados a este item ---
-          accessories: item.accessories?.map((acc: any) => acc.id || acc) || [], // Ajuste para garantir que sejam IDs
-          petPhotos: (item as any).petPhotos || [],
-          petBreeds: (item as any).petBreeds || "",
-          petNotes: (item as any).petNotes || "",
-        })),
+        items: cart.items.map((item, index) => {
+          // ✅ CORREÇÃO: Buscar dados do pet por item OU usar fallback global
+          const itemPetPhotos = (item as any).petPhotos || []
+          const itemPetBreeds = (item as any).petBreeds || ""
+          const itemPetNotes = (item as any).petNotes || ""
+
+          // Se o item não tem dados próprios E é o primeiro item, usar dados globais
+          const useFallback = index === 0 && !itemPetBreeds && !itemPetPhotos.length
+
+          return {
+            id: item.id,
+            name: item.name,
+            color: item.color,
+            petCount: item.petCount,
+            quantity: item.quantity,
+            price: item.price,
+            imageSrc: item.imageSrc,
+            productId: item.productId,
+            variantId: item.variantId,
+            sku: item.sku,
+            accessories: item.accessories?.map((acc: any) => acc.id || acc) || [],
+
+            // ✅ DADOS DO PET POR ITEM (com fallback global)
+            petPhotos: useFallback ? (cart.petPhotos || []) : itemPetPhotos,
+            petBreeds: useFallback ? (cart.petTypeBreed || "") : itemPetBreeds,
+            petNotes: useFallback ? (cart.petNotes || "") : itemPetNotes,
+          }
+        }),
         recurringProducts: cart.recurringProducts,
         paymentMethod,
         totalAmount: totalWithShipping,
         installments: Number(formData.installments),
-        // === Adicionando dados do pet aqui ===
-        petPhotos: cart.petPhotos,
-        petTypeBreed: cart.petTypeBreed,
-        petNotes: cart.petNotes,
-        // === Adicionando dados dos acessórios ===
-        accessories:
-          cart.accessories?.map((accessory) => ({
-            id: accessory.id,
-            name: accessory.name,
-            price: accessory.price,
-            quantity: accessory.quantity,
-          })) || [],
+
+        // ✅ MANTER dados globais para compatibilidade
+        petPhotos: cart.petPhotos || [],
+        petTypeBreed: cart.petTypeBreed || "",
+        petNotes: cart.petNotes || "",
+
+        accessories: cart.accessories?.map((accessory) => ({
+          id: accessory.id,
+          name: accessory.name,
+          price: accessory.price,
+          quantity: accessory.quantity,
+        })) || [],
       }
 
       // Process payment
@@ -590,11 +600,11 @@ export default function CheckoutPage() {
         card:
           paymentMethod === "credit_card"
             ? {
-                number: formData.cardNumber.replace(/\s/g, ""),
-                holderName: formData.cardName,
-                expirationDate: formData.cardExpiry,
-                cvv: formData.cardCvv,
-              }
+              number: formData.cardNumber.replace(/\s/g, ""),
+              holderName: formData.cardName,
+              expirationDate: formData.cardExpiry,
+              cvv: formData.cardCvv,
+            }
             : undefined,
         recurringProducts: cart.recurringProducts,
         // Adicionar dados dos acessórios para o processPayment, se necessário
@@ -612,7 +622,11 @@ export default function CheckoutPage() {
           paymentStatus: paymentResult.status || "pending",
         })
 
+        // ✅ ENVIAR PARA SHOPIFY
         try {
+          console.log("🛒 [Shopify] Enviando pedido para Shopify...")
+          console.log("📦 [Shopify] Dados:", JSON.stringify(orderData, null, 2))
+
           const shopifyResp = await fetch("/api/shopify/create-order", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -622,18 +636,29 @@ export default function CheckoutPage() {
               paymentStatus: paymentResult.status || "pending",
             }),
           })
+
           const shopifyData = await shopifyResp.json().catch(() => ({}))
+
+          console.log("📥 [Shopify] Resposta:", {
+            ok: shopifyResp.ok,
+            status: shopifyResp.status,
+            data: shopifyData,
+          })
+
           if (!shopifyResp.ok || !shopifyData?.success) {
-            console.error("[Shopify Create Order] Falha ao criar pedido na Shopify:", {
+            console.error("❌ [Shopify] Falha ao criar pedido:", {
               status: shopifyResp.status,
+              error: shopifyData.error,
+              detail: shopifyData.detail,
               data: shopifyData,
             })
           } else {
-            console.log("[Shopify Create Order] Pedido criado na Shopify:", {
+            console.log("✅ [Shopify] Pedido criado com sucesso:", {
               orderId: shopifyData.orderId,
               shopifyOrderId: shopifyData.shopifyOrderId,
               orderNumber: shopifyData.orderNumber,
             })
+
             try {
               sessionStorage.setItem(
                 "shopifyOrder",
@@ -643,10 +668,12 @@ export default function CheckoutPage() {
                   orderNumber: shopifyData.orderNumber,
                 }),
               )
-            } catch {}
+            } catch (err) {
+              console.error("⚠️ SessionStorage error:", err)
+            }
           }
         } catch (err) {
-          console.error("[Shopify Create Order] Erro ao enviar pedido:", err)
+          console.error("❌ [Shopify] Erro ao enviar pedido:", err)
         }
 
         if (typeof window !== "undefined") {
@@ -1105,9 +1132,8 @@ export default function CheckoutPage() {
                       value={formData.email}
                       onChange={handleInputChange}
                       placeholder="Digite seu e-mail"
-                      className={`w-full px-3 py-2 border ${
-                        formErrors.email ? "border-red-500" : "border-gray-300"
-                      } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
+                      className={`w-full px-3 py-2 border ${formErrors.email ? "border-red-500" : "border-gray-300"
+                        } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
                       required
                     />
                     {formErrors.email && <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>}
@@ -1124,9 +1150,8 @@ export default function CheckoutPage() {
                       value={formData.name}
                       onChange={handleInputChange}
                       placeholder="Digite seu nome completo"
-                      className={`w-full px-3 py-2 border ${
-                        formErrors.name ? "border-red-500" : "border-gray-300"
-                      } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
+                      className={`w-full px-3 py-2 border ${formErrors.name ? "border-red-500" : "border-gray-300"
+                        } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
                       required
                     />
                     {formErrors.name && <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>}
@@ -1144,9 +1169,8 @@ export default function CheckoutPage() {
                         value={formData.phone}
                         onChange={handlePhoneChange}
                         placeholder="(00) 00000-0000"
-                        className={`w-full px-3 py-2 border ${
-                          formErrors.phone ? "border-red-500" : "border-gray-300"
-                        } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
+                        className={`w-full px-3 py-2 border ${formErrors.phone ? "border-red-500" : "border-gray-300"
+                          } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
                         required
                       />
                       {formErrors.phone && <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>}
@@ -1163,9 +1187,8 @@ export default function CheckoutPage() {
                         value={formData.cpf}
                         onChange={handleCpfChange}
                         placeholder="000.000.000-00"
-                        className={`w-full px-3 py-2 border ${
-                          formErrors.cpf ? "border-red-500" : "border-gray-300"
-                        } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
+                        className={`w-full px-3 py-2 border ${formErrors.cpf ? "border-red-500" : "border-gray-300"
+                          } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
                         required
                       />
                       {formErrors.cpf && <p className="text-red-500 text-xs mt-1">{formErrors.cpf}</p>}
@@ -1192,9 +1215,8 @@ export default function CheckoutPage() {
                         value={formData.cep}
                         onChange={handleCepChange}
                         placeholder="99999-999"
-                        className={`w-full px-3 py-2 ${cepStatus.isValid ? "bg-green-50" : "bg-[#f0f7ff]"} border ${
-                          formErrors.cep ? "border-red-500" : cepStatus.isValid ? "border-green-500" : "border-gray-300"
-                        } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
+                        className={`w-full px-3 py-2 ${cepStatus.isValid ? "bg-green-50" : "bg-[#f0f7ff]"} border ${formErrors.cep ? "border-red-500" : cepStatus.isValid ? "border-green-500" : "border-gray-300"
+                          } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
                         required
                       />
                       {cepStatus.loading && (
@@ -1244,13 +1266,12 @@ export default function CheckoutPage() {
                             value={formData.address}
                             onChange={handleInputChange}
                             placeholder="Digite seu endereço"
-                            className={`w-full px-3 py-2 ${cepStatus.isValid ? "bg-green-50" : "bg-[#f0f7ff]"} border ${
-                              formErrors.address
+                            className={`w-full px-3 py-2 ${cepStatus.isValid ? "bg-green-50" : "bg-[#f0f7ff]"} border ${formErrors.address
                                 ? "border-red-500"
                                 : cepStatus.isValid
                                   ? "border-green-500"
                                   : "border-gray-300"
-                            } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
+                              } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
                             required
                           />
                           {formErrors.address && <p className="text-red-500 text-xs mt-1">{formErrors.address}</p>}
@@ -1267,9 +1288,8 @@ export default function CheckoutPage() {
                             value={formData.number}
                             onChange={handleInputChange}
                             placeholder="Nº"
-                            className={`w-full px-3 py-2 border ${
-                              formErrors.number ? "border-red-500" : "border-gray-300"
-                            } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
+                            className={`w-full px-3 py-2 border ${formErrors.number ? "border-red-500" : "border-gray-300"
+                              } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
                             required
                           />
                           {formErrors.number && <p className="text-red-500 text-xs mt-1">{formErrors.number}</p>}
@@ -1288,13 +1308,12 @@ export default function CheckoutPage() {
                             value={formData.neighborhood}
                             onChange={handleInputChange}
                             placeholder="Digite seu bairro"
-                            className={`w-full px-3 py-2 ${cepStatus.isValid ? "bg-green-50" : "bg-[#f0f7ff]"} border ${
-                              formErrors.neighborhood
+                            className={`w-full px-3 py-2 ${cepStatus.isValid ? "bg-green-50" : "bg-[#f0f7ff]"} border ${formErrors.neighborhood
                                 ? "border-red-500"
                                 : cepStatus.isValid
                                   ? "border-green-500"
                                   : "border-gray-300"
-                            } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
+                              } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
                             required
                           />
                           {formErrors.neighborhood && (
@@ -1330,13 +1349,12 @@ export default function CheckoutPage() {
                             value={formData.city}
                             onChange={handleInputChange}
                             placeholder="Digite sua cidade"
-                            className={`w-full px-3 py-2 ${cepStatus.isValid ? "bg-green-50" : "bg-[#f0f7ff]"} border ${
-                              formErrors.city
+                            className={`w-full px-3 py-2 ${cepStatus.isValid ? "bg-green-50" : "bg-[#f0f7ff]"} border ${formErrors.city
                                 ? "border-red-500"
                                 : cepStatus.isValid
                                   ? "border-green-500"
                                   : "border-gray-300"
-                            } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
+                              } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
                             required
                           />
                           {formErrors.city && <p className="text-red-500 text-xs mt-1">{formErrors.city}</p>}
@@ -1353,13 +1371,12 @@ export default function CheckoutPage() {
                             value={formData.state}
                             onChange={handleInputChange}
                             placeholder="UF"
-                            className={`w-full px-3 py-2 ${cepStatus.isValid ? "bg-green-50" : "bg-[#f0f7ff]"} border ${
-                              formErrors.state
+                            className={`w-full px-3 py-2 ${cepStatus.isValid ? "bg-green-50" : "bg-[#f0f7ff]"} border ${formErrors.state
                                 ? "border-red-500"
                                 : cepStatus.isValid
                                   ? "border-green-500"
                                   : "border-gray-300"
-                            } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
+                              } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
                             required
                           />
                           {formErrors.state && <p className="text-red-500 text-xs mt-1">{formErrors.state}</p>}
@@ -1440,16 +1457,14 @@ export default function CheckoutPage() {
                 <div className="space-y-4">
                   {/* Credit Card Option */}
                   <div
-                    className={`border rounded-md p-4 cursor-pointer ${
-                      paymentMethod === "credit_card" ? "border-[#F1542E]" : "border-gray-300"
-                    }`}
+                    className={`border rounded-md p-4 cursor-pointer ${paymentMethod === "credit_card" ? "border-[#F1542E]" : "border-gray-300"
+                      }`}
                     onClick={() => setPaymentMethod("credit_card")}
                   >
                     <div className="flex items-center">
                       <div
-                        className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                          paymentMethod === "credit_card" ? "border-[#F1542E]" : "border-gray-400"
-                        }`}
+                        className={`w-5 h-5 rounded-full border flex items-center justify-center ${paymentMethod === "credit_card" ? "border-[#F1542E]" : "border-gray-400"
+                          }`}
                       >
                         {paymentMethod === "credit_card" && <div className="w-3 h-3 rounded-full bg-[#F1542E]"></div>}
                       </div>
@@ -1476,9 +1491,8 @@ export default function CheckoutPage() {
                             value={formData.cardNumber}
                             onChange={handleCardNumberChange}
                             maxLength={19}
-                            className={`w-full px-3 py-2 border ${
-                              formErrors.cardNumber ? "border-red-500" : "border-gray-300"
-                            } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
+                            className={`w-full px-3 py-2 border ${formErrors.cardNumber ? "border-red-500" : "border-gray-300"
+                              } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
                             placeholder="Número do cartão"
                           />
                           {formErrors.cardNumber && (
@@ -1493,9 +1507,8 @@ export default function CheckoutPage() {
                             name="cardName"
                             value={formData.cardName}
                             onChange={handleInputChange}
-                            className={`w-full px-3 py-2 border ${
-                              formErrors.cardName ? "border-red-500" : "border-gray-300"
-                            } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
+                            className={`w-full px-3 py-2 border ${formErrors.cardName ? "border-red-500" : "border-gray-300"
+                              } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
                             placeholder="Nome impresso no cartão"
                           />
                           {formErrors.cardName && <p className="text-red-500 text-xs mt-1">{formErrors.cardName}</p>}
@@ -1510,9 +1523,8 @@ export default function CheckoutPage() {
                               value={formData.cardExpiry}
                               onChange={handleCardExpiryChange}
                               maxLength={5}
-                              className={`w-full px-3 py-2 border ${
-                                formErrors.cardExpiry ? "border-red-500" : "border-gray-300"
-                              } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
+                              className={`w-full px-3 py-2 border ${formErrors.cardExpiry ? "border-red-500" : "border-gray-300"
+                                } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
                               placeholder="MM/AA"
                             />
                             {formErrors.cardExpiry && (
@@ -1528,9 +1540,8 @@ export default function CheckoutPage() {
                               value={formData.cardCvv}
                               onChange={handleInputChange}
                               maxLength={4}
-                              className={`w-full px-3 py-2 border ${
-                                formErrors.cardCvv ? "border-red-500" : "border-gray-300"
-                              } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
+                              className={`w-full px-3 py-2 border ${formErrors.cardCvv ? "border-red-500" : "border-gray-300"
+                                } rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]`}
                               placeholder="CVV"
                             />
                             {formErrors.cardCvv && <p className="text-red-500 text-xs mt-1">{formErrors.cardCvv}</p>}
@@ -1558,16 +1569,14 @@ export default function CheckoutPage() {
 
                   {/* PIX Option */}
                   <div
-                    className={`border rounded-md p-4 cursor-pointer ${
-                      paymentMethod === "pix" ? "border-[#F1542E]" : "border-gray-300"
-                    }`}
+                    className={`border rounded-md p-4 cursor-pointer ${paymentMethod === "pix" ? "border-[#F1542E]" : "border-gray-300"
+                      }`}
                     onClick={() => setPaymentMethod("pix")}
                   >
                     <div className="flex items-center">
                       <div
-                        className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                          paymentMethod === "pix" ? "border-[#F1542E]" : "border-gray-400"
-                        }`}
+                        className={`w-5 h-5 rounded-full border flex items-center justify-center ${paymentMethod === "pix" ? "border-[#F1542E]" : "border-gray-400"
+                          }`}
                       >
                         {paymentMethod === "pix" && <div className="w-3 h-3 rounded-full bg-[#F1542E]"></div>}
                       </div>
