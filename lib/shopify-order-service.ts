@@ -266,12 +266,13 @@ function buildOrderPayload(input: CheckoutInput, customerId: number) {
       return `Caneca ${i + 1}: ${racas || "Sem raça"}`
     })
     .join(" | ")
+  const totalMugs = input.items.reduce((sum, it) => sum + (Number((it as CheckoutItem).quantity) || 0), 0)
   const note_attributes = [
     { name: "CPF", value: input.customer.cpf },
     { name: "ID Pagamento", value: input.paymentId || "" },
     { name: "Método Pagamento", value: input.paymentMethod },
     { name: "Parcelas", value: String(input.installments || 1) },
-    { name: "Total de Canecas", value: String(input.items.length) },
+    { name: "Total de Canecas", value: String(totalMugs) },
     { name: "Resumo Raças", value: summaryRacas },
   ]
   const tags = `looneca,supabase,importado,${input.paymentMethod}`
