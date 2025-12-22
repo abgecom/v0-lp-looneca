@@ -45,6 +45,7 @@ export interface CheckoutInput {
 
 const DEFAULT_API_VERSION = "2025-01"
 const RATE_LIMIT_MS = 550
+const ACCESSORY_PRICE = 15
 
 function getEnv(key: string, fallback?: string) {
   const v = process.env[key]
@@ -188,12 +189,18 @@ function buildLineItemProperties(item: CheckoutItem, index: number, input: Check
   const observacoes =
     (item.petNotes && item.petNotes.length ? item.petNotes : undefined) ??
     (fallbackIndex ? input.petNotes || "" : "")
+  const accessoryIds = Array.isArray(item.accessories) ? item.accessories : []
+  const accessoryCount = accessoryIds.length
+
   const properties = [
     { name: "Caneca", value: `Caneca ${index + 1}` },
     { name: "Pet Count", value: String(item.petCount) },
     { name: "Fotos", value: Array.isArray(fotos) ? fotos.join(", ") : "" },
     { name: "Raças", value: racas || "" },
     { name: "Observações", value: observacoes || "" },
+    { name: "Acessórios", value: accessoryIds.join(", ") || "" },
+    { name: "Acessórios Quantidade", value: String(accessoryCount) },
+    { name: "Acessórios Total (R$)", value: (accessoryCount * ACCESSORY_PRICE).toFixed(2) },
   ]
   return properties
 }
@@ -204,7 +211,12 @@ function buildOrderPayload(input: CheckoutInput, customerId: number) {
   const line_items = input.items.map((item, idx) => ({
     variant_id: Number(item.variantId),
     quantity: item.quantity,
-    price: Number.isFinite(item.price) ? item.price.toFixed(2) : String(item.price),
+    price: (() => {
+      const accCount = Array.isArray(item.accessories) ? item.accessories.length : 0
+      const perUnitAccessory = accCount * ACCESSORY_PRICE
+      const adjusted = Number(item.price) + perUnitAccessory
+      return Number.isFinite(adjusted) ? adjusted.toFixed(2) : String(adjusted)
+    })(),
     properties: buildLineItemProperties(item as CheckoutItem, idx, input),
   }))
   const shipping_address = {
