@@ -213,9 +213,9 @@ function buildOrderPayload(input: CheckoutInput, customerId: number) {
   const { first_name, last_name } = splitName(input.customer.name)
 
   const line_items = input.items.map((item, idx) => ({
-    variant_id: item.variantId,
+    variant_id: Number(item.variantId),
     quantity: item.quantity,
-    price: String(item.price),
+    price: Number.isFinite(item.price) ? item.price.toFixed(2) : String(item.price),
     properties: buildLineItemProperties(item, idx, input),
   }))
 
@@ -234,7 +234,7 @@ function buildOrderPayload(input: CheckoutInput, customerId: number) {
   const shipping_lines = [
     {
       title: input.shipping.method,
-      price: String(input.shipping.price),
+      price: Number.isFinite(input.shipping.price) ? input.shipping.price.toFixed(2) : String(input.shipping.price),
     },
   ]
 
@@ -361,4 +361,3 @@ export async function POST(req: Request) {
     )
   }
 }
-
