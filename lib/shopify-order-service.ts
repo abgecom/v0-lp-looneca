@@ -1,8 +1,6 @@
-import { NextResponse } from "next/server"
-
 type PaymentMethod = "credit_card" | "pix"
 
-interface CheckoutItem {
+export interface CheckoutItem {
   id: string
   name: string
   color: string
@@ -11,7 +9,7 @@ interface CheckoutItem {
   price: number
   imageSrc?: string
   productId?: number | string
-  variantId: number
+  variantId: number | string
   sku?: string
   accessories?: string[]
   petPhotos?: string[]
@@ -19,7 +17,7 @@ interface CheckoutItem {
   petNotes?: string
 }
 
-interface CheckoutInput {
+export interface CheckoutInput {
   customer: { name: string; email: string; phone: string; cpf: string }
   shipping: {
     cep: string
@@ -95,7 +93,7 @@ async function shopifyFetch<T>(
   const token = getEnv("SHOPIFY_ACCESS_TOKEN")
 
   if (!token) {
-    console.error("[Shopify Fetch] SHOPIFY_ACCESS_TOKEN ausente")
+    console.error("[Shopify Service] SHOPIFY_ACCESS_TOKEN ausente")
     return {
       ok: false,
       status: 500,
@@ -105,7 +103,7 @@ async function shopifyFetch<T>(
   }
 
   const url = `${baseUrl}/admin/api/${apiVersion}${path}`
-  console.log("[Shopify Fetch] Request:", { method: init?.method || "GET", url })
+  console.log("[Shopify Service] Request:", { method: init?.method || "GET", url })
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     "X-Shopify-Access-Token": token,
@@ -121,25 +119,21 @@ async function shopifyFetch<T>(
 async function findOrCreateCustomer(input: CheckoutInput) {
   const { customer } = input
   const query = `email:${customer.email}`
-  console.log("[Shopify Create Order] Buscar cliente:", { email: customer.email })
+  console.log("[Shopify Service] Buscar cliente:", { email: customer.email })
   const search = await shopifyFetch<{
     customers: Array<{ id: number; email: string; phone?: string; first_name?: string; last_name?: string }>
   }>(`/customers/search.json?query=${encodeURIComponent(query)}`, { method: "GET" })
-
   if (!search.ok) {
     throw new Error(`SHOPIFY_CUSTOMER_SEARCH_FAILED:${search.status}`)
   }
-
   const found = search.data?.customers?.[0]
   if (found?.id) {
-    console.log("[Shopify Create Order] Cliente encontrado:", { id: found.id, email: found.email })
+    console.log("[Shopify Service] Cliente encontrado:", { id: found.id, email: found.email })
     return found.id
   }
-
   const { first_name, last_name } = splitName(customer.name)
-
   await sleep(RATE_LIMIT_MS)
-  console.log("[Shopify Create Order] Criar cliente:", { email: customer.email })
+  console.log("[Shopify Service] Criar cliente:", { email: customer.email })
   const create = await shopifyFetch<{ customer: { id: number } }>(`/customers.json`, {
     method: "POST",
     body: JSON.stringify({
@@ -153,18 +147,16 @@ async function findOrCreateCustomer(input: CheckoutInput) {
       },
     }),
   })
-
   if (!create.ok || !create.data?.customer?.id) {
     throw new Error(`SHOPIFY_CUSTOMER_CREATE_FAILED:${create.status}`)
   }
-
-  console.log("[Shopify Create Order] Cliente criado:", { id: create.data.customer.id })
+  console.log("[Shopify Service] Cliente criado:", { id: create.data.customer.id })
   return create.data.customer.id
 }
 
 async function setCustomerCPF(customerId: number, cpf: string) {
   const cleanCpf = normalizeDigits(cpf)
-  console.log("[Shopify Create Order] Salvar CPF metafield:", { customerId, cpf: cleanCpf })
+  console.log("[Shopify Service] Salvar CPF metafield:", { customerId, cpf: cleanCpf })
   await sleep(RATE_LIMIT_MS)
   const resp = await shopifyFetch<{ metafield: any }>(`/metafields.json`, {
     method: "POST",
@@ -196,14 +188,6 @@ function buildLineItemProperties(item: CheckoutItem, index: number, input: Check
   const observacoes =
     (item.petNotes && item.petNotes.length ? item.petNotes : undefined) ??
     (fallbackIndex ? input.petNotes || "" : "")
-
-  console.log(`[Shopify Create Order] Caneca ${index + 1} dados:`, {
-    petCount: item.petCount,
-    fotosCount: fotos?.length || 0,
-    racas: racas || "Sem raça",
-    observacoes: observacoes || "",
-  })
-
   const properties = [
     { name: "Caneca", value: `Caneca ${index + 1}` },
     { name: "Pet Count", value: String(item.petCount) },
@@ -211,21 +195,18 @@ function buildLineItemProperties(item: CheckoutItem, index: number, input: Check
     { name: "Raças", value: racas || "" },
     { name: "Observações", value: observacoes || "" },
   ]
-
   return properties
 }
 
 function buildOrderPayload(input: CheckoutInput, customerId: number) {
   const financial_status = determineFinancialStatus(input.paymentMethod, input.paymentStatus)
   const { first_name, last_name } = splitName(input.customer.name)
-
   const line_items = input.items.map((item, idx) => ({
     variant_id: Number(item.variantId),
     quantity: item.quantity,
     price: Number.isFinite(item.price) ? item.price.toFixed(2) : String(item.price),
-    properties: buildLineItemProperties(item, idx, input),
+    properties: buildLineItemProperties(item as CheckoutItem, idx, input),
   }))
-
   const shipping_address = {
     first_name,
     last_name,
@@ -237,23 +218,21 @@ function buildOrderPayload(input: CheckoutInput, customerId: number) {
     country: "BR",
     phone: input.customer.phone,
   }
-
   const shipping_lines = [
     {
       title: input.shipping.method,
       price: Number.isFinite(input.shipping.price) ? input.shipping.price.toFixed(2) : String(input.shipping.price),
     },
   ]
-
   const summaryRacas = input.items
     .map((item, i) => {
       const racas =
-        (item.petBreeds && item.petBreeds.length ? item.petBreeds : undefined) ??
-        (i === 0 ? input.petTypeBreed || "Sem raça" : "Sem raça")
+        ((item as CheckoutItem).petBreeds && (item as CheckoutItem).petBreeds!.length
+          ? (item as CheckoutItem).petBreeds
+          : undefined) ?? (i === 0 ? input.petTypeBreed || "Sem raça" : "Sem raça")
       return `Caneca ${i + 1}: ${racas || "Sem raça"}`
     })
     .join(" | ")
-
   const note_attributes = [
     { name: "CPF", value: input.customer.cpf },
     { name: "ID Pagamento", value: input.paymentId || "" },
@@ -262,9 +241,7 @@ function buildOrderPayload(input: CheckoutInput, customerId: number) {
     { name: "Total de Canecas", value: String(input.items.length) },
     { name: "Resumo Raças", value: summaryRacas },
   ]
-
   const tags = `looneca,supabase,importado,${input.paymentMethod}`
-
   const order = {
     email: input.customer.email,
     financial_status,
@@ -275,96 +252,54 @@ function buildOrderPayload(input: CheckoutInput, customerId: number) {
     note_attributes,
     tags,
   }
-
   return { order }
 }
 
-export async function POST(req: Request) {
-  try {
-    const body = (await req.json()) as CheckoutInput
-
-    if (!body?.customer?.email || !body?.customer?.cpf || !Array.isArray(body.items) || body.items.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "INVALID_INPUT", message: "Dados obrigatórios ausentes" },
-        { status: 400 },
-      )
+export async function exportShopifyOrder(input: CheckoutInput) {
+  if (!input?.customer?.email || !input?.customer?.cpf || !Array.isArray(input.items) || input.items.length === 0) {
+    return { success: false, status: 400, error: "INVALID_INPUT" }
+  }
+  const hasToken = !!getEnv("SHOPIFY_ACCESS_TOKEN")
+  if (!hasToken && !input.dryRun) {
+    return { success: false, status: 500, error: "SHOPIFY_CONFIG_MISSING" }
+  }
+  const customerId = input.dryRun ? 0 : await findOrCreateCustomer(input)
+  if (!input.dryRun) {
+    await setCustomerCPF(customerId, input.customer.cpf)
+    await sleep(RATE_LIMIT_MS)
+  }
+  const payload = buildOrderPayload(input, customerId)
+  if (input.dryRun) {
+    console.log("[Shopify Service] DryRun payload construído")
+    return { success: true, dryRun: true, preview: payload }
+  }
+  console.log("[Shopify Service] Criar pedido na Shopify")
+  const createOrder = await shopifyFetch<{ order: any }>(`/orders.json`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+  if (!createOrder.ok || !createOrder.data?.order?.id) {
+    const bodyText = await createOrder.raw.text().catch(() => "")
+    return {
+      success: false,
+      status: createOrder.status,
+      error: "SHOPIFY_ORDER_CREATE_FAILED",
+      detail: bodyText || createOrder.data,
     }
-
-    const hasToken = !!getEnv("SHOPIFY_ACCESS_TOKEN")
-    if (!hasToken && !body.dryRun) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "SHOPIFY_CONFIG_MISSING",
-          message: "Token de acesso da Shopify não configurado",
-        },
-        { status: 500 },
-      )
-    }
-
-    const customerId = body.dryRun ? 0 : await findOrCreateCustomer(body)
-
-    if (!body.dryRun) {
-      await setCustomerCPF(customerId, body.customer.cpf)
-      await sleep(RATE_LIMIT_MS)
-    }
-
-    const payload = buildOrderPayload(body, customerId)
-
-    if (body.dryRun) {
-      console.log("[Shopify Create Order] DryRun payload construído")
-      return NextResponse.json({
-        success: true,
-        dryRun: true,
-        preview: payload,
-      })
-    }
-
-    console.log("[Shopify Create Order] Criar pedido na Shopify")
-    const createOrder = await shopifyFetch<{ order: any }>(`/orders.json`, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    })
-
-    if (!createOrder.ok || !createOrder.data?.order?.id) {
-      const bodyText = await createOrder.raw.text().catch(() => "")
-      return NextResponse.json(
-        {
-          success: false,
-          error: "SHOPIFY_ORDER_CREATE_FAILED",
-          status: createOrder.status,
-          detail: bodyText || createOrder.data,
-        },
-        { status: 502 },
-      )
-    }
-
-    const order = createOrder.data.order
-    console.log("[Shopify Create Order] Pedido criado:", {
-      id: order.id,
-      number: order.order_number,
-      name: order.name,
-      financial_status: order.financial_status,
-      line_items_count: Array.isArray(order.line_items) ? order.line_items.length : undefined,
-    })
-
-    return NextResponse.json({
-      success: true,
-      orderId: order.id,
-      shopifyOrderId: order.admin_graphql_api_id,
-      orderNumber: order.order_number,
-    })
-  } catch (e: any) {
-    const msg = typeof e?.message === "string" ? e.message : "INTERNAL_ERROR"
-    console.error("[Shopify Create Order] Erro:", msg)
-    const isKnown = msg.startsWith("SHOPIFY_")
-    return NextResponse.json(
-      {
-        success: false,
-        error: isKnown ? msg.split(":")[0] : "INTERNAL_ERROR",
-        detail: msg,
-      },
-      { status: isKnown ? 502 : 500 },
-    )
+  }
+  const order = createOrder.data.order
+  console.log("[Shopify Service] Pedido criado:", {
+    id: order.id,
+    number: order.order_number,
+    name: order.name,
+    financial_status: order.financial_status,
+    line_items_count: Array.isArray(order.line_items) ? order.line_items.length : undefined,
+  })
+  return {
+    success: true,
+    orderId: order.id,
+    shopifyOrderId: order.admin_graphql_api_id,
+    orderNumber: order.order_number,
   }
 }
+

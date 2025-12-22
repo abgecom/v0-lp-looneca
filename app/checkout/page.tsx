@@ -10,6 +10,7 @@ import { saveOrderToDatabase } from "@/actions/order-actions"
 import { Loader2, Info, Check, Plus, Minus, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { processPayment } from "@/actions/payment-actions"
+import { exportOrderToShopify } from "@/actions/shopify-actions"
 import { calculatePaymentAmount } from "@/lib/payment-utils"
 import { trackFBEvent } from "@/components/facebook-pixel"
 import { ACCESSORY_PRICE, getAccessoryName } from "@/components/accessories-section"
@@ -622,34 +623,15 @@ export default function CheckoutPage() {
           paymentStatus: paymentResult.status || "pending",
         })
 
-        // ✅ ENVIAR PARA SHOPIFY
         try {
-          console.log("🛒 [Shopify] Enviando pedido para Shopify...")
-          console.log("📦 [Shopify] Dados:", JSON.stringify(orderData, null, 2))
-
-          const shopifyResp = await fetch("/api/shopify/create-order", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ...orderData,
-              paymentId: paymentResult.orderId || "",
-              paymentStatus: paymentResult.status || "pending",
-            }),
-          })
-
-          const shopifyData = await shopifyResp.json().catch(() => ({}))
-
-          console.log("📥 [Shopify] Resposta:", {
-            ok: shopifyResp.ok,
-            status: shopifyResp.status,
-            data: shopifyData,
-          })
-
-          if (!shopifyResp.ok || !shopifyData?.success) {
+          const shopifyData = await exportOrderToShopify({
+            ...orderData,
+            paymentId: paymentResult.orderId || "",
+            paymentStatus: paymentResult.status || "pending",
+          } as any)
+          if (!shopifyData?.success) {
             console.error("❌ [Shopify] Falha ao criar pedido:", {
-              status: shopifyResp.status,
-              error: shopifyData.error,
-              detail: shopifyData.detail,
+              status: shopifyData?.status,
               data: shopifyData,
             })
           } else {
@@ -658,7 +640,6 @@ export default function CheckoutPage() {
               shopifyOrderId: shopifyData.shopifyOrderId,
               orderNumber: shopifyData.orderNumber,
             })
-
             try {
               sessionStorage.setItem(
                 "shopifyOrder",
