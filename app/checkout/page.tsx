@@ -539,6 +539,9 @@ export default function CheckoutPage() {
           sku: item.sku,
           // --- Incluir acessórios associados a este item ---
           accessories: item.accessories?.map((acc: any) => acc.id || acc) || [], // Ajuste para garantir que sejam IDs
+          petPhotos: (item as any).petPhotos || [],
+          petBreeds: (item as any).petBreeds || "",
+          petNotes: (item as any).petNotes || "",
         })),
         recurringProducts: cart.recurringProducts,
         paymentMethod,
@@ -608,6 +611,43 @@ export default function CheckoutPage() {
           paymentId: paymentResult.orderId || "",
           paymentStatus: paymentResult.status || "pending",
         })
+
+        try {
+          const shopifyResp = await fetch("/api/shopify/create-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...orderData,
+              paymentId: paymentResult.orderId || "",
+              paymentStatus: paymentResult.status || "pending",
+            }),
+          })
+          const shopifyData = await shopifyResp.json().catch(() => ({}))
+          if (!shopifyResp.ok || !shopifyData?.success) {
+            console.error("[Shopify Create Order] Falha ao criar pedido na Shopify:", {
+              status: shopifyResp.status,
+              data: shopifyData,
+            })
+          } else {
+            console.log("[Shopify Create Order] Pedido criado na Shopify:", {
+              orderId: shopifyData.orderId,
+              shopifyOrderId: shopifyData.shopifyOrderId,
+              orderNumber: shopifyData.orderNumber,
+            })
+            try {
+              sessionStorage.setItem(
+                "shopifyOrder",
+                JSON.stringify({
+                  orderId: shopifyData.orderId,
+                  shopifyOrderId: shopifyData.shopifyOrderId,
+                  orderNumber: shopifyData.orderNumber,
+                }),
+              )
+            } catch {}
+          }
+        } catch (err) {
+          console.error("[Shopify Create Order] Erro ao enviar pedido:", err)
+        }
 
         if (typeof window !== "undefined") {
           const eventId = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`
