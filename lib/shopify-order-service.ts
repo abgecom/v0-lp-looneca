@@ -45,7 +45,7 @@ export interface CheckoutInput {
 
 const DEFAULT_API_VERSION = "2025-01"
 const RATE_LIMIT_MS = 550
-const ACCESSORY_PRICE = 15
+import { ACCESSORY_PRICE, getAccessoryName } from "@/lib/accessories"
 
 function getEnv(key: string, fallback?: string) {
   const v = process.env[key]
@@ -178,6 +178,25 @@ async function setCustomerCPF(customerId: number, cpf: string) {
   return true
 }
 
+async function getCustomerMetafields(customerId: number) {
+  const resp = await shopifyFetch<{ metafields: Array<{ namespace: string; key: string; value: string }> }>(
+    `/customers/${customerId}/metafields.json`,
+    { method: "GET" },
+  )
+  return resp
+}
+
+async function verifyCustomerCPF(customerId: number, expectedCpf: string) {
+  await sleep(RATE_LIMIT_MS)
+  const resp = await getCustomerMetafields(customerId)
+  if (resp.ok) {
+    const cpfMf = resp.data.metafields?.find((m) => m.namespace === "custom" && m.key === "cpf")
+    console.log("[Shopify Service] Verificar CPF:", { customerId, saved: cpfMf?.value, expected: normalizeDigits(expectedCpf) })
+  } else {
+    console.log("[Shopify Service] Verificar CPF falhou:", { status: resp.status })
+  }
+}
+
 function buildLineItemProperties(item: CheckoutItem, index: number, input: CheckoutInput) {
   const fallbackIndex = index === 0
   const fotos =
@@ -191,6 +210,7 @@ function buildLineItemProperties(item: CheckoutItem, index: number, input: Check
     (fallbackIndex ? input.petNotes || "" : "")
   const accessoryIds = Array.isArray(item.accessories) ? item.accessories : []
   const accessoryCount = accessoryIds.length
+  const accessoryNames = accessoryIds.map((id) => getAccessoryName(id))
 
   const properties = [
     { name: "Caneca", value: `Caneca ${index + 1}` },
@@ -199,6 +219,7 @@ function buildLineItemProperties(item: CheckoutItem, index: number, input: Check
     { name: "Raças", value: racas || "" },
     { name: "Observações", value: observacoes || "" },
     { name: "Acessórios", value: accessoryIds.join(", ") || "" },
+    { name: "Acessórios Nomes", value: accessoryNames.join(", ") || "" },
     { name: "Acessórios Quantidade", value: String(accessoryCount) },
     { name: "Acessórios Total (R$)", value: (accessoryCount * ACCESSORY_PRICE).toFixed(2) },
   ]
@@ -279,6 +300,7 @@ export async function exportShopifyOrder(input: CheckoutInput) {
   if (!input.dryRun) {
     await setCustomerCPF(customerId, input.customer.cpf)
     await sleep(RATE_LIMIT_MS)
+    await verifyCustomerCPF(customerId, input.customer.cpf)
   }
   const payload = buildOrderPayload(input, customerId)
   if (input.dryRun) {
