@@ -337,4 +337,3 @@ export async function exportShopifyOrder(input: CheckoutInput) {
     orderNumber: order.order_number,
   }
 }
-
