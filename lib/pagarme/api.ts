@@ -11,11 +11,24 @@ export interface PagarmeRequestOptions {
  * Makes authenticated requests to Pagar.me API
  */
 export async function pagarmeRequest(endpoint: string, options: PagarmeRequestOptions = {}) {
-  const { method = "GET", body, apiKey = PAGARME_CONFIG.apiKey, headers = {} } = options
+  const { method = "GET", body, headers = {} } = options
+
+  // Sempre ler a API key diretamente da env var no momento da chamada,
+  // pois PAGARME_CONFIG.apiKey pode estar vazia se avaliada no momento da importação do módulo.
+  const resolvedApiKey = options.apiKey || process.env.PAGARME_API_KEY || PAGARME_CONFIG.apiKey
+
+  if (!resolvedApiKey) {
+    console.error("[v0] PAGARME_API_KEY is not set. Check your environment variables.")
+    return {
+      success: false,
+      error: "PAGARME_API_KEY is not configured. Please set it in your environment variables.",
+      status: 500,
+    }
+  }
 
   try {
     // Prepare authentication
-    const auth = Buffer.from(`${apiKey}:`).toString("base64")
+    const auth = Buffer.from(`${resolvedApiKey}:`).toString("base64")
 
     // Prepare request options
     const requestOptions: RequestInit = {
