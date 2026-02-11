@@ -451,7 +451,11 @@ export default function CartPage() {
               const res = await fetch("/api/pagarme/create-plan", { method: "POST" })
               const data = await res.json()
               console.log("[v0] Resposta criar plano Pagar.me:", JSON.stringify(data, null, 2))
-              alert(`Plano criado!\n\nID: ${data.id}\nNome: ${data.name}\nStatus: ${data.status}\n\nResposta completa no console (F12).`)
+              if (data.id) {
+                alert(`Plano criado com sucesso!\n\nID: ${data.id}\nNome: ${data.name}\nStatus: ${data.status}\n\nResposta completa no console (F12).`)
+              } else {
+                alert(`Erro ao criar plano (status ${res.status}):\n\n${JSON.stringify(data, null, 2)}`)
+              }
             } catch (err) {
               console.error("[v0] Erro ao criar plano:", err)
               alert(`Erro ao criar plano: ${err}`)

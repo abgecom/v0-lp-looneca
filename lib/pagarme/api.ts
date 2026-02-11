@@ -33,15 +33,25 @@ export async function pagarmeRequest(endpoint: string, options: PagarmeRequestOp
     console.log(`[v0] pagarmeRequest auth debug: keyLength=${keyLength}, prefix="${keyPrefix}...", source=${options.apiKey ? "options" : process.env.PAGARME_API_KEY ? "env" : "config"}`)
     const auth = Buffer.from(`${resolvedApiKey}:`).toString("base64")
 
+    // Prepare request headers - incluir account_id se disponível (necessário para contas marketplace)
+    const accountId = process.env.PAGARME_ACCOUNT_ID || PAGARME_CONFIG.accountId
+    const requestHeaders: Record<string, string> = {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...headers,
+    }
+
+    // Adicionar account_id se disponível - algumas contas Pagar.me exigem este header
+    if (accountId) {
+      requestHeaders["account_id"] = accountId
+      console.log(`[v0] Including account_id header: ${accountId.substring(0, 8)}...`)
+    }
+
     // Prepare request options
     const requestOptions: RequestInit = {
       method,
-      headers: {
-        Authorization: `Basic ${auth}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        ...headers,
-      },
+      headers: requestHeaders,
     }
 
     // Add body for POST/PUT requests
