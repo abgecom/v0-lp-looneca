@@ -1,10 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { pagarmeRequest } from "@/lib/pagarme/api"
 
 export async function POST(req: NextRequest) {
-  if (req.method !== "POST") {
-    return NextResponse.json({ error: "Method Not Allowed" }, { status: 405 })
-  }
-
   const planData = {
     name: "Petloo Mensal + Tag - 30 Dias Grátis",
     description: "Assinatura mensal com 30 dias grátis de teste",
@@ -26,23 +23,20 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const pagarmeResponse = await fetch("https://api.pagar.me/core/v5/plans", {
+    const result = await pagarmeRequest("/plans", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.PAGARME_API_KEY}`,
-      },
-      body: JSON.stringify(planData),
+      body: planData,
     })
 
-    const responseData = await pagarmeResponse.json()
-
-    if (!pagarmeResponse.ok) {
-      console.error("Pagar.me API error:", responseData)
-      return NextResponse.json(responseData, { status: pagarmeResponse.status })
+    if (!result.success) {
+      console.error("Pagar.me API error creating plan:", result.error, result.data)
+      return NextResponse.json(
+        { error: result.error, details: result.data },
+        { status: result.status || 500 }
+      )
     }
 
-    return NextResponse.json(responseData, { status: 201 })
+    return NextResponse.json(result.data, { status: 201 })
   } catch (error) {
     console.error("Error creating Pagar.me plan:", error)
     const errorMessage = error instanceof Error ? error.message : "An unknown error occurred"
