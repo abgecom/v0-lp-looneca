@@ -28,7 +28,7 @@ export default function CartPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const cartEventTrackedRef = useRef(false)
 
-  const ENABLE_SUBSCRIPTION_OFFERS = false
+  const ENABLE_SUBSCRIPTION_OFFERS = true
 
   // Estado para armazenar os dados do carrinho
   const [cartItems, setCartItems] = useState<any[]>([])
@@ -82,7 +82,7 @@ export default function CartPage() {
     }
   }, [isClient, cart.items, cart.totalPrice, cart.totalItems])
 
-  // Dados das ofertas adicionais
+  // Dados das ofertas adicionais (apenas tag de rastreamento Petloo ativa)
   const additionalOffers: AdditionalOffer[] = [
     {
       id: "app-petloo",
@@ -94,24 +94,9 @@ export default function CartPage() {
         "Descontos exclusivos",
         "Registro do pet",
       ],
-      originalPrice: 30.0, // Use the declared variable here
+      originalPrice: 30.0,
       currentPrice: 0,
       imageSrc: "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/imgapp1-VnnOgP7stsRZkKIeJkojR2Grh3ILVy.png",
-    },
-    {
-      id: "loobook",
-      name: "Livro digital Loobook",
-      description: "Guia completo para cuidar do seu pet",
-      benefits: [
-        "Dicas de alimentação",
-        "Exercícios interativos",
-        "Como melhorar comportamentos ruins",
-        "Hábitos saudáveis e muito mais",
-      ],
-      originalPrice: 79.9,
-      currentPrice: 0,
-      imageSrc:
-        "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/imglivro%2Bapp1-bYzQDKdaCXTRBQgXxgOwAH3pCxOgM4.png",
     },
   ]
 

@@ -22,4 +22,3 @@ export const ACCESSORY_PRICE = 15
 export function getAccessoryName(id: string) {
   return ACCESSORIES.find((a) => a.id === id)?.name || id
 }
-

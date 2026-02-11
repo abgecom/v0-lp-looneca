@@ -5,4 +5,3 @@ import { exportShopifyOrder, type CheckoutInput } from "@/lib/shopify-order-serv
 export async function exportOrderToShopify(input: CheckoutInput) {
   return exportShopifyOrder(input)
 }
-
