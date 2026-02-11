@@ -28,6 +28,9 @@ export async function pagarmeRequest(endpoint: string, options: PagarmeRequestOp
 
   try {
     // Prepare authentication
+    const keyPrefix = resolvedApiKey.substring(0, 10)
+    const keyLength = resolvedApiKey.length
+    console.log(`[v0] pagarmeRequest auth debug: keyLength=${keyLength}, prefix="${keyPrefix}...", source=${options.apiKey ? "options" : process.env.PAGARME_API_KEY ? "env" : "config"}`)
     const auth = Buffer.from(`${resolvedApiKey}:`).toString("base64")
 
     // Prepare request options
