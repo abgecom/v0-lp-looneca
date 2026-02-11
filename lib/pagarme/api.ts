@@ -18,7 +18,7 @@ export async function pagarmeRequest(endpoint: string, options: PagarmeRequestOp
   const resolvedApiKey = options.apiKey || process.env.PAGARME_API_KEY || PAGARME_CONFIG.apiKey
 
   if (!resolvedApiKey) {
-    console.error("[v0] PAGARME_API_KEY is not set. Check your environment variables.")
+    console.error("PAGARME_API_KEY is not set. Check your environment variables.")
     return {
       success: false,
       error: "PAGARME_API_KEY is not configured. Please set it in your environment variables.",
@@ -28,9 +28,6 @@ export async function pagarmeRequest(endpoint: string, options: PagarmeRequestOp
 
   try {
     // Prepare authentication
-    const keyPrefix = resolvedApiKey.substring(0, 10)
-    const keyLength = resolvedApiKey.length
-    console.log(`[v0] pagarmeRequest auth debug: keyLength=${keyLength}, prefix="${keyPrefix}...", source=${options.apiKey ? "options" : process.env.PAGARME_API_KEY ? "env" : "config"}`)
     const auth = Buffer.from(`${resolvedApiKey}:`).toString("base64")
 
     // Prepare request headers - incluir account_id se disponível (necessário para contas marketplace)
@@ -45,7 +42,6 @@ export async function pagarmeRequest(endpoint: string, options: PagarmeRequestOp
     // Adicionar account_id se disponível - algumas contas Pagar.me exigem este header
     if (accountId) {
       requestHeaders["account_id"] = accountId
-      console.log(`[v0] Including account_id header: ${accountId.substring(0, 8)}...`)
     }
 
     // Prepare request options

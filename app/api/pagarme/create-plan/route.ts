@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     interval: "month",
     interval_count: 1,
     billing_type: "prepaid",
-    installments: 1,
+    installments: [1],
     trial_period_days: 30,
     payment_methods: ["credit_card"],
     items: [
@@ -23,10 +23,6 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const hasKey = !!process.env.PAGARME_API_KEY
-    const keyPrefix = process.env.PAGARME_API_KEY ? process.env.PAGARME_API_KEY.substring(0, 8) + "..." : "NOT SET"
-    console.log("[v0] create-plan: PAGARME_API_KEY present?", hasKey, "prefix:", keyPrefix)
-
     const result = await pagarmeRequest("/plans", {
       method: "POST",
       body: planData,
