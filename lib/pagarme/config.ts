@@ -26,7 +26,10 @@ export const PAGARME_CONFIG = {
   // Subscription configuration
   subscription: {
     planId: process.env.PETLOO_PLAN_ID || "",
-    startAtDaysOffset: 30, // Start subscription 30 days after payment
+    // ATENÇÃO: NÃO usar startAtDaysOffset na criação de assinaturas.
+    // O trial_period_days do plano (30 dias) já posterga a primeira cobrança.
+    // Usar start_at + trial causaria "dupla postergação" (ex: 30+30 = 60 dias).
+    startAtDaysOffset: 0,
     billingType: "prepaid",
     interval: "month",
     intervalCount: 1,

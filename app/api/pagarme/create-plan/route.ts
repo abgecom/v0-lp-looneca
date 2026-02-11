@@ -6,17 +6,17 @@ export async function POST(req: NextRequest) {
   }
 
   const planData = {
-    name: "Petloo Mensal – Trial de 1 dia",
-    description: "Assinatura mensal com 1 dia grátis de teste",
+    name: "Petloo Mensal + Tag - 30 Dias Grátis",
+    description: "Assinatura mensal com 30 dias grátis de teste",
     interval: "month",
     interval_count: 1,
-    billing_type: "postpaid",
+    billing_type: "prepaid",
     installments: 1,
-    trial_period_days: 1,
+    trial_period_days: 30,
     payment_methods: ["credit_card"],
     items: [
       {
-        name: "Petloo Mensal",
+        name: "Petloo Mensal + Tag",
         quantity: 1,
         pricing_scheme: {
           price: 3090,

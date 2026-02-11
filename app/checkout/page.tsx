@@ -266,9 +266,12 @@ export default function CheckoutPage() {
     const { name, value, type } = e.target as HTMLInputElement
     const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined
 
+    // Aplicar caixa alta automaticamente nos campos de nome
+    const processedValue = (name === "name" || name === "cardName") ? value.toUpperCase() : value
+
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: type === "checkbox" ? checked : processedValue,
     }))
 
     // Clear error when field is edited

@@ -112,11 +112,13 @@ async function createSubscriptionAfterPayment(order: any): Promise<any> {
     }
 
     // Criar assinatura
+    // IMPORTANTE: NÃO enviar start_at aqui.
+    // O trial_period_days do plano já cuida de postergar a primeira cobrança em 30 dias.
+    // Enviar start_at com +30 dias causaria "dupla postergação" (30 trial + 30 start_at = 60 dias).
     const subscriptionData = {
       customer_id: customerId,
       plan_id: process.env.PETLOO_PLAN_ID,
       card_id: cardId,
-      start_at: calculateSubscriptionStartDate(),
       billing_type: "prepaid",
       statement_descriptor: "PETLOO",
       metadata: {

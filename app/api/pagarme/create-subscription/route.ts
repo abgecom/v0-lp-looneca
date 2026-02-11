@@ -104,11 +104,13 @@ export async function POST(request: NextRequest) {
 
     // Step 4: Create subscription
     console.log("Step 4: Creating subscription")
+    // IMPORTANTE: NÃO enviar start_at aqui.
+    // O trial_period_days do plano já cuida de postergar a primeira cobrança em 30 dias.
+    // Enviar start_at com +30 dias causaria "dupla postergação" (30 trial + 30 start_at = 60 dias).
     const subscriptionData = {
       customer_id,
       plan_id: PAGARME_CONFIG.planId,
       card_id,
-      start_at: calculateSubscriptionStartDate(),
       billing_type: "prepaid",
       statement_descriptor: "PETLOO",
       metadata: {
