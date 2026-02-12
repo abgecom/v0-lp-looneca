@@ -362,80 +362,64 @@ export default function CartPage() {
                     pet.
                   </p>
 
-                  {additionalOffers.map((offer) => (
-                    <div
-                      key={offer.id}
-                      className={`bg-white rounded-lg shadow-md overflow-hidden transition-all duration-200 ${
-                        (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
-                        (offer.id === "loobook" && cart.recurringProducts.loobook)
-                          ? "border-2 border-green-500"
-                          : "border border-gray-200"
-                      }`}
-                    >
-                      <div className="p-4 flex flex-col md:flex-row">
-                        {/* Imagem da oferta */}
-                        <div className="w-full md:w-2/5 flex items-center mb-4 md:mb-0">
-                          <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
-                            <Image
-                              src={offer.imageSrc || "/placeholder.svg"}
-                              alt={offer.name}
-                              width={80}
-                              height={80}
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
-                          <div className="ml-4">
-                            <h3 className="font-semibold">{offer.name}</h3>
-                            <p className="text-sm text-gray-600">{offer.description}</p>
-                            <div className="mt-1 flex items-center">
-                              <span className="line-through text-gray-500 mr-2 text-sm">R$30,00/mês</span>
-                              <span className="font-bold text-green-600">GRÁTIS</span>
+                  {additionalOffers.map((offer) => {
+                    const isSelected =
+                      (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
+                      (offer.id === "loobook" && cart.recurringProducts.loobook)
+
+                    return (
+                      <div
+                        key={offer.id}
+                        className={`bg-white rounded-lg shadow-md overflow-hidden transition-all duration-200 ${
+                          isSelected ? "border-2 border-green-500" : "border border-gray-200"
+                        }`}
+                      >
+                        <div className="p-4">
+                          {/* Header: imagem + info + botao */}
+                          <div className="flex items-start gap-3">
+                            <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
+                              <Image
+                                src={offer.imageSrc || "/placeholder.svg"}
+                                alt={offer.name}
+                                width={64}
+                                height={64}
+                                className="w-full h-full object-cover"
+                              />
                             </div>
-                          </div>
-                        </div>
-
-                        {/* Benefícios e botão de seleção */}
-                        <div className="w-full md:w-3/5 flex flex-col md:flex-row">
-                          <div className="flex-grow">
-                            <ul className="space-y-1">
-                              {offer.benefits.map((benefit, index) => (
-                                <li key={index} className="flex items-start">
-                                  <Check className="w-4 h-4 text-green-500 mt-0.5 mr-2 flex-shrink-0" />
-                                  <span className="text-sm">{benefit}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-
-                          {/* Botão de seleção */}
-                          <div className="mt-4 md:mt-0 md:ml-4 flex items-center justify-end">
+                            <div className="flex-grow min-w-0">
+                              <h3 className="font-semibold text-sm leading-tight">{offer.name}</h3>
+                              <p className="text-xs text-gray-600 mt-0.5 leading-snug">{offer.description}</p>
+                              <div className="mt-1 flex items-center">
+                                <span className="line-through text-gray-400 mr-1.5 text-xs">R$30,00/mes</span>
+                                <span className="font-bold text-green-600 text-sm">GRATIS</span>
+                              </div>
+                            </div>
                             <button
                               onClick={() => toggleOffer(offer.id)}
-                              className={`flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-150 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                                (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
-                                (offer.id === "loobook" && cart.recurringProducts.loobook)
+                              className={`flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-150 ease-in-out hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                                isSelected
                                   ? "bg-green-500 hover:bg-green-600 text-white focus:ring-green-500"
                                   : "bg-gray-200 hover:bg-gray-300 text-gray-600 focus:ring-gray-400"
                               } cursor-pointer`}
-                              aria-label={
-                                (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
-                                (offer.id === "loobook" && cart.recurringProducts.loobook)
-                                  ? "Remover oferta"
-                                  : "Adicionar oferta"
-                              }
+                              aria-label={isSelected ? "Remover oferta" : "Adicionar oferta"}
                             >
-                              {(offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
-                              (offer.id === "loobook" && cart.recurringProducts.loobook) ? (
-                                <Check className="w-6 h-6" />
-                              ) : (
-                                <Plus className="w-6 h-6" />
-                              )}
+                              {isSelected ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
                             </button>
                           </div>
+
+                          {/* Beneficios */}
+                          <ul className="mt-3 space-y-1">
+                            {offer.benefits.map((benefit, index) => (
+                              <li key={index} className="flex items-start">
+                                <Check className="w-3.5 h-3.5 text-green-500 mt-0.5 mr-1.5 flex-shrink-0" />
+                                <span className="text-xs leading-snug">{benefit}</span>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
 
                   {/* Disclaimer desktop - letras miudas */}
                   {cart.recurringProducts.appPetloo && (
