@@ -364,6 +364,131 @@ export async function POST(request: NextRequest) {
     const pedidoResult = await criarPedido(pedidoData)
     console.log("[v0] Resultado da criacao do pedido:", pedidoResult.success)
 
+    // --- Criar assinatura Pagar.me se appPetloo estiver ativo e pagamento for cartao ---
+    let subscriptionId: string | null = null
+    let subscriptionCustomerId: string | null = null
+
+    if (
+      paymentMethod === "credit_card" &&
+      card &&
+      recurringProducts?.appPetloo &&
+      PAGARME_CONFIG.features.subscriptionsEnabled
+    ) {
+      try {
+        console.log("[v0] App Petloo ativo - iniciando criacao de assinatura...")
+
+        // Step 1: Criar customer na Pagar.me
+        const customerPayload = buildPagarmeCustomer(customer, shipping)
+        const customerResult = await pagarmeRequest(PAGARME_CONFIG.ENDPOINTS.CUSTOMERS, {
+          method: "POST",
+          body: customerPayload,
+        })
+
+        if (!customerResult.success) {
+          console.error("[v0] Falha ao criar customer para assinatura:", customerResult.error)
+          throw new Error(`Customer creation failed: ${customerResult.error}`)
+        }
+
+        const customerId = customerResult.data.id
+        subscriptionCustomerId = customerId
+        console.log("[v0] Customer criado para assinatura:", customerId)
+
+        // Step 2: Salvar cartao no customer
+        const [expMonth, expYear] = card.expirationDate.split("/")
+        const cardPayload = {
+          number: card.number.replace(/\s/g, ""),
+          holder_name: card.holderName,
+          exp_month: Number.parseInt(expMonth, 10),
+          exp_year: Number.parseInt(`20${expYear}`, 10),
+          cvv: card.cvv,
+          billing_address: {
+            country: "BR",
+            state: shipping.state,
+            city: shipping.city,
+            neighborhood: shipping.neighborhood,
+            street: shipping.address,
+            street_number: shipping.number,
+            complement: shipping.complement || "",
+            zip_code: shipping.cep.replace(/\D/g, ""),
+            line_1: `${shipping.number}, ${shipping.address}, ${shipping.neighborhood}`,
+            line_2: shipping.complement || "",
+          },
+        }
+
+        const cardResult = await pagarmeRequest(`${PAGARME_CONFIG.ENDPOINTS.CUSTOMERS}/${customerId}${PAGARME_CONFIG.ENDPOINTS.CARDS}`, {
+          method: "POST",
+          body: cardPayload,
+        })
+
+        if (!cardResult.success) {
+          console.error("[v0] Falha ao criar card para assinatura:", cardResult.error)
+          throw new Error(`Card creation failed: ${cardResult.error}`)
+        }
+
+        const cardId = cardResult.data.id
+        console.log("[v0] Card criado para assinatura:", cardId)
+
+        // Step 3: Criar assinatura com o plano existente
+        const subscriptionPayload = {
+          customer_id: customerId,
+          plan_id: PAGARME_CONFIG.subscription.planId,
+          card_id: cardId,
+          billing_type: "prepaid",
+          statement_descriptor: "PETLOO",
+          metadata: {
+            customer_name: customer.name,
+            customer_email: customer.email,
+            order_id: pagarmeOrderId,
+            created_at: new Date().toISOString(),
+          },
+        }
+
+        const subscriptionResult = await pagarmeRequest(PAGARME_CONFIG.ENDPOINTS.SUBSCRIPTIONS, {
+          method: "POST",
+          body: subscriptionPayload,
+        })
+
+        if (!subscriptionResult.success) {
+          console.error("[v0] Falha ao criar assinatura:", subscriptionResult.error)
+          throw new Error(`Subscription creation failed: ${subscriptionResult.error}`)
+        }
+
+        subscriptionId = subscriptionResult.data.id
+        console.log("[v0] Assinatura criada com sucesso:", {
+          subscriptionId,
+          status: subscriptionResult.data.status,
+        })
+
+        // Step 4: Salvar na tabela pagarme_transactions
+        const { error: dbError } = await supabase.from("pagarme_transactions").insert({
+          customer_id: customerId,
+          card_id: cardId,
+          order_id: pagarmeOrderId,
+          subscription_id: subscriptionId,
+          plan_id: PAGARME_CONFIG.subscription.planId,
+          amount: finalAmountCents,
+          installments,
+          status: subscriptionResult.data.status || "active",
+          customer_data: {
+            name: customer.name,
+            email: customer.email,
+            cpf: customer.cpf,
+            phone: customer.phone,
+          },
+          created_at: new Date().toISOString(),
+        })
+
+        if (dbError) {
+          console.error("[v0] Erro ao salvar assinatura no Supabase:", dbError)
+        } else {
+          console.log("[v0] Dados da assinatura salvos no Supabase")
+        }
+      } catch (subscriptionError) {
+        // Nao bloquear o fluxo principal - o pedido ja foi criado com sucesso
+        console.error("[v0] Erro na criacao da assinatura (nao bloqueia pedido):", subscriptionError)
+      }
+    }
+
     // Preparar resposta de sucesso
     const response: any = {
       success: true,
@@ -390,6 +515,13 @@ export async function POST(request: NextRequest) {
     if (pedidoResult.success && pedidoResult.pedido) {
       response.pedidoNumero = pedidoResult.pedido.pedido_numero
       console.log("[v0] Order number:", response.pedidoNumero)
+    }
+
+    // Incluir info da assinatura na resposta
+    if (subscriptionId) {
+      response.subscriptionId = subscriptionId
+      response.subscriptionCustomerId = subscriptionCustomerId
+      console.log("[v0] Subscription included in response:", subscriptionId)
     }
 
     console.log("[v0] Payment processed successfully via Pagar.me")

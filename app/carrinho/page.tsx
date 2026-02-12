@@ -443,30 +443,6 @@ export default function CartPage() {
         </div>
       </div>
 
-      {/* Botão admin temporário para criar plano */}
-      <div className="max-w-6xl mx-auto px-4 pb-8">
-        <button
-          onClick={async () => {
-            try {
-              const res = await fetch("/api/pagarme/create-plan", { method: "POST" })
-              const data = await res.json()
-              console.log("[v0] Resposta criar plano Pagar.me:", JSON.stringify(data, null, 2))
-              if (data.id) {
-                alert(`Plano criado com sucesso!\n\nID: ${data.id}\nNome: ${data.name}\nStatus: ${data.status}\n\nResposta completa no console (F12).`)
-              } else {
-                alert(`Erro ao criar plano (status ${res.status}):\n\n${JSON.stringify(data, null, 2)}`)
-              }
-            } catch (err) {
-              console.error("[v0] Erro ao criar plano:", err)
-              alert(`Erro ao criar plano: ${err}`)
-            }
-          }}
-          className="w-full bg-red-800 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-900 transition-colors"
-        >
-          CRIAR PLANO PAGAR.ME (ADMIN)
-        </button>
-      </div>
-
       <Footer />
     </main>
   )

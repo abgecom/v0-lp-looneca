@@ -20,12 +20,12 @@ export const PAGARME_CONFIG = {
   },
 
   features: {
-    subscriptionsEnabled: false, // Set to true to re-enable subscription creation
+    subscriptionsEnabled: true,
   },
 
   // Subscription configuration
   subscription: {
-    planId: process.env.PETLOO_PLAN_ID || "",
+    planId: process.env.PETLOO_PLAN_ID || "plan_L7MjQlXiNpSyaGA9",
     // ATENÇÃO: NÃO usar startAtDaysOffset na criação de assinaturas.
     // O trial_period_days do plano (30 dias) já posterga a primeira cobrança.
     // Usar start_at + trial causaria "dupla postergação" (ex: 30+30 = 60 dias).
