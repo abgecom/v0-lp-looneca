@@ -1,7 +1,11 @@
 import Link from "next/link"
 import { Instagram, ArrowRight } from "lucide-react"
 
-export default function Footer() {
+interface FooterProps {
+  topDisclaimer?: string
+}
+
+export default function Footer({ topDisclaimer }: FooterProps) {
   const paymentMethods = [
     { name: "American Express", image: "/images/payment/amex.png" },
     { name: "Diners Club", image: "/images/payment/diners.png" },
@@ -15,6 +19,13 @@ export default function Footer() {
 
   return (
     <footer className="bg-white pt-12 pb-6 border-t border-gray-200">
+      {topDisclaimer && (
+        <div className="lg:hidden max-w-6xl mx-auto px-4 pb-6">
+          <p className="text-[10px] leading-tight text-gray-400 text-center">
+            {topDisclaimer}
+          </p>
+        </div>
+      )}
       <div className="max-w-6xl mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Coluna 1 - Central de Atendimento */}

@@ -274,8 +274,13 @@ function buildOrderPayload(input: CheckoutInput, customerId: number) {
     { name: "Parcelas", value: String(input.installments || 1) },
     { name: "Total de Canecas", value: String(totalMugs) },
     { name: "Resumo Raças", value: summaryRacas },
+    { name: "Tag Rastreamento + App Petloo", value: input.recurringProducts?.appPetloo ? "Sim" : "Não" },
   ]
-  const tags = `looneca,supabase,importado,${input.paymentMethod}`
+  const tagParts = [`looneca`, `supabase`, `importado`, input.paymentMethod]
+  if (input.recurringProducts?.appPetloo) {
+    tagParts.push("tag-rastreamento", "app-petloo")
+  }
+  const tags = tagParts.join(",")
   const order = {
     email: input.customer.email,
     financial_status,
