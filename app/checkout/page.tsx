@@ -1453,15 +1453,35 @@ export default function CheckoutPage() {
                         {paymentMethod === "credit_card" && <div className="w-3 h-3 rounded-full bg-[#F1542E]"></div>}
                       </div>
                       <label className="ml-2 font-medium cursor-pointer">Cartão de Crédito</label>
-                      <div className="ml-auto flex items-center space-x-2">
+                      <div className="ml-auto flex items-center gap-1.5">
                         <Image
-                          src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Fotos%20da%20p%C3%A1gina%20%28outras%29/cartao-cielo-11550716100r1bhgy3h2j-nEupH1ywxhWCNa19kfaOuY9cuRvXIx.png"
-                          alt="Bandeiras de cartao aceitas"
-                          width={140}
-                          height={30}
-                          className="h-7 w-auto"
+                          src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/Comum/card-visa%20%281%29.svg"
+                          alt="Visa"
+                          width={36}
+                          height={24}
+                          className="h-6 w-auto"
                         />
-                        <span className="text-xs text-gray-500">E muito mais...</span>
+                        <Image
+                          src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/Comum/card-mastercard%20%281%29.svg"
+                          alt="Mastercard"
+                          width={36}
+                          height={24}
+                          className="h-6 w-auto"
+                        />
+                        <Image
+                          src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/Comum/card-discover%20%281%29.svg"
+                          alt="Discover"
+                          width={36}
+                          height={24}
+                          className="h-6 w-auto"
+                        />
+                        <Image
+                          src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/Comum/amex.Csr7hRoy%20%281%29.svg"
+                          alt="American Express"
+                          width={36}
+                          height={24}
+                          className="h-6 w-auto"
+                        />
                       </div>
                     </div>
 
