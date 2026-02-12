@@ -96,7 +96,7 @@ export default function CartPage() {
       ],
       originalPrice: 30.0,
       currentPrice: 0,
-      imageSrc: "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/imgapp1-VnnOgP7stsRZkKIeJkojR2Grh3ILVy.png",
+      imageSrc: "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Tag%20rastreamento/foto%20crossell.png",
     },
   ]
 

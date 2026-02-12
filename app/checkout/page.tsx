@@ -946,24 +946,24 @@ export default function CheckoutPage() {
                 </div>
               ))}
 
-              {false && cart.recurringProducts.appPetloo && (
+              {cart.recurringProducts.appPetloo && (
                 <div className="mb-4">
                   <div className="flex">
                     <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
                       <Image
-                        src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/imgapp1-VnnOgP7stsRZkKIeJkojR2Grh3ILVy.png"
-                        alt="App Petloo"
+                        src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Tag%20rastreamento/foto%20crossell.png"
+                        alt="Tag de Rastreamento + App Petloo"
                         width={80}
                         height={80}
-                        className="w-full h-full object-contain"
+                        className="w-full h-full object-cover"
                       />
                     </div>
                     <div className="ml-4 flex-grow">
-                      <h3 className="font-medium">App Petloo</h3>
-                      <p className="text-sm text-green-600 font-medium">GRÁTIS</p>
-                      <div className="flex justify-between mt-1">
-                        <span className="text-sm">Qtd: 1</span>
-                        <span className="font-medium">R$ 0,00</span>
+                      <h3 className="font-medium">Tag de Rastreamento + App Petloo</h3>
+                      <p className="text-xs text-gray-500">Assinatura mensal - 30 dias gratis</p>
+                      <div className="flex justify-between items-center mt-1">
+                        <span className="text-sm text-green-600 font-semibold">GRATIS</span>
+                        <span className="font-medium text-green-600">R$ 0,00</span>
                       </div>
                     </div>
                   </div>
