@@ -82,7 +82,7 @@ const initialCartContext: CartContextType = {
   isEmpty: true,
   isInitialized: false,
   recurringProducts: {
-    appPetloo: false,
+    appPetloo: true,
     loobook: false,
   },
   toggleRecurringProduct: () => {},
@@ -98,7 +98,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [items, setItems] = useState<CartItem[]>([])
   const [isInitialized, setIsInitialized] = useState(false)
   const [recurringProducts, setRecurringProducts] = useState({
-    appPetloo: false,
+    appPetloo: true,
     loobook: false,
   })
   // Estados para fotos e raça do pet
