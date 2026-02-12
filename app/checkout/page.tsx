@@ -1453,15 +1453,35 @@ export default function CheckoutPage() {
                         {paymentMethod === "credit_card" && <div className="w-3 h-3 rounded-full bg-[#F1542E]"></div>}
                       </div>
                       <label className="ml-2 font-medium cursor-pointer">Cartão de Crédito</label>
-                      <div className="ml-auto flex items-center space-x-2">
+                      <div className="ml-auto flex items-center gap-1.5">
                         <Image
-                          src="/images/design-mode/ChatGPT%20Image%2022%20de%20mai.%20de%202025%2C%2013_19_05%201.png"
-                          alt="Métodos de pagamento"
-                          width={100}
-                          height={30}
+                          src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/Comum/card-visa%20%281%29.svg"
+                          alt="Visa"
+                          width={36}
+                          height={24}
                           className="h-6 w-auto"
                         />
-                        <span className="text-xs text-gray-500">E muito mais...</span>
+                        <Image
+                          src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/Comum/card-mastercard%20%281%29.svg"
+                          alt="Mastercard"
+                          width={36}
+                          height={24}
+                          className="h-6 w-auto"
+                        />
+                        <Image
+                          src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/Comum/card-discover%20%281%29.svg"
+                          alt="Discover"
+                          width={36}
+                          height={24}
+                          className="h-6 w-auto"
+                        />
+                        <Image
+                          src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/Comum/amex.Csr7hRoy%20%281%29.svg"
+                          alt="American Express"
+                          width={36}
+                          height={24}
+                          className="h-6 w-auto"
+                        />
                       </div>
                     </div>
 
@@ -1640,26 +1660,6 @@ export default function CheckoutPage() {
                   </label>
                 </div>
               </div>
-
-              {paymentCalculation && paymentCalculation.interestAmount > 0 && (
-                <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                  <h3 className="font-medium mb-2">Resumo do Pagamento</h3>
-                  <div className="text-sm space-y-1">
-                    <div className="flex justify-between">
-                      <span>Subtotal + Frete:</span>
-                      <span>R$ {formatPrice(paymentCalculation.originalAmount)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Taxa ({paymentCalculation.rate.toFixed(2)}%):</span>
-                      <span>R$ {formatPrice(paymentCalculation.interestAmount)}</span>
-                    </div>
-                    <div className="flex justify-between font-medium border-t pt-1">
-                      <span>Total Final:</span>
-                      <span>R$ {formatPrice(paymentCalculation.finalAmount)}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Submit Button */}
               <button
