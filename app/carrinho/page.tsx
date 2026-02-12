@@ -434,16 +434,13 @@ export default function CartPage() {
         </div>
       </div>
 
-      {/* Disclaimer mobile - rodape do carrinho */}
-      {ENABLE_SUBSCRIPTION_OFFERS && cart.recurringProducts.appPetloo && (
-        <div className="lg:hidden max-w-6xl mx-auto px-4 pb-4">
-          <p className="text-[10px] leading-tight text-gray-400 text-center">
-            {"Apos o primeiro mes a assinatura do aplicativo sera ativada no valor de R$30,90. Cancele a qualquer momento."}
-          </p>
-        </div>
-      )}
-
-      <Footer />
+      <Footer
+        topDisclaimer={
+          ENABLE_SUBSCRIPTION_OFFERS && cart.recurringProducts.appPetloo
+            ? "Apos o primeiro mes a assinatura do aplicativo sera ativada no valor de R$30,90. Cancele a qualquer momento."
+            : undefined
+        }
+      />
     </main>
   )
 }
