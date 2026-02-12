@@ -1455,11 +1455,11 @@ export default function CheckoutPage() {
                       <label className="ml-2 font-medium cursor-pointer">Cartão de Crédito</label>
                       <div className="ml-auto flex items-center space-x-2">
                         <Image
-                          src="/images/design-mode/ChatGPT%20Image%2022%20de%20mai.%20de%202025%2C%2013_19_05%201.png"
-                          alt="Métodos de pagamento"
-                          width={100}
+                          src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Fotos%20da%20p%C3%A1gina%20%28outras%29/cartao-cielo-11550716100r1bhgy3h2j-nEupH1ywxhWCNa19kfaOuY9cuRvXIx.png"
+                          alt="Bandeiras de cartao aceitas"
+                          width={140}
                           height={30}
-                          className="h-6 w-auto"
+                          className="h-7 w-auto"
                         />
                         <span className="text-xs text-gray-500">E muito mais...</span>
                       </div>
