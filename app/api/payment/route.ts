@@ -4,6 +4,7 @@ import { criarPedido } from "@/actions/pedidos-actions"
 import { buscarDadosFormularioInicial } from "@/actions/cart-data-actions"
 import { pagarmeRequest, formatPhoneForPagarme, formatDocumentForPagarme } from "@/lib/pagarme/api"
 import { PAGARME_CONFIG } from "@/lib/pagarme/config"
+import { sendAppDownloadEmail } from "@/lib/resend"
 
 // Taxas de juros para cartao de credito
 const INTEREST_RATES: Record<number, number> = {
@@ -363,6 +364,17 @@ export async function POST(request: NextRequest) {
     console.log("[v0] Creating order in Supabase...")
     const pedidoResult = await criarPedido(pedidoData)
     console.log("[v0] Resultado da criacao do pedido:", pedidoResult.success)
+
+    // --- Enviar email de download do app (fire-and-forget) ---
+    try {
+      await sendAppDownloadEmail({
+        to: customer.email,
+        customerName: customer.name,
+      })
+      console.log("[v0] Email de download do app enviado para:", customer.email)
+    } catch (emailError) {
+      console.error("[v0] Erro ao enviar email (nao-bloqueante):", emailError)
+    }
 
     // --- Criar assinatura Pagar.me se appPetloo estiver ativo e pagamento for cartao ---
     let subscriptionId: string | null = null
