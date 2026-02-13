@@ -42,6 +42,7 @@ export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [orderSuccess, setOrderSuccess] = useState(false)
   const [selectedAccessories, setSelectedAccessories] = useState<string[]>([])
+  const [angelWingsPets, setAngelWingsPets] = useState<("pet1" | "pet2")[]>([])
   const router = useRouter()
   const { addItem } = useCart()
 
@@ -178,6 +179,7 @@ export default function Home() {
           price: totalPrice,
           imageSrc: currentItem.src,
           accessories: selectedAccessories,
+          angelWingsPets: selectedPetCount === 2 && angelWingsPets.length > 0 ? angelWingsPets : undefined,
         }
 
         console.log("Adicionando item ao carrinho:", newItem)
@@ -374,6 +376,7 @@ export default function Home() {
                 petCount={selectedPetCount}
                 onFormValidityChange={handleFormValidityChange}
                 onAccessoriesChange={handleAccessoriesChange}
+                onAngelWingsChange={setAngelWingsPets}
                 ref={formRef}
               />
 

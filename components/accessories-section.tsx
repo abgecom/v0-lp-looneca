@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import AngelWingsModal, { type AngelWingsPet } from "./angel-wings-modal"
 
 interface Accessory {
   id: string
@@ -33,6 +34,7 @@ export const ACCESSORY_PRICE = 15
 
 interface AccessoriesSectionProps {
   onSelectionChange?: (selectedIds: string[]) => void
+  onAngelWingsChange?: (selectedPets: AngelWingsPet[]) => void
   petCount?: number // Added petCount prop
 }
 
@@ -51,8 +53,10 @@ function isAccessoryAvailable(accessoryId: string, petCount: number): boolean {
   return true
 }
 
-export default function AccessoriesSection({ onSelectionChange, petCount = 1 }: AccessoriesSectionProps) {
+export default function AccessoriesSection({ onSelectionChange, onAngelWingsChange, petCount = 1 }: AccessoriesSectionProps) {
   const [selectedAccessories, setSelectedAccessories] = useState<string[]>([])
+  const [showAngelWingsModal, setShowAngelWingsModal] = useState(false)
+  const [angelWingsPets, setAngelWingsPets] = useState<AngelWingsPet[]>([])
 
   useEffect(() => {
     if (onSelectionChange) {
@@ -62,14 +66,45 @@ export default function AccessoriesSection({ onSelectionChange, petCount = 1 }: 
 
   useEffect(() => {
     setSelectedAccessories((prev) => prev.filter((id) => isAccessoryAvailable(id, petCount)))
+    // Reset angel wings selection when pet count changes away from 2
+    if (petCount !== 2) {
+      setAngelWingsPets([])
+      if (onAngelWingsChange) onAngelWingsChange([])
+    }
   }, [petCount])
 
   const toggleAccessory = (id: string) => {
     if (!isAccessoryAvailable(id, petCount)) return
 
+    // If toggling angel wings ON for 2 pets, open the modal
+    if (id === "angel-wings" && petCount === 2 && !selectedAccessories.includes(id)) {
+      setShowAngelWingsModal(true)
+      return
+    }
+
+    // If toggling angel wings OFF, clear the selection
+    if (id === "angel-wings") {
+      setAngelWingsPets([])
+      if (onAngelWingsChange) onAngelWingsChange([])
+    }
+
     setSelectedAccessories((prev) =>
       prev.includes(id) ? prev.filter((accessoryId) => accessoryId !== id) : [...prev, id],
     )
+  }
+
+  const handleAngelWingsConfirm = (pets: AngelWingsPet[]) => {
+    setAngelWingsPets(pets)
+    if (onAngelWingsChange) onAngelWingsChange(pets)
+    // Add angel-wings to selected accessories
+    setSelectedAccessories((prev) =>
+      prev.includes("angel-wings") ? prev : [...prev, "angel-wings"]
+    )
+    setShowAngelWingsModal(false)
+  }
+
+  const handleAngelWingsClose = () => {
+    setShowAngelWingsModal(false)
   }
 
   const isSelected = (id: string) => selectedAccessories.includes(id)
@@ -104,9 +139,29 @@ export default function AccessoriesSection({ onSelectionChange, petCount = 1 }: 
             const accessory = ACCESSORIES.find((acc) => acc.id === accessoryId)
             if (!accessory) return null
             return (
-              <p key={accessoryId} className="text-sm text-gray-700">
-                {accessory.name} | R$ {ACCESSORY_PRICE.toFixed(2).replace(".", ",")}
-              </p>
+              <div key={accessoryId}>
+                <p className="text-sm text-gray-700">
+                  {accessory.name} | R$ {ACCESSORY_PRICE.toFixed(2).replace(".", ",")}
+                </p>
+                {accessoryId === "angel-wings" && petCount === 2 && angelWingsPets.length > 0 && (
+                  <p className="text-xs text-gray-500 ml-2">
+                    {"-> "}
+                    {angelWingsPets.length === 2
+                      ? "Ambos os pets"
+                      : angelWingsPets[0] === "pet1"
+                        ? "Pet 1"
+                        : "Pet 2"}
+                    {" "}
+                    <button
+                      type="button"
+                      onClick={() => setShowAngelWingsModal(true)}
+                      className="text-[#F1542E] underline hover:text-[#e04020] ml-1"
+                    >
+                      alterar
+                    </button>
+                  </p>
+                )}
+              </div>
             )
           })}
         </div>
@@ -177,6 +232,14 @@ export default function AccessoriesSection({ onSelectionChange, petCount = 1 }: 
           )
         })}
       </div>
+
+      {/* Angel Wings Modal */}
+      <AngelWingsModal
+        isOpen={showAngelWingsModal}
+        onClose={handleAngelWingsClose}
+        onConfirm={handleAngelWingsConfirm}
+        initialSelection={angelWingsPets}
+      />
     </div>
   )
 }

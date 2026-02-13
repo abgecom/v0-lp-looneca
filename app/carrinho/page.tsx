@@ -201,7 +201,20 @@ export default function CartPage() {
                               <p className="text-xs font-medium text-gray-700">Acessórios:</p>
                               <ul className="text-xs text-gray-600 list-disc list-inside">
                                 {item.accessories.map((accessoryId: string) => (
-                                  <li key={accessoryId}>{getAccessoryName(accessoryId)}</li>
+                                  <li key={accessoryId}>
+                                    {getAccessoryName(accessoryId)}
+                                    {accessoryId === "angel-wings" && item.angelWingsPets && item.angelWingsPets.length > 0 && (
+                                      <span className="text-gray-400 ml-1">
+                                        {"("}
+                                        {item.angelWingsPets.length === 2
+                                          ? "Ambos os pets"
+                                          : item.angelWingsPets[0] === "pet1"
+                                            ? "Pet 1"
+                                            : "Pet 2"}
+                                        {")"}
+                                      </span>
+                                    )}
+                                  </li>
                                 ))}
                               </ul>
                               <p className="text-xs text-[#F1542E] font-medium mt-1">

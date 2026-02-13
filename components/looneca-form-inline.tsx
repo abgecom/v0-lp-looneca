@@ -9,6 +9,7 @@ import Image from "next/image"
 import PetAutocomplete from "./pet-autocomplete"
 import { useCart } from "@/contexts/cart-context"
 import AccessoriesSection from "./accessories-section"
+import type { AngelWingsPet } from "./angel-wings-modal"
 
 interface PetFormData {
   tipoRacaPet: string
@@ -19,6 +20,7 @@ interface LoonecaFormInlineProps {
   petCount: number
   onFormValidityChange?: (isValid: boolean) => void
   onAccessoriesChange?: (accessories: string[]) => void
+  onAngelWingsChange?: (selectedPets: AngelWingsPet[]) => void
 }
 
 export type LoonecaFormRef = {
@@ -26,7 +28,7 @@ export type LoonecaFormRef = {
 }
 
 const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
-  ({ petCount, onFormValidityChange, onAccessoriesChange }, ref) => {
+  ({ petCount, onFormValidityChange, onAccessoriesChange, onAngelWingsChange }, ref) => {
     const [observacao, setObservacao] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [formError, setFormError] = useState<string | null>(null)
@@ -169,7 +171,7 @@ const LoonecaFormInline = forwardRef<LoonecaFormRef, LoonecaFormInlineProps>(
           </div>
         ))}
 
-        <AccessoriesSection onSelectionChange={handleAccessoriesChange} petCount={petCount} />
+        <AccessoriesSection onSelectionChange={handleAccessoriesChange} onAngelWingsChange={onAngelWingsChange} petCount={petCount} />
 
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <label htmlFor="observacao" className="block text-sm font-medium text-gray-700 mb-1">

@@ -366,14 +366,20 @@ export async function POST(request: NextRequest) {
     console.log("[v0] Resultado da criacao do pedido:", pedidoResult.success)
 
     // --- Enviar email de download do app (fire-and-forget) ---
-    try {
-      await sendAppDownloadEmail({
-        to: customer.email,
-        customerName: customer.name,
-      })
-      console.log("[v0] Email de download do app enviado para:", customer.email)
-    } catch (emailError) {
-      console.error("[v0] Erro ao enviar email (nao-bloqueante):", emailError)
+    // Para cartao de credito, o pagamento e confirmado imediatamente, entao enviamos aqui.
+    // Para PIX, o email sera enviado pelo webhook quando o pagamento for confirmado (charge.paid).
+    if (paymentMethod === "credit_card") {
+      try {
+        await sendAppDownloadEmail({
+          to: customer.email,
+          customerName: customer.name,
+        })
+        console.log("[v0] Email de download do app enviado para:", customer.email)
+      } catch (emailError) {
+        console.error("[v0] Erro ao enviar email (nao-bloqueante):", emailError)
+      }
+    } else {
+      console.log("[v0] Pagamento PIX - email sera enviado apos confirmacao via webhook")
     }
 
     // --- Criar assinatura Pagar.me se appPetloo estiver ativo e pagamento for cartao ---
