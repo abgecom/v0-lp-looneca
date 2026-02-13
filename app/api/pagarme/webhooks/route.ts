@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js"
 import crypto from "crypto"
 import { calculateSubscriptionStartDate } from "@/lib/pagarme/api"
 import { PAGARME_CONFIG } from "@/lib/pagarme/config"
+import { sendAppDownloadEmail } from "@/lib/resend"
 
 // Verificar se as variáveis de ambiente estão definidas
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -362,6 +363,37 @@ export async function POST(request: NextRequest) {
         console.error("Erro ao atualizar status na tabela pedidos:", pedidosError)
       } else {
         console.log("Status de pagamento atualizado com sucesso na tabela pedidos")
+      }
+
+      // Enviar email de download do app quando pagamento PIX for confirmado
+      if (body.type === "charge.paid") {
+        try {
+          // O id_pagamento na tabela pedidos armazena o order ID (nao o charge ID).
+          // No evento charge.paid, body.data.order.id contem o order ID.
+          const orderIdFromCharge = body.data?.order?.id || paymentId
+          console.log("[Webhook] Buscando pedido para envio de email. orderId:", orderIdFromCharge)
+
+          const { data: pedido } = await supabase
+            .from("pedidos")
+            .select("email_cliente, nome_cliente, metodo_pagamento")
+            .eq("id_pagamento", orderIdFromCharge)
+            .maybeSingle()
+
+          // Enviar email apenas para PIX (cartao ja recebe na rota de pagamento)
+          if (pedido?.email_cliente && pedido?.metodo_pagamento === "pix") {
+            await sendAppDownloadEmail({
+              to: pedido.email_cliente,
+              customerName: pedido.nome_cliente || "Cliente",
+            })
+            console.log("[Webhook] Email de download enviado para:", pedido.email_cliente)
+          } else if (pedido?.metodo_pagamento !== "pix") {
+            console.log("[Webhook] Pagamento nao e PIX, email ja enviado na rota de pagamento")
+          } else {
+            console.log("[Webhook] Pedido nao encontrado para envio de email. orderId:", orderIdFromCharge)
+          }
+        } catch (emailError) {
+          console.error("[Webhook] Erro ao enviar email de download (nao-bloqueante):", emailError)
+        }
       }
 
       // Manter a atualização na tabela looneca_orders para compatibilidade
