@@ -12,6 +12,7 @@ export interface CheckoutItem {
   variantId: number | string
   sku?: string
   accessories?: string[]
+  angelWingsPets?: ("pet1" | "pet2")[]
   petPhotos?: string[]
   petBreeds?: string
   petNotes?: string
@@ -223,6 +224,17 @@ function buildLineItemProperties(item: CheckoutItem, index: number, input: Check
     { name: "Acessórios Quantidade", value: String(accessoryCount) },
     { name: "Acessórios Total (R$)", value: (accessoryCount * ACCESSORY_PRICE).toFixed(2) },
   ]
+
+  // Add angel wings pet assignment if applicable
+  const angelWingsPets = Array.isArray(item.angelWingsPets) ? item.angelWingsPets : []
+  if (angelWingsPets.length > 0 && accessoryIds.includes("angel-wings")) {
+    const label = angelWingsPets.length === 2
+      ? "Ambos os pets (Pet 1 e Pet 2)"
+      : angelWingsPets[0] === "pet1"
+        ? "Pet 1"
+        : "Pet 2"
+    properties.push({ name: "Asas de Anjo - Pet(s)", value: label })
+  }
   return properties
 }
 
@@ -276,6 +288,23 @@ function buildOrderPayload(input: CheckoutInput, customerId: number) {
     { name: "Resumo Raças", value: summaryRacas },
     { name: "Tag Rastreamento + App Petloo", value: input.recurringProducts?.appPetloo ? "Sim" : "Não" },
   ]
+
+  // Add angel wings summary to note_attributes if any item has it
+  const angelWingsItems = input.items
+    .map((item, i) => {
+      const ci = item as CheckoutItem
+      if (Array.isArray(ci.angelWingsPets) && ci.angelWingsPets.length > 0 && ci.accessories?.includes("angel-wings")) {
+        const label = ci.angelWingsPets.length === 2
+          ? "Ambos os pets"
+          : ci.angelWingsPets[0] === "pet1" ? "Pet 1" : "Pet 2"
+        return `Caneca ${i + 1}: ${label}`
+      }
+      return null
+    })
+    .filter(Boolean)
+  if (angelWingsItems.length > 0) {
+    note_attributes.push({ name: "Asas de Anjo", value: angelWingsItems.join(" | ") })
+  }
   const tagParts = [`looneca`, `supabase`, `importado`, input.paymentMethod]
   if (input.recurringProducts?.appPetloo) {
     tagParts.push("tag-rastreamento", "app-petloo")

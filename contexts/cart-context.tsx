@@ -15,6 +15,7 @@ export interface CartItem {
   variantId?: string // Novo campo Shopify
   sku?: string // Novo campo Shopify
   accessories?: string[] // Array of selected accessory IDs
+  angelWingsPets?: ("pet1" | "pet2")[] // Which pets get angel wings (only for 2-pet mugs)
 }
 
 interface CartContextType {

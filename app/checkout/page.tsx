@@ -550,6 +550,7 @@ export default function CheckoutPage() {
             variantId: item.variantId,
             sku: item.sku,
             accessories: item.accessories?.map((acc: any) => acc.id || acc) || [],
+            angelWingsPets: (item as any).angelWingsPets || undefined,
 
             // ✅ DADOS DO PET POR ITEM (com fallback global)
             petPhotos: useFallback ? (cart.petPhotos || []) : itemPetPhotos,
@@ -905,14 +906,29 @@ export default function CheckoutPage() {
                         <div className="mt-2 pt-2 border-t border-gray-100">
                           <p className="text-xs font-medium text-gray-700 mb-1">Acessórios:</p>
                           <ul className="text-xs text-gray-600 space-y-0.5">
-                            {item.accessories.map((accessory: any) => (
-                              <li key={accessory.id || accessory} className="flex justify-between">
-                                <span>{getAccessoryName(accessory.id || accessory)}</span>
-                                <span className="text-[#F1542E] font-medium">
-                                  + R$ {ACCESSORY_PRICE.toFixed(2).replace(".", ",")}
-                                </span>
-                              </li>
-                            ))}
+                            {item.accessories.map((accessory: any) => {
+                              const accId = accessory.id || accessory
+                              return (
+                                <li key={accId}>
+                                  <div className="flex justify-between">
+                                    <span>{getAccessoryName(accId)}</span>
+                                    <span className="text-[#F1542E] font-medium">
+                                      + R$ {ACCESSORY_PRICE.toFixed(2).replace(".", ",")}
+                                    </span>
+                                  </div>
+                                  {accId === "angel-wings" && (item as any).angelWingsPets && (item as any).angelWingsPets.length > 0 && (
+                                    <p className="text-[10px] text-gray-400 mt-0.5">
+                                      {"-> "}
+                                      {(item as any).angelWingsPets.length === 2
+                                        ? "Ambos os pets"
+                                        : (item as any).angelWingsPets[0] === "pet1"
+                                          ? "Pet 1"
+                                          : "Pet 2"}
+                                    </p>
+                                  )}
+                                </li>
+                              )
+                            })}
                           </ul>
                         </div>
                       )}
