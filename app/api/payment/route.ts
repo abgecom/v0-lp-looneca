@@ -9,8 +9,8 @@ import { sendAppDownloadEmail } from "@/lib/resend"
 // Taxas de juros para cartao de credito
 const INTEREST_RATES: Record<number, number> = {
   1: 0.0,
-  2: 0.0859,
-  3: 0.0984,
+  2: 0.0,
+  3: 0.0,
   4: 0.1109,
   5: 0.1234,
   6: 0.1359,
