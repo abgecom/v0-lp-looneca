@@ -1093,8 +1093,11 @@ export default function CheckoutPage() {
                   <span>Total</span>
                   <span>R$ {formatPrice(totalWithShipping)}</span>
                 </div>
-                <p className="text-sm text-gray-600 mt-2">
-                  Em até 12x{Number(formData.installments) > 1 ? "*" : ""} no cartão de crédito
+                <p className="text-sm text-green-600 font-medium mt-2">
+                  ou ate 3x de R$ {formatPrice(totalWithShipping / 3)} sem juros
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Em ate 12x no cartao de credito
                 </p>
               </div>
             </div>
@@ -1582,6 +1585,9 @@ export default function CheckoutPage() {
                               </option>
                             ))}
                           </select>
+                          <p className="text-xs text-green-600 font-medium mt-1.5">
+                            Ate 3x sem juros
+                          </p>
                         </div>
                       </div>
                     )}
