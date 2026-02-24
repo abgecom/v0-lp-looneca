@@ -37,10 +37,11 @@ export default function Header() {
       <div className="bg-[#FF4444] text-white py-2 overflow-hidden relative">
         <div className="animate-marquee whitespace-nowrap">
           <span className="mx-8">Frete Grátis Todo Brasil: Compras Acima de R$249,90</span>
+          <span className="mx-8">Parcele em até 3x sem juros no cartão</span>
           <span className="mx-8">Frete Grátis Todo Brasil: Compras Acima de R$249,90</span>
+          <span className="mx-8">Parcele em até 3x sem juros no cartão</span>
           <span className="mx-8">Frete Grátis Todo Brasil: Compras Acima de R$249,90</span>
-          <span className="mx-8">Frete Grátis Todo Brasil: Compras Acima de R$249,90</span>
-          <span className="mx-8">Frete Grátis Todo Brasil: Compras Acima de R$249,90</span>
+          <span className="mx-8">Parcele em até 3x sem juros no cartão</span>
         </div>
       </div>
 
