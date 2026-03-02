@@ -46,6 +46,13 @@ export interface OrderData {
   petPhotos?: string[]
   petTypeBreed?: string
   petNotes?: string
+  // === DADOS DO CUPOM ===
+  coupon?: {
+    code: string
+    discountPercent: number
+    discountAmount: number
+    type: string
+  } | null
 }
 
 export async function saveOrderToDatabase(orderData: OrderData) {
@@ -89,6 +96,8 @@ export async function saveOrderToDatabase(orderData: OrderData) {
       raca: orderData.petTypeBreed || "",
       observacoes: orderData.petNotes || "",
       acessorios: acessoriosString,
+      // === DADOS DO CUPOM ===
+      cupom: orderData.coupon || null,
     }
 
     console.log("🚀 DEBUG saveOrderToDatabase - pedidoData mapeado:", JSON.stringify(pedidoData, null, 2))

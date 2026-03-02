@@ -54,6 +54,12 @@ export interface PedidoData {
   raca?: string
   observacoes?: string
   acessorios?: string
+  cupom?: {
+    code: string
+    discountPercent: number
+    discountAmount: number
+    type: string
+  } | null
 }
 
 export async function criarPedido(data: PedidoData, req?: Request) {
