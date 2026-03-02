@@ -14,6 +14,7 @@ import { exportOrderToShopify } from "@/actions/shopify-actions"
 import { calculatePaymentAmount } from "@/lib/payment-utils"
 import { trackFBEvent } from "@/components/facebook-pixel"
 import { ACCESSORY_PRICE, getAccessoryName } from "@/components/accessories-section"
+import { validateCoupon, calculateDiscount, isFreeShippingCoupon, type Coupon } from "@/lib/coupons"
 
 function formatPhone(phone: string): string {
   const digits = phone.replace(/\D/g, "") // remove tudo que não for número
@@ -32,6 +33,12 @@ export default function CheckoutPage() {
   const [pixQrCodeUrl, setPixQrCodeUrl] = useState<string | null>(null)
   const [showShippingOptions, setShowShippingOptions] = useState(false)
   const [showOrderSummary, setShowOrderSummary] = useState(true) // Mudado para true (aberto por padrão)
+
+  // Estado para cupom de desconto
+  const [couponCode, setCouponCode] = useState("")
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null)
+  const [couponError, setCouponError] = useState<string | null>(null)
+  const [couponSuccess, setCouponSuccess] = useState<string | null>(null)
 
   // Refs para rastrear eventos do Facebook Pixel
   const cepInputTrackedRef = useRef(false)
@@ -101,8 +108,12 @@ export default function CheckoutPage() {
     }>
   >([])
 
-  // Verificar se o frete deve ser grátis (subtotal >= 249.90)
-  const isShippingFree = cart.isInitialized && cart.totalPrice >= 249.9
+  // Verificar se o frete deve ser grátis (subtotal >= 249.90 ou cupom de frete grátis)
+  const isShippingFree = cart.isInitialized && (cart.totalPrice >= 249.9 || isFreeShippingCoupon(appliedCoupon))
+
+  // Calcular desconto do cupom
+  const couponDiscount = appliedCoupon ? calculateDiscount(cart.totalPrice, appliedCoupon) : null
+  const subtotalWithDiscount = couponDiscount ? couponDiscount.finalSubtotal : cart.totalPrice
 
   // Calcular o preço do frete com base na regra de frete grátis
   const getShippingPrice = () => {
@@ -112,8 +123,8 @@ export default function CheckoutPage() {
     return shippingOption.price
   }
 
-  // Calculate total with shipping - only if cart is initialized
-  const totalWithShipping = cart.isInitialized ? cart.totalPrice + (showShippingOptions ? getShippingPrice() : 0) : 0
+  // Calculate total with shipping - only if cart is initialized (agora usando subtotal com desconto)
+  const totalWithShipping = cart.isInitialized ? subtotalWithDiscount + (showShippingOptions ? getShippingPrice() : 0) : 0
 
   // Format price for display
   const formatPrice = (price: number) => {
@@ -243,6 +254,31 @@ export default function CheckoutPage() {
       }
     }
   }, [cart.isInitialized, totalWithShipping, paymentMethod, formData.installments])
+
+  // Função para aplicar cupom
+  const handleApplyCoupon = () => {
+    setCouponError(null)
+    setCouponSuccess(null)
+
+    const result = validateCoupon(couponCode)
+    
+    if (!result.valid) {
+      setCouponError(result.error || "Cupom inválido")
+      setAppliedCoupon(null)
+      return
+    }
+
+    setAppliedCoupon(result.coupon!)
+    setCouponSuccess(`Cupom "${result.coupon!.code}" aplicado com sucesso! ${result.coupon!.description}`)
+    setCouponCode("") // Limpar input após aplicar
+  }
+
+  // Função para remover cupom
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponError(null)
+    setCouponSuccess(null)
+  }
 
   // Handle shipping option change
   const handleShippingOptionChange = (type: "standard" | "express") => {
@@ -574,6 +610,14 @@ export default function CheckoutPage() {
           price: accessory.price,
           quantity: accessory.quantity,
         })) || [],
+        
+        // Dados do cupom aplicado
+        coupon: appliedCoupon ? {
+          code: appliedCoupon.code,
+          discountPercent: appliedCoupon.discountPercent,
+          discountAmount: couponDiscount?.discountAmount || 0,
+          type: appliedCoupon.type,
+        } : null,
       }
 
       // Process payment
@@ -1058,17 +1102,50 @@ export default function CheckoutPage() {
 
               <div className="mt-4">
                 <p className="text-sm mb-2">Tem cupom de desconto ou vale presente?</p>
-                <div className="flex mb-4">
-                  <input
-                    type="text"
-                    placeholder="Código do cupom"
-                    className="flex-grow border border-gray-300 rounded-l-md px-3 py-2
-                    focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]"
-                  />
-                  <button className="bg-[#F1542E] text-white px-4 py-2 rounded-r-md hover:bg-[#e04020] transition-colors">
-                    Aplicar
-                  </button>
-                </div>
+                {!appliedCoupon ? (
+                  <>
+                    <div className="flex mb-2">
+                      <input
+                        type="text"
+                        placeholder="Código do cupom"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        className="flex-grow border border-gray-300 rounded-l-md px-3 py-2
+                        focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]"
+                      />
+                      <button 
+                        type="button"
+                        onClick={handleApplyCoupon}
+                        className="bg-[#F1542E] text-white px-4 py-2 rounded-r-md hover:bg-[#e04020] transition-colors"
+                      >
+                        Aplicar
+                      </button>
+                    </div>
+                    {couponError && (
+                      <p className="text-red-500 text-xs mb-2">{couponError}</p>
+                    )}
+                  </>
+                ) : (
+                  <div className="bg-green-50 border border-green-200 rounded-md p-3 mb-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-medium text-green-700">{appliedCoupon.code}</span>
+                        <span className="text-green-600 ml-2">-{appliedCoupon.discountPercent}%</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoupon}
+                        className="text-red-500 hover:text-red-700 text-sm font-medium"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                    <p className="text-xs text-green-600 mt-1">{appliedCoupon.description}</p>
+                  </div>
+                )}
+                {couponSuccess && !appliedCoupon && (
+                  <p className="text-green-600 text-xs mb-2">{couponSuccess}</p>
+                )}
               </div>
 
               <div className="mb-4 border-t border-gray-200 pt-4">
@@ -1076,6 +1153,15 @@ export default function CheckoutPage() {
                   <span>Subtotal</span>
                   <span>R$ {formatPrice(cart.totalPrice)}</span>
                 </div>
+                
+                {/* Exibir desconto do cupom */}
+                {appliedCoupon && couponDiscount && couponDiscount.discountAmount > 0 && (
+                  <div className="flex justify-between mt-2 font-medium text-green-600">
+                    <span>Desconto ({appliedCoupon.discountPercent}%)</span>
+                    <span>- R$ {formatPrice(couponDiscount.discountAmount)}</span>
+                  </div>
+                )}
+                
                 {showShippingOptions && (
                   <div className="flex justify-between mt-2 font-medium">
                     <span>Frete</span>

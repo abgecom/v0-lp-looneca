@@ -54,6 +54,12 @@ export interface PedidoData {
   raca?: string
   observacoes?: string
   acessorios?: string
+  cupom?: {
+    code: string
+    discountPercent: number
+    discountAmount: number
+    type: string
+  } | null
 }
 
 export async function criarPedido(data: PedidoData, req?: Request) {
@@ -73,7 +79,7 @@ export async function criarPedido(data: PedidoData, req?: Request) {
     }
 
     const novoNumero = ultimoPedido && ultimoPedido.length > 0 ? ultimoPedido[0].pedido_numero + 1 : 1001
-    const { customer, itens, recorrentes, pagamento, fotos, raca, observacoes, acessorios } = data
+    const { customer, itens, recorrentes, pagamento, fotos, raca, observacoes, acessorios, cupom } = data
     const itensEscolhidos: PedidoItem[] = itens
 
     // === EXTRAÇÃO DOS DADOS DO PET ===
@@ -165,6 +171,10 @@ export async function criarPedido(data: PedidoData, req?: Request) {
       fotos_pet: fotosPet,
       raca_pet: racaPet,
       Acessorios: acessoriosPet,
+      // Dados do cupom aplicado
+      cupom_codigo: cupom?.code || null,
+      cupom_desconto_percent: cupom?.discountPercent || null,
+      cupom_desconto_valor: cupom?.discountAmount || null,
       // As colunas product_ids, variant_ids, skus serão populadas pelo trigger
     }
 
