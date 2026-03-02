@@ -257,10 +257,17 @@ export default function PixPaymentPage() {
                   <span>Subtotal</span>
                   <span>R$ {formatPrice(subtotalPedido)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>Desconto</span>
-                  <span>---</span>
-                </div>
+                {pedidoData?.cupom_codigo && pedidoData?.cupom_desconto_valor > 0 ? (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Desconto ({pedidoData.cupom_desconto_percent}%)</span>
+                    <span>- R$ {formatPrice(pedidoData.cupom_desconto_valor)}</span>
+                  </div>
+                ) : (
+                  <div className="flex justify-between text-sm">
+                    <span>Desconto</span>
+                    <span>---</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span>Entrega</span>
                   {isShippingFree ? (

@@ -25,6 +25,9 @@ interface OrderData {
   metodo_pagamento: string
   total_pago: number
   status_pagamento: string
+  cupom_codigo?: string | null
+  cupom_desconto_percent?: number | null
+  cupom_desconto_valor?: number | null
 }
 
 export default function ThankYouPage() {
@@ -73,6 +76,9 @@ export default function ThankYouPage() {
               metodo_pagamento: res.data.metodo_pagamento || "PIX",
               total_pago: res.data.total_pago,
               status_pagamento: res.data.status_pagamento || "paid",
+              cupom_codigo: res.data.cupom_codigo || null,
+              cupom_desconto_percent: res.data.cupom_desconto_percent || null,
+              cupom_desconto_valor: res.data.cupom_desconto_valor || null,
             })
             // Limpar carrinho após pedido confirmado
             cart.clearCart()
@@ -137,7 +143,9 @@ export default function ThankYouPage() {
     orderData?.itens_escolhidos?.reduce((total, item) => total + (item.price || 0) * (item.quantity || 1), 0) ||
     (orderData?.total_pago ? orderData.total_pago - 17.9 : 49.9)
   const shipping = 17.9
-  const discount = 0
+  const discount = orderData?.cupom_desconto_valor || 0
+  const discountPercent = orderData?.cupom_desconto_percent || 0
+  const couponCode = orderData?.cupom_codigo || null
   const total = orderData?.total_pago || 67.8
 
   // Loading state melhorado
@@ -217,10 +225,17 @@ export default function ThankYouPage() {
                   <span>Subtotal</span>
                   <span>R$ {formatPrice(subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>Desconto</span>
-                  <span>- R$ {formatPrice(discount)}</span>
-                </div>
+                {couponCode && discount > 0 ? (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Desconto ({discountPercent}%)</span>
+                    <span>- R$ {formatPrice(discount)}</span>
+                  </div>
+                ) : (
+                  <div className="flex justify-between text-sm">
+                    <span>Desconto</span>
+                    <span>---</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span>Entrega</span>
                   <span>R$ {formatPrice(shipping)}</span>
