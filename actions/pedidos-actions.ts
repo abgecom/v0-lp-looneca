@@ -179,6 +179,8 @@ export async function criarPedido(data: PedidoData, req?: Request) {
       cupom_codigo: cupom?.code || null,
       cupom_desconto_percent: cupom?.discountPercent || null,
       cupom_desconto_valor: cupom?.discountAmount || null,
+      // Order bump (papel de presente)
+      order_bump: orderBump || null,
       // As colunas product_ids, variant_ids, skus serão populadas pelo trigger
     }
 
