@@ -40,6 +40,11 @@ export default function CheckoutPage() {
   const [couponError, setCouponError] = useState<string | null>(null)
   const [couponSuccess, setCouponSuccess] = useState<string | null>(null)
 
+  // Estado para order bump (papel de presente)
+  const [orderBumpSelected, setOrderBumpSelected] = useState(false)
+  const ORDER_BUMP_PRICE = 19.90
+  const ORDER_BUMP_NAME = "Papel de presente"
+
   // Refs para rastrear eventos do Facebook Pixel
   const cepInputTrackedRef = useRef(false)
   const purchaseEventTrackedRef = useRef(false)
@@ -123,8 +128,9 @@ export default function CheckoutPage() {
     return shippingOption.price
   }
 
-  // Calculate total with shipping - only if cart is initialized (agora usando subtotal com desconto)
-  const totalWithShipping = cart.isInitialized ? subtotalWithDiscount + (showShippingOptions ? getShippingPrice() : 0) : 0
+  // Calculate total with shipping - only if cart is initialized (agora usando subtotal com desconto + order bump)
+  const orderBumpValue = orderBumpSelected ? ORDER_BUMP_PRICE : 0
+  const totalWithShipping = cart.isInitialized ? subtotalWithDiscount + (showShippingOptions ? getShippingPrice() : 0) + orderBumpValue : 0
 
   // Format price for display
   const formatPrice = (price: number) => {
@@ -617,6 +623,12 @@ export default function CheckoutPage() {
           discountPercent: appliedCoupon.discountPercent,
           discountAmount: couponDiscount?.discountAmount || 0,
           type: appliedCoupon.type,
+        } : null,
+
+        // Order bump (papel de presente)
+        orderBump: orderBumpSelected ? {
+          name: ORDER_BUMP_NAME,
+          price: ORDER_BUMP_PRICE,
         } : null,
       }
 
@@ -1170,6 +1182,14 @@ export default function CheckoutPage() {
                     ) : (
                       <span>R$ {formatPrice(getShippingPrice())}</span>
                     )}
+                  </div>
+                )}
+
+                {/* Exibir order bump se selecionado */}
+                {orderBumpSelected && (
+                  <div className="flex justify-between mt-2 font-medium">
+                    <span>Papel de presente</span>
+                    <span>R$ {formatPrice(ORDER_BUMP_PRICE)}</span>
                   </div>
                 )}
               </div>
@@ -1766,6 +1786,49 @@ export default function CheckoutPage() {
                       Salvar minhas informações com segurança para compras futuras.
                     </span>
                   </label>
+                </div>
+              </div>
+
+              {/* Order Bump - Papel de Presente */}
+              <div 
+                className={`border-2 rounded-lg overflow-hidden cursor-pointer transition-all ${
+                  orderBumpSelected 
+                    ? 'border-green-500 bg-green-50' 
+                    : 'border-gray-200 bg-white hover:border-green-300'
+                }`}
+                onClick={() => setOrderBumpSelected(!orderBumpSelected)}
+              >
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                      orderBumpSelected 
+                        ? 'bg-green-500 border-green-500' 
+                        : 'border-gray-300 bg-white'
+                    }`}>
+                      {orderBumpSelected && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                    <span className="text-green-600 font-semibold text-sm">
+                      Sim, adicione no meu pedido!
+                    </span>
+                  </div>
+                  <span className="text-green-600 font-bold">R$ 19,90</span>
+                </div>
+                <div className="flex gap-4 p-4">
+                  <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0">
+                    <Image
+                      src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Fotos%20da%20p%C3%A1gina%20%28outras%29/img%20orderbump.jpg"
+                      alt="Papel de presente"
+                      width={96}
+                      height={96}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex flex-col justify-center">
+                    <h4 className="font-bold text-gray-900">Papel de presente</h4>
+                    <p className="text-sm text-gray-600">
+                      Vai presentear? Aproveite e adicione uma embalagem especial!
+                    </p>
+                  </div>
                 </div>
               </div>
 

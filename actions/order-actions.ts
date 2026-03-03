@@ -53,6 +53,11 @@ export interface OrderData {
     discountAmount: number
     type: string
   } | null
+  // === ORDER BUMP ===
+  orderBump?: {
+    name: string
+    price: number
+  } | null
 }
 
 export async function saveOrderToDatabase(orderData: OrderData) {
@@ -98,6 +103,8 @@ export async function saveOrderToDatabase(orderData: OrderData) {
       acessorios: acessoriosString,
       // === DADOS DO CUPOM ===
       cupom: orderData.coupon || null,
+      // === ORDER BUMP ===
+      orderBump: orderData.orderBump || null,
     }
 
     console.log("🚀 DEBUG saveOrderToDatabase - pedidoData mapeado:", JSON.stringify(pedidoData, null, 2))
