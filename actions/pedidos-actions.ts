@@ -60,6 +60,10 @@ export interface PedidoData {
     discountAmount: number
     type: string
   } | null
+  orderBump?: {
+    name: string
+    price: number
+  } | null
 }
 
 export async function criarPedido(data: PedidoData, req?: Request) {
@@ -79,7 +83,7 @@ export async function criarPedido(data: PedidoData, req?: Request) {
     }
 
     const novoNumero = ultimoPedido && ultimoPedido.length > 0 ? ultimoPedido[0].pedido_numero + 1 : 1001
-    const { customer, itens, recorrentes, pagamento, fotos, raca, observacoes, acessorios, cupom } = data
+    const { customer, itens, recorrentes, pagamento, fotos, raca, observacoes, acessorios, cupom, orderBump } = data
     const itensEscolhidos: PedidoItem[] = itens
 
     // === EXTRAÇÃO DOS DADOS DO PET ===
