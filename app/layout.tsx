@@ -7,6 +7,7 @@ import { GoogleAnalytics } from "@next/third-parties/google"
 import FacebookPixel from "@/components/facebook-pixel"
 import { Suspense } from "react"
 import Script from "next/script"
+import { Analytics } from "@vercel/analytics/react"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -45,6 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <CartProvider>{children}</CartProvider>
           <GoogleAnalytics gaId="G-XXXXXXXXXX" />
           <FacebookPixel />
+          <Analytics />
         </Suspense>
       </body>
     </html>
