@@ -1,7 +1,7 @@
 import { PAGARME_CONFIG } from "./config"
 
 export interface PagarmeRequestOptions {
-  method?: "GET" | "POST" | "PUT" | "DELETE"
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
   body?: any
   apiKey?: string
   headers?: Record<string, string>
@@ -50,8 +50,8 @@ export async function pagarmeRequest(endpoint: string, options: PagarmeRequestOp
       headers: requestHeaders,
     }
 
-    // Add body for POST/PUT requests
-    if (body && (method === "POST" || method === "PUT")) {
+    // Add body for POST/PUT/PATCH requests
+    if (body && (method === "POST" || method === "PUT" || method === "PATCH")) {
       requestOptions.body = JSON.stringify(body)
     }
 
