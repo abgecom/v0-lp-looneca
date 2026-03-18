@@ -4,6 +4,7 @@ import crypto from "crypto"
 import { calculateSubscriptionStartDate } from "@/lib/pagarme/api"
 import { PAGARME_CONFIG } from "@/lib/pagarme/config"
 import { sendAppDownloadEmail } from "@/lib/resend"
+import { syncPixPaymentToShopify } from "@/lib/shopify-payment-sync"
 
 // Verificar se as variáveis de ambiente estão definidas
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -348,7 +349,10 @@ export async function POST(request: NextRequest) {
       const status = body.data.status
       const updatedAt = new Date().toISOString()
 
-      console.log(`Atualizando status de pagamento para ${status} (ID: ${paymentId})`)
+      // O id_pagamento na tabela pedidos armazena o order ID (or_xxx), não o charge ID (ch_xxx).
+      const orderIdFromCharge = body.data?.order?.id || paymentId
+
+      console.log(`Atualizando status de pagamento para ${status} (Charge ID: ${paymentId}, Order ID: ${orderIdFromCharge})`)
 
       // Atualizar status na tabela pedidos
       const { error: pedidosError } = await supabase
@@ -357,7 +361,7 @@ export async function POST(request: NextRequest) {
           status_pagamento: status,
           atualizacao_pagamento: updatedAt,
         })
-        .eq("id_pagamento", paymentId)
+        .eq("id_pagamento", orderIdFromCharge)
 
       if (pedidosError) {
         console.error("Erro ao atualizar status na tabela pedidos:", pedidosError)
@@ -370,12 +374,11 @@ export async function POST(request: NextRequest) {
         try {
           // O id_pagamento na tabela pedidos armazena o order ID (nao o charge ID).
           // No evento charge.paid, body.data.order.id contem o order ID.
-          const orderIdFromCharge = body.data?.order?.id || paymentId
           console.log("[Webhook] Buscando pedido para envio de email. orderId:", orderIdFromCharge)
 
           const { data: pedido } = await supabase
             .from("pedidos")
-            .select("email_cliente, nome_cliente, metodo_pagamento")
+            .select("email_cliente, nome_cliente, metodo_pagamento, total_pago")
             .eq("id_pagamento", orderIdFromCharge)
             .maybeSingle()
 
@@ -390,6 +393,21 @@ export async function POST(request: NextRequest) {
             console.log("[Webhook] Pagamento nao e PIX, email ja enviado na rota de pagamento")
           } else {
             console.log("[Webhook] Pedido nao encontrado para envio de email. orderId:", orderIdFromCharge)
+          }
+
+          // --- Sincronizar status do PIX com a Shopify ---
+          if (pedido?.metodo_pagamento === "pix") {
+            console.log("[Webhook] Pagamento PIX confirmado — sincronizando com Shopify...")
+            const syncResult = await syncPixPaymentToShopify({
+              pagarmeOrderId: orderIdFromCharge,
+              amount: pedido.total_pago || 0,
+              chargeId: paymentId,
+            })
+            if (syncResult.success) {
+              console.log(`[Webhook] ✅ Shopify atualizado com sucesso! Pedido Shopify ID: ${syncResult.shopifyOrderId}`)
+            } else {
+              console.warn(`[Webhook] ⚠️ Não foi possível atualizar a Shopify: ${syncResult.error}`)
+            }
           }
         } catch (emailError) {
           console.error("[Webhook] Erro ao enviar email de download (nao-bloqueante):", emailError)
