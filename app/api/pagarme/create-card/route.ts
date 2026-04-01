@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { pagarmeRequest, formatCardForLog } from "@/lib/pagarme/api"
-import { PAGARME_CONFIG } from "@/lib/pagarme/config"
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,13 +39,16 @@ export async function POST(request: NextRequest) {
       holder_name: cardData.holder_name,
     })
 
-    // IMPORTANT: Cards are created directly at /cards endpoint, not nested under customers
-    const response = await pagarmeRequest(PAGARME_CONFIG.ENDPOINTS.CARDS, {
+    // Na Pagar.me v5, cartões devem ser criados diretamente no endpoint do customer
+    // Endpoint: POST /customers/{customer_id}/cards
+    // O endpoint /cards avulso retorna 404
+    const response = await pagarmeRequest(`/customers/${customer_id}/cards`, {
       method: "POST",
       body: cardData,
     })
 
     if (!response.success) {
+      console.error("Failed to create card:", response.error, response.data)
       throw new Error(response.error || "Failed to create card")
     }
 
@@ -54,20 +56,6 @@ export async function POST(request: NextRequest) {
       card_id: response.data.id,
       last_four_digits: response.data.last_four_digits,
     })
-
-    // Now associate the card with the customer
-    const associateResponse = await pagarmeRequest(`${PAGARME_CONFIG.ENDPOINTS.CUSTOMERS}/${customer_id}/cards`, {
-      method: "POST",
-      body: {
-        card_id: response.data.id,
-      },
-    })
-
-    if (!associateResponse.success) {
-      console.warn("Card created but failed to associate with customer:", associateResponse.error)
-    } else {
-      console.log("Card successfully associated with customer")
-    }
 
     return NextResponse.json({
       success: true,
