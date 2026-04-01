@@ -392,7 +392,7 @@ export default function PixPaymentPage() {
         <div className="text-center mb-6">
           <button
             onClick={() =>
-              router.push(`/thank-you?id_pagamento=${idPagamento}&pedido=${pedidoData?.pedido_numero || orderNumber}`)
+              router.push(`/upsell-tag?id_pagamento=${idPagamento}&pedido=${pedidoData?.pedido_numero || orderNumber}`)
             }
             className="bg-[#10B981] text-white px-8 py-3 rounded-full font-medium hover:bg-green-600 transition-colors flex items-center justify-center mx-auto"
           >
