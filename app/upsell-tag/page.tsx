@@ -286,19 +286,13 @@ export default function UpsellTagPage() {
         {/* Card principal */}
         <div className="bg-white rounded-b-xl shadow-lg overflow-hidden">
           {/* Imagem do produto */}
-          <div className="relative h-48 bg-gradient-to-r from-orange-50 to-orange-100 flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-24 h-24 bg-white rounded-full shadow-md flex items-center justify-center mx-auto mb-2 p-3">
-                <Image
-                  src="/images/petloo-logo-new.png"
-                  alt="Tag Petloo"
-                  width={70}
-                  height={70}
-                  className="object-contain"
-                />
-              </div>
-              <p className="text-sm font-medium text-gray-700">Tag de Rastreamento Petloo</p>
-            </div>
+          <div className="relative h-48">
+            <Image
+              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Gemini_Generated_Image_sp1jwfsp1jwfsp1j.png-mWfJvbDukdwhtbQveewIYC6X8CzGRW.jpeg"
+              alt="Tag Petloo"
+              fill
+              className="object-cover"
+            />
           </div>
 
           {/* Copy persuasiva */}
