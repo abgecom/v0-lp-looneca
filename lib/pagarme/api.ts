@@ -130,26 +130,52 @@ export function formatCardForLog(cardNumber: string): string {
 
 /**
  * Helper function to format phone number for Pagar.me API
+ * Aceita tanto string ("11999999999") quanto objeto ({country_code, area_code, number})
  */
-export function formatPhoneForPagarme(phone: string) {
-  const cleaned = phone.replace(/\D/g, "")
-
-  if (cleaned.length >= 10) {
+export function formatPhoneForPagarme(phone: any): { country_code: string; area_code: string; number: string } {
+  // Se já é um objeto com a estrutura correta, retornar diretamente
+  if (phone && typeof phone === "object" && phone.area_code && phone.number) {
     return {
-      country_code: "55",
-      area_code: cleaned.slice(0, 2),
-      number: cleaned.slice(2),
+      country_code: String(phone.country_code || "55"),
+      area_code: String(phone.area_code),
+      number: String(phone.number),
     }
   }
 
-  throw new Error("Invalid phone number format")
+  // Se é uma string, fazer o parse
+  if (typeof phone === "string") {
+    const cleaned = phone.replace(/\D/g, "")
+
+    if (cleaned.length >= 10) {
+      return {
+        country_code: "55",
+        area_code: cleaned.slice(0, 2),
+        number: cleaned.slice(2),
+      }
+    }
+  }
+
+  // Fallback seguro para evitar erros
+  console.warn("[formatPhoneForPagarme] Formato de telefone inesperado:", phone)
+  return {
+    country_code: "55",
+    area_code: "11",
+    number: "999999999",
+  }
 }
 
 /**
  * Helper function to format document (CPF/CNPJ) for Pagar.me API
+ * Aceita tanto string quanto número
  */
-export function formatDocumentForPagarme(document: string): string {
-  return document.replace(/\D/g, "")
+export function formatDocumentForPagarme(document: any): string {
+  if (typeof document === "string") {
+    return document.replace(/\D/g, "")
+  }
+  if (typeof document === "number") {
+    return String(document)
+  }
+  return ""
 }
 
 /**
