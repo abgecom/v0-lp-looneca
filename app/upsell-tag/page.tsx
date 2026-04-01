@@ -353,9 +353,8 @@ export default function UpsellTagPage() {
               <div className="bg-gray-50 rounded-lg p-4 text-center mb-6">
                 <p className="text-xs text-gray-500 mb-1">Após o período de teste</p>
                 <p className="text-lg font-bold text-gray-900">
-                  R$ 90,15<span className="text-sm font-normal text-gray-500">/trimestre</span>
+                  R$ 30,05<span className="text-sm font-normal text-gray-500">/mês</span>
                 </p>
-                <p className="text-xs text-gray-500">(equivalente a R$ 30,05/mês)</p>
               </div>
             </div>
 
