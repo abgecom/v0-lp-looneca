@@ -16,21 +16,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Invalid customer data: ${validationErrors.join(", ")}` }, { status: 400 })
     }
 
-    // Format customer data for Pagar.me
+    // Format customer data for Pagar.me (with null safety)
+    const zipCode = body.address?.zip_code || ""
     const customerData = {
-      name: body.name,
-      email: body.email,
-      document: formatDocumentForPagarme(body.document), // Clean string with numbers only
+      name: body.name || "",
+      email: body.email || "",
+      document: formatDocumentForPagarme(body.document || ""), // Clean string with numbers only
       phones: {
-        mobile_phone: formatPhoneForPagarme(body.phones.mobile_phone),
+        mobile_phone: formatPhoneForPagarme(body.phones?.mobile_phone || {}),
       },
       address: {
-        line_1: body.address.line_1,
-        line_2: body.address.line_2 || "",
-        zip_code: body.address.zip_code.replace(/\D/g, ""),
-        city: body.address.city,
-        state: body.address.state,
-        country: body.address.country || "BR",
+        line_1: body.address?.line_1 || "",
+        line_2: body.address?.line_2 || "",
+        zip_code: typeof zipCode === "string" ? zipCode.replace(/\D/g, "") : "",
+        city: body.address?.city || "",
+        state: body.address?.state || "",
+        country: body.address?.country || "BR",
       },
     }
 
