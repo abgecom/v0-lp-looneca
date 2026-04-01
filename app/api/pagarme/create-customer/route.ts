@@ -39,10 +39,15 @@ export async function POST(request: NextRequest) {
     const cleanZipCode = typeof rawZipCode === "string" ? rawZipCode.replace(/\D/g, "") : String(rawZipCode).replace(/\D/g, "")
 
     // Format customer data for Pagar.me
+    // IMPORTANTE: Os campos "type" e "document_type" são OBRIGATÓRIOS na API da Pagar.me v5
+    // type: "individual" = pessoa física | "company" = pessoa jurídica
+    // document_type: "CPF" para pessoa física | "CNPJ" para pessoa jurídica
     const customerData = {
       name: body.name || "",
       email: body.email || "",
       document: formattedDocument,
+      document_type: "CPF",
+      type: "individual",
       phones: {
         mobile_phone: formattedPhone,
       },
@@ -60,6 +65,8 @@ export async function POST(request: NextRequest) {
       name: customerData.name,
       email: customerData.email,
       document: "***" + customerData.document.slice(-3),
+      type: customerData.type,
+      document_type: customerData.document_type,
       phone: `+${formattedPhone.country_code} (${formattedPhone.area_code}) ${formattedPhone.number.slice(0, 3)}...`,
       address_city: customerData.address.city,
       address_state: customerData.address.state,
