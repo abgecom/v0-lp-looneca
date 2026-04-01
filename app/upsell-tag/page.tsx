@@ -47,9 +47,24 @@ export default function UpsellTagPage() {
   useEffect(() => {
     if (idPagamento) {
       setIsLoadingPedido(true)
+      console.log("[v0] Buscando pedido com id_pagamento:", idPagamento)
       getPedidoByIdPagamento(idPagamento)
         .then((res) => {
+          console.log("[v0] Resposta getPedidoByIdPagamento:", res)
           if (res.success && res.data) {
+            console.log("[v0] Dados do pedido recebidos:", {
+              pedido_numero: res.data.pedido_numero,
+              nome_cliente: res.data.nome_cliente,
+              email_cliente: res.data.email_cliente,
+              telefone_cliente: res.data.telefone_cliente,
+              cpf_cliente: res.data.cpf_cliente,
+              endereco_cliente: res.data.endereco_cliente,
+              numero_residencia_cliente: res.data.numero_residencia_cliente,
+              bairro_cliente: res.data.bairro_cliente,
+              cidade_cliente: res.data.cidade_cliente,
+              estado_cliente: res.data.estado_cliente,
+              cep_cliente: res.data.cep_cliente,
+            })
             setPedidoData({
               pedido_numero: res.data.pedido_numero,
               nome_cliente: res.data.nome_cliente,
@@ -63,13 +78,17 @@ export default function UpsellTagPage() {
               estado_cliente: res.data.estado_cliente,
               cep_cliente: res.data.cep_cliente,
             })
+          } else {
+            console.log("[v0] Pedido não encontrado ou erro:", res.error)
           }
           setIsLoadingPedido(false)
         })
-        .catch(() => {
+        .catch((err) => {
+          console.error("[v0] Erro ao buscar pedido:", err)
           setIsLoadingPedido(false)
         })
     } else {
+      console.log("[v0] id_pagamento não fornecido")
       setIsLoadingPedido(false)
     }
   }, [idPagamento])
@@ -168,6 +187,8 @@ export default function UpsellTagPage() {
     setError(null)
 
     try {
+      console.log("[v0] handleSubmit - pedidoData atual:", pedidoData)
+      
       // Garantir que todos os campos são strings válidas
       const telefone = (pedidoData.telefone_cliente || "").replace(/\D/g, "")
       const cpf = (pedidoData.cpf_cliente || "").replace(/\D/g, "")
@@ -177,6 +198,17 @@ export default function UpsellTagPage() {
       const cidade = pedidoData.cidade_cliente || ""
       const estado = pedidoData.estado_cliente || ""
       const bairro = pedidoData.bairro_cliente || ""
+
+      console.log("[v0] Dados de endereço extraídos:", {
+        telefone,
+        cpf,
+        cep,
+        endereco,
+        numero,
+        cidade,
+        estado,
+        bairro
+      })
 
       // Preparar dados do cliente
       const customerData = {
@@ -217,6 +249,9 @@ export default function UpsellTagPage() {
           country: "BR",
         },
       }
+
+      console.log("[v0] customerData completo:", JSON.stringify(customerData, null, 2))
+      console.log("[v0] cardData.billing_address:", JSON.stringify(cardData.billing_address, null, 2))
 
       // Chamar API para criar assinatura
       const response = await fetch("/api/pagarme/create-subscription-zero", {
