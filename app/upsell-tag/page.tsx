@@ -168,23 +168,34 @@ export default function UpsellTagPage() {
     setError(null)
 
     try {
+      // Garantir que todos os campos são strings válidas
+      const telefone = (pedidoData.telefone_cliente || "").replace(/\D/g, "")
+      const cpf = (pedidoData.cpf_cliente || "").replace(/\D/g, "")
+      const cep = (pedidoData.cep_cliente || "").replace(/\D/g, "")
+      const endereco = pedidoData.endereco_cliente || ""
+      const numero = pedidoData.numero_residencia_cliente || ""
+      const cidade = pedidoData.cidade_cliente || ""
+      const estado = pedidoData.estado_cliente || ""
+      const bairro = pedidoData.bairro_cliente || ""
+
       // Preparar dados do cliente
       const customerData = {
-        name: pedidoData.nome_cliente,
-        email: pedidoData.email_cliente,
-        document: pedidoData.cpf_cliente.replace(/\D/g, ""),
+        name: pedidoData.nome_cliente || "",
+        email: pedidoData.email_cliente || "",
+        document: cpf,
         phones: {
           mobile_phone: {
             country_code: "55",
-            area_code: pedidoData.telefone_cliente.replace(/\D/g, "").substring(0, 2),
-            number: pedidoData.telefone_cliente.replace(/\D/g, "").substring(2),
+            area_code: telefone.substring(0, 2) || "11",
+            number: telefone.substring(2) || "999999999",
           },
         },
         address: {
-          line_1: `${pedidoData.endereco_cliente}, ${pedidoData.numero_residencia_cliente}`,
-          zip_code: pedidoData.cep_cliente.replace(/\D/g, ""),
-          city: pedidoData.cidade_cliente,
-          state: pedidoData.estado_cliente,
+          line_1: `${endereco}, ${numero}`.trim() || "Endereço não informado",
+          line_2: bairro,
+          zip_code: cep || "00000000",
+          city: cidade || "São Paulo",
+          state: estado || "SP",
           country: "BR",
         },
       }
@@ -198,10 +209,11 @@ export default function UpsellTagPage() {
         exp_year: parseInt(`20${expYear}`, 10),
         cvv: formData.cardCvv,
         billing_address: {
-          line_1: `${pedidoData.endereco_cliente}, ${pedidoData.numero_residencia_cliente}`,
-          zip_code: pedidoData.cep_cliente.replace(/\D/g, ""),
-          city: pedidoData.cidade_cliente,
-          state: pedidoData.estado_cliente,
+          line_1: `${endereco}, ${numero}`.trim() || "Endereço não informado",
+          line_2: bairro,
+          zip_code: cep || "00000000",
+          city: cidade || "São Paulo",
+          state: estado || "SP",
           country: "BR",
         },
       }
