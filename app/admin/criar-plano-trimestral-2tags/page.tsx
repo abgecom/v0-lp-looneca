@@ -5,8 +5,10 @@ import { useState } from "react"
 export default function CriarPlanosTrimestralPage() {
   const [isLoading2Tags, setIsLoading2Tags] = useState(false)
   const [isLoading3Tags, setIsLoading3Tags] = useState(false)
+  const [isLoading4Tags, setIsLoading4Tags] = useState(false)
   const [result2Tags, setResult2Tags] = useState<{ success: boolean; planId?: string; error?: string } | null>(null)
   const [result3Tags, setResult3Tags] = useState<{ success: boolean; planId?: string; error?: string } | null>(null)
+  const [result4Tags, setResult4Tags] = useState<{ success: boolean; planId?: string; error?: string } | null>(null)
 
   const handleCreatePlan2Tags = async () => {
     setIsLoading2Tags(true)
@@ -56,6 +58,30 @@ export default function CriarPlanosTrimestralPage() {
     }
   }
 
+  const handleCreatePlan4Tags = async () => {
+    setIsLoading4Tags(true)
+    setResult4Tags(null)
+
+    try {
+      const response = await fetch("/api/pagarme/create-plan-trimestral-4tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setResult4Tags({ success: true, planId: data.plan_id })
+      } else {
+        setResult4Tags({ success: false, error: data.error || "Erro ao criar plano" })
+      }
+    } catch (error) {
+      setResult4Tags({ success: false, error: "Erro de conexão" })
+    } finally {
+      setIsLoading4Tags(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-lg p-8 max-w-lg w-full">
@@ -99,7 +125,7 @@ export default function CriarPlanosTrimestralPage() {
         </div>
 
         {/* Plano 3 Tags */}
-        <div className="border border-gray-200 rounded-lg p-4">
+        <div className="border border-gray-200 rounded-lg p-4 mb-6">
           <div className="bg-blue-50 rounded-lg p-4 mb-4">
             <h2 className="font-semibold text-gray-700 mb-2">Plano 3 Tags:</h2>
             <ul className="text-sm text-gray-600 space-y-1">
@@ -130,6 +156,43 @@ export default function CriarPlanosTrimestralPage() {
                 </>
               ) : (
                 <p>Erro: {result3Tags.error}</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Plano 4 Tags */}
+        <div className="border border-gray-200 rounded-lg p-4">
+          <div className="bg-purple-50 rounded-lg p-4 mb-4">
+            <h2 className="font-semibold text-gray-700 mb-2">Plano 4 Tags:</h2>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li><strong>Nome:</strong> Petloo Trimestral + 4 Tags - 30 Dias Grátis</li>
+              <li><strong>Tipo:</strong> Pré-pago</li>
+              <li><strong>Periodicidade:</strong> A cada 3 meses</li>
+              <li><strong>Trial:</strong> 30 dias</li>
+              <li><strong>Valor:</strong> R$ 120,00/trimestre</li>
+              <li><strong>Pagamento:</strong> Cartão de crédito</li>
+            </ul>
+          </div>
+
+          <button
+            onClick={handleCreatePlan4Tags}
+            disabled={isLoading4Tags}
+            className="w-full bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+          >
+            {isLoading4Tags ? "Criando plano..." : "Criar Plano Trimestral + 4 Tags"}
+          </button>
+
+          {result4Tags && (
+            <div className={`mt-4 p-4 rounded-lg ${result4Tags.success ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+              {result4Tags.success ? (
+                <>
+                  <p className="font-semibold">Plano criado com sucesso!</p>
+                  <p className="text-sm mt-1">ID do Plano: <code className="bg-green-200 px-1 rounded">{result4Tags.planId}</code></p>
+                  <p className="text-xs mt-2">Copie este ID e configure na variável de ambiente se necessário.</p>
+                </>
+              ) : (
+                <p>Erro: {result4Tags.error}</p>
               )}
             </div>
           )}
