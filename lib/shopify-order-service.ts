@@ -307,7 +307,7 @@ function buildOrderPayload(input: CheckoutInput, customerId: number) {
   }
   const tagParts = [`looneca`, `supabase`, `importado`, input.paymentMethod]
   if (input.recurringProducts?.appPetloo) {
-    tagParts.push("tag-rastreamento", "app-petloo")
+    tagParts.push("tag-rastreamento", "app-petloo", "app-petloo-sim")
   }
   const tags = tagParts.join(",")
   const order = {
