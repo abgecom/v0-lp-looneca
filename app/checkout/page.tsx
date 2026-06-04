@@ -693,6 +693,9 @@ export default function CheckoutPage() {
             ...orderData,
             paymentId: paymentResult.orderId || "",
             paymentStatus: paymentResult.status || "pending",
+            dispositivo_os: typeof window !== "undefined"
+              ? (localStorage.getItem("looneca-dispositivo-os") || null)
+              : null,
           } as any)
           if (!shopifyData?.success) {
             console.error("❌ [Shopify] Falha ao criar pedido:", {
