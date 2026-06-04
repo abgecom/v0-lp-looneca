@@ -630,6 +630,11 @@ export default function CheckoutPage() {
           name: ORDER_BUMP_NAME,
           price: ORDER_BUMP_PRICE,
         } : null,
+
+        // Dispositivo do usuário (iOS/Android) — salvo na /carrinho
+        dispositivo_os: typeof window !== "undefined"
+          ? (localStorage.getItem("looneca-dispositivo-os") || null)
+          : null,
       }
 
       // Process payment

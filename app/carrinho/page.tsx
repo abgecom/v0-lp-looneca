@@ -35,12 +35,26 @@ export default function CartPage() {
   const [cartTotalPrice, setCartTotalPrice] = useState(0)
   const [cartTotalItems, setCartTotalItems] = useState(0)
 
+  // Estado do modal de dispositivo
+  const [showDeviceModal, setShowDeviceModal] = useState(false)
+  const [deviceSelection, setDeviceSelection] = useState<"ios" | "android" | null>(null)
+
   const cart = useCart() // Call the hook at the top level
 
   // Usar useEffect para acessar o contexto do carrinho apenas no cliente
   useEffect(() => {
     setIsClient(true)
   }, [])
+
+  // Exibir modal de dispositivo se ainda não selecionado
+  useEffect(() => {
+    if (isClient) {
+      const saved = localStorage.getItem("looneca-dispositivo-os")
+      if (!saved) {
+        setShowDeviceModal(true)
+      }
+    }
+  }, [isClient])
 
   // Disparar evento AddToCart quando a página carregar
   useEffect(() => {
@@ -86,10 +100,10 @@ export default function CartPage() {
   const additionalOffers: AdditionalOffer[] = [
     {
       id: "app-petloo",
-      name: "App Petloo",
-      description: "Aplicativo completo para cuidar do seu pet",
+      name: "LooTag + LooApp",
+      description: "Coleira de rastreamento e Aplicativo completo para cuidar do seu pet",
       benefits: [
-        "Tag de rastreamento para coleira",
+        "Rastreamento GPS",
         "Cartão de vacina digital",
         "Descontos exclusivos",
         "Registro do pet",
@@ -129,6 +143,13 @@ export default function CartPage() {
     }
   }
 
+  // Confirmar seleção de dispositivo
+  const confirmDevice = () => {
+    if (!deviceSelection) return
+    localStorage.setItem("looneca-dispositivo-os", deviceSelection)
+    setShowDeviceModal(false)
+  }
+
   // Formatar preço para o padrão brasileiro
   const formatPrice = (price: number) => {
     return price.toFixed(2).replace(".", ",")
@@ -137,6 +158,44 @@ export default function CartPage() {
   return (
     <main className="min-h-screen bg-[#FFFCF6] font-anek">
       <Header />
+
+      {/* Modal de seleção de dispositivo */}
+      {showDeviceModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
+          <div className="bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-6 shadow-xl">
+            <h3 className="text-lg font-bold mb-4 text-center">Informe seu dispositivo:</h3>
+            <div className="flex gap-3 mb-6">
+              <button
+                onClick={() => setDeviceSelection("ios")}
+                className={`flex-1 py-3 rounded-xl border-2 font-semibold transition-all ${
+                  deviceSelection === "ios"
+                    ? "border-green-500 bg-green-50 text-green-700"
+                    : "border-gray-200 text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                iOS
+              </button>
+              <button
+                onClick={() => setDeviceSelection("android")}
+                className={`flex-1 py-3 rounded-xl border-2 font-semibold transition-all ${
+                  deviceSelection === "android"
+                    ? "border-green-500 bg-green-50 text-green-700"
+                    : "border-gray-200 text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                Android
+              </button>
+            </div>
+            <button
+              onClick={confirmDevice}
+              disabled={!deviceSelection}
+              className="w-full bg-[#F1542E] text-white py-3 rounded-xl font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+            >
+              Confirmar
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="pt-20 pb-16 px-4">
         <div className="max-w-6xl mx-auto">
@@ -279,8 +338,8 @@ export default function CartPage() {
                 </div>
               </div>
 
-              {/* Resumo do pedido */}
-              <div className="order-2 lg:w-3/12 lg:order-3 mb-6 lg:mb-0">
+              {/* Resumo do pedido — mobile: order-3 (abaixo dos bônus); desktop: order-3 (direita) */}
+              <div className="order-3 lg:w-3/12 lg:order-3 mb-6 lg:mb-0">
                 <div className="bg-white rounded-lg shadow-md p-6 lg:sticky lg:top-24">
                   <h2 className="text-xl font-bold mb-4">Resumo do Pedido</h2>
 
@@ -366,8 +425,9 @@ export default function CartPage() {
                 </div>
               </div>
 
+              {/* Bônus — mobile: order-2 (acima do resumo); desktop: order-2 (meio) */}
               {ENABLE_SUBSCRIPTION_OFFERS && (
-                <div className="order-3 lg:w-3/12 lg:order-2 space-y-4">
+                <div className="order-2 lg:w-3/12 lg:order-2 space-y-4">
                   <h2 className="text-xl font-bold">Parabéns, você ganhou dois bônus grátis</h2>
                   <p className="text-[#4A4A4A] text-[0.9rem] mb-4">
                     Você terá acesso vip ao App Petloo, onde você encontrará funcionalidades exclusivas 100% gratuitas e
@@ -402,9 +462,19 @@ export default function CartPage() {
                             <div className="flex-grow min-w-0">
                               <h3 className="font-semibold text-sm leading-tight">{offer.name}</h3>
                               <p className="text-xs text-gray-600 mt-0.5 leading-snug">{offer.description}</p>
-                              <div className="mt-1 flex items-center">
-                                <span className="line-through text-gray-400 mr-1.5 text-xs">R$30,00/mes</span>
-                                <span className="font-bold text-green-600 text-sm">GRATIS</span>
+                              {/* Preços empilhados: LooTag e LooApp */}
+                              <div className="mt-1 space-y-0.5">
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  <span className="text-xs text-gray-500 font-medium">LooTag:</span>
+                                  <span className="line-through text-gray-400 text-xs">R$149,87</span>
+                                  <span className="font-bold text-green-600 text-sm">Grátis</span>
+                                </div>
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  <span className="text-xs text-gray-500 font-medium">LooApp:</span>
+                                  <span className="line-through text-gray-400 text-xs">R$30,90/mês</span>
+                                  <span className="font-bold text-green-600 text-sm">Grátis</span>
+                                  <span className="text-xs text-gray-400">no primeiro mês</span>
+                                </div>
                               </div>
                             </div>
                             <button
@@ -434,10 +504,10 @@ export default function CartPage() {
                     )
                   })}
 
-                  {/* Disclaimer desktop - letras miudas */}
+                  {/* Disclaimer */}
                   {cart.recurringProducts.appPetloo && (
                     <p className="hidden lg:block text-[10px] leading-tight text-gray-400 mt-3">
-                      {"Apos o primeiro mes a assinatura do aplicativo sera ativada no valor de R$30,90. Cancele a qualquer momento."}
+                      {"Após o primeiro mês de teste grátis a assinatura do aplicativo será ativada no valor de R$30,90/mês com cobranças trimestrais. Cancele a qualquer momento."}
                     </p>
                   )}
                 </div>
@@ -450,7 +520,7 @@ export default function CartPage() {
       <Footer
         topDisclaimer={
           ENABLE_SUBSCRIPTION_OFFERS && cart.recurringProducts.appPetloo
-            ? "Apos o primeiro mes a assinatura do aplicativo sera ativada no valor de R$30,90. Cancele a qualquer momento."
+            ? "Após o primeiro mês de teste grátis a assinatura do aplicativo será ativada no valor de R$30,90/mês com cobranças trimestrais. Cancele a qualquer momento."
             : undefined
         }
       />
