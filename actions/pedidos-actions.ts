@@ -94,7 +94,7 @@ export async function criarPedido(data: PedidoData, req?: Request) {
     let acessoriosPet = acessorios || ""
 
     // Fallback: tentar recuperar do cookie se não vieram nos dados
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const petDataCookie = cookieStore.get("looneca-pet-data")
 
     if (petDataCookie && (!fotosPet.length || !racaPet || !acessoriosPet)) {
