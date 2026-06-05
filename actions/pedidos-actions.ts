@@ -183,7 +183,9 @@ export async function criarPedido(data: PedidoData, req?: Request) {
       // Order bump (papel de presente)
       order_bump: orderBump || null,
       // Dispositivo do usuário (iOS/Android)
-      dispositivo_os: dispositivo_os || null,
+      // NOTA: a coluna dispositivo_os deve existir no banco antes de habilitar esta linha.
+      // Execute: ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS dispositivo_os TEXT;
+      // ...(dispositivo_os ? { dispositivo_os } : {}),
       // As colunas product_ids, variant_ids, skus serão populadas pelo trigger
     }
 
