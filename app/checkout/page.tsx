@@ -47,7 +47,6 @@ export default function CheckoutPage() {
 
   // Refs para rastrear eventos do Facebook Pixel
   const cepInputTrackedRef = useRef(false)
-  const purchaseEventTrackedRef = useRef(false)
   const checkoutEventTrackedRef = useRef(false)
 
   // Shipping options state
@@ -205,23 +204,6 @@ export default function CheckoutPage() {
     }
   }, [cart.isInitialized, cart.totalPrice, cart.items])
 
-  // Disparar evento Purchase quando o pagamento for bem-sucedido ou quando o QR Code do PIX for exibido
-  useEffect(() => {
-    if (!cart.isInitialized || purchaseEventTrackedRef.current) return
-
-    // Verificar se o pagamento foi bem-sucedido (cartão de crédito)
-    if (paymentSuccess) {
-      trackFBEvent("Purchase", { value: totalWithShipping, currency: "BRL" })
-      purchaseEventTrackedRef.current = true
-    }
-
-    // Verificar se o QR Code do PIX foi exibido
-    if (pixCode && pixQrCodeUrl) {
-      trackFBEvent("Purchase", { value: totalWithShipping, currency: "BRL" })
-      purchaseEventTrackedRef.current = true
-    }
-  }, [paymentSuccess, pixCode, pixQrCodeUrl, cart.isInitialized, totalWithShipping])
-
   // Gerar opções de parcelamento quando o total mudar
   useEffect(() => {
     if (cart.isInitialized && totalWithShipping > 0) {
@@ -372,7 +354,16 @@ export default function CheckoutPage() {
         })
       }
 
-      trackFBEvent("AddPaymentInfo")
+      trackFBEvent(
+        "AddPaymentInfo",
+        { eventID: `${Date.now()}-${Math.floor(Math.random() * 1000000)}` },
+        {
+          email: formData.email,
+          phone: formData.phone,
+          firstName: formData.name.split(" ")[0] || "",
+          lastName: formData.name.split(" ").slice(1).join(" ") || "",
+        },
+      )
     }
 
     // Se o usuário digitou o 8º dígito, validar e buscar o CEP automaticamente
@@ -717,7 +708,11 @@ export default function CheckoutPage() {
           console.error("❌ [Shopify] Erro ao enviar pedido:", err)
         }
 
-        if (typeof window !== "undefined") {
+        // Purchase é disparado client-side apenas para CARTÃO (aprovação síncrona).
+        // Para PIX, o pagamento só é confirmado depois (via webhook charge.paid),
+        // então o Purchase do PIX é enviado server-side pela Conversions API no
+        // webhook — evitando contar PIX gerado mas não pago.
+        if (typeof window !== "undefined" && paymentMethod === "credit_card") {
           const eventId = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`
 
           const getCookie = (name: string): string | undefined => {
@@ -758,11 +753,23 @@ export default function CheckoutPage() {
             },
           })
 
-          trackFBEvent("Purchase", {
-            value: totalWithShipping,
-            currency: "BRL",
-            eventID: eventId,
-          })
+          trackFBEvent(
+            "Purchase",
+            {
+              value: totalWithShipping,
+              currency: "BRL",
+              eventID: eventId,
+            },
+            {
+              email: formData.email,
+              phone: formData.phone,
+              firstName: formData.name.split(" ")[0] || "",
+              lastName: formData.name.split(" ").slice(1).join(" ") || "",
+              city: formData.city,
+              state: formData.state,
+              zip: formData.cep,
+            },
+          )
         }
 
         if (paymentMethod === "pix") {

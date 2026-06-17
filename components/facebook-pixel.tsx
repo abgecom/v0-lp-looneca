@@ -1,41 +1,27 @@
 "use client"
 
-import { useEffect } from "react"
 import Script from "next/script"
 
 // Definir o tipo para a função fbq global
 declare global {
   interface Window {
     fbq: any
-    _fbq_initialized: boolean
+    _fbq: any
   }
 }
 
+const PIXEL_ID = "1650496555439267"
+
 export default function FacebookPixel() {
-  useEffect(() => {
-    // Verificar se o fbq já foi inicializado para evitar duplicação
-    if (!window._fbq_initialized) {
-      window.fbq = () => {
-        // @ts-ignore
-        window.fbq.callMethod ? window.fbq.callMethod.apply(window.fbq, arguments) : window.fbq.queue.push(arguments)
-      }
-
-      if (!window._fbq) window._fbq = window.fbq
-      window.fbq.push = window.fbq
-      window.fbq.loaded = true
-      window.fbq.version = "2.0"
-      window.fbq.queue = []
-      window._fbq_initialized = true
-
-      // Inicializar o Pixel e rastrear PageView
-      window.fbq("init", "1650496555439267")
-      window.fbq("track", "PageView")
-    }
-  }, [])
-
   return (
     <>
+      {/*
+        Inicialização ÚNICA do Pixel (snippet padrão do Meta).
+        Antes havia também um useEffect chamando init + PageView, o que causava
+        PageView duplicado e redefinição de window.fbq. Removido.
+      */}
       <Script
+        id="facebook-pixel"
         strategy="afterInteractive"
         dangerouslySetInnerHTML={{
           __html: `
@@ -47,7 +33,7 @@ export default function FacebookPixel() {
               t.src=v;s=b.getElementsByTagName(e)[0];
               s.parentNode.insertBefore(t,s)}(window, document,'script',
               'https://connect.facebook.net/en_US/fbevents.js');
-            fbq('init', '1650496555439267');
+            fbq('init', '${PIXEL_ID}');
             fbq('track', 'PageView');
           `,
         }}
@@ -57,7 +43,7 @@ export default function FacebookPixel() {
           height="1"
           width="1"
           style={{ display: "none" }}
-          src="https://www.facebook.com/tr?id=1650496555439267&ev=PageView&noscript=1"
+          src={`https://www.facebook.com/tr?id=${PIXEL_ID}&ev=PageView&noscript=1`}
           alt=""
         />
       </noscript>
@@ -65,9 +51,61 @@ export default function FacebookPixel() {
   )
 }
 
-// Função auxiliar para disparar eventos do Facebook Pixel
-export function trackFBEvent(event: string, params?: any) {
-  if (typeof window !== "undefined" && window.fbq) {
+/** Lê um cookie pelo nome (client-side). */
+function getCookie(name: string): string | undefined {
+  if (typeof document === "undefined") return undefined
+  const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"))
+  return match ? match[2] : undefined
+}
+
+export interface TrackUserData {
+  email?: string
+  phone?: string
+  firstName?: string
+  lastName?: string
+  city?: string
+  state?: string
+  zip?: string
+}
+
+/**
+ * Dispara um evento no Pixel (browser) e, quando há `eventID`, espelha o mesmo
+ * evento para a Conversions API (server-side) via /api/meta/track.
+ * A deduplicação no Meta é feita por event_name + event_id.
+ */
+export function trackFBEvent(event: string, params?: any, userData?: TrackUserData) {
+  if (typeof window === "undefined") return
+
+  // 1) Pixel no navegador
+  if (window.fbq) {
     window.fbq("track", event, params)
+  }
+
+  // 2) Conversions API (apenas quando temos eventID para deduplicar)
+  const eventId = params?.eventID
+  if (!eventId) return
+
+  try {
+    const { eventID, ...customData } = params || {}
+    fetch("/api/meta/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        eventName: event,
+        eventId,
+        eventSourceUrl: window.location.href,
+        customData,
+        userData: {
+          ...userData,
+          fbp: getCookie("_fbp"),
+          fbc: getCookie("_fbc"),
+        },
+      }),
+    }).catch(() => {
+      /* fire-and-forget: falha no CAPI não afeta o checkout */
+    })
+  } catch {
+    /* noop */
   }
 }

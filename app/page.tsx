@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import MediaCarousel from "@/components/media-carousel"
 import FAQSection from "@/components/faq-section"
 import ReviewsSection from "@/components/reviews-section"
@@ -13,6 +13,7 @@ import Header from "@/components/header"
 import { useCart } from "@/contexts/cart-context"
 import { useRouter } from "next/navigation"
 import { ACCESSORY_PRICE } from "@/components/accessories-section"
+import { trackFBEvent } from "@/components/facebook-pixel"
 
 // Define a animação de flutuação
 const floatingAnimation = `
@@ -45,6 +46,19 @@ export default function Home() {
   const [angelWingsPets, setAngelWingsPets] = useState<("pet1" | "pet2")[]>([])
   const router = useRouter()
   const { addItem } = useCart()
+  const viewContentTrackedRef = useRef(false)
+
+  // ViewContent: dispara uma vez ao abrir a página de produto (Pixel + CAPI)
+  useEffect(() => {
+    if (viewContentTrackedRef.current) return
+    viewContentTrackedRef.current = true
+    trackFBEvent("ViewContent", {
+      content_name: "Caneca Personalizada Looneca Prisma",
+      content_type: "product",
+      currency: "BRL",
+      eventID: `${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
+    })
+  }, [])
 
   // Preços base por quantidade de pets
   const PRECOS = {

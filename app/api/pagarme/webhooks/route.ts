@@ -5,6 +5,7 @@ import { calculateSubscriptionStartDate } from "@/lib/pagarme/api"
 import { PAGARME_CONFIG } from "@/lib/pagarme/config"
 import { sendAppDownloadEmail } from "@/lib/resend"
 import { syncPixPaymentToShopify } from "@/lib/shopify-payment-sync"
+import { sendMetaEvent } from "@/lib/meta-capi"
 
 // Verificar se as variáveis de ambiente estão definidas
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -378,7 +379,9 @@ export async function POST(request: NextRequest) {
 
           const { data: pedido } = await supabase
             .from("pedidos")
-            .select("email_cliente, nome_cliente, metodo_pagamento, total_pago")
+            .select(
+              "email_cliente, nome_cliente, telefone_cliente, cpf_cliente, cidade_cliente, estado_cliente, cep_cliente, metodo_pagamento, total_pago",
+            )
             .eq("id_pagamento", orderIdFromCharge)
             .maybeSingle()
 
@@ -389,6 +392,36 @@ export async function POST(request: NextRequest) {
               customerName: pedido.nome_cliente || "Cliente",
             })
             console.log("[Webhook] Email de download enviado para:", pedido.email_cliente)
+
+            // --- Purchase via Conversions API (PIX confirmado de fato) ---
+            // O Purchase do PIX NÃO é disparado no client (apenas cartão é).
+            // Aqui o pagamento foi confirmado (charge.paid), então é o momento
+            // correto de contar a conversão. event_id estável permite dedup
+            // caso o webhook seja reenviado.
+            try {
+              const [firstName, ...rest] = (pedido.nome_cliente || "").trim().split(/\s+/)
+              await sendMetaEvent({
+                eventName: "Purchase",
+                eventId: `purchase_${orderIdFromCharge}`,
+                actionSource: "server",
+                userData: {
+                  email: pedido.email_cliente,
+                  phone: pedido.telefone_cliente,
+                  firstName: firstName || undefined,
+                  lastName: rest.length ? rest.join(" ") : undefined,
+                  city: pedido.cidade_cliente,
+                  state: pedido.estado_cliente,
+                  zip: pedido.cep_cliente,
+                },
+                customData: {
+                  value: pedido.total_pago || 0,
+                  currency: "BRL",
+                  payment_type: "pix",
+                },
+              })
+            } catch (capiError) {
+              console.error("[Webhook] Erro ao enviar Purchase via CAPI (nao-bloqueante):", capiError)
+            }
           } else if (pedido?.metodo_pagamento !== "pix") {
             console.log("[Webhook] Pagamento nao e PIX, email ja enviado na rota de pagamento")
           } else {
