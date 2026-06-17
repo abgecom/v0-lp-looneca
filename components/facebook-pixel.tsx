@@ -62,7 +62,7 @@ function getCookie(name: string): string | undefined {
  * Retorna o _fbc apenas se ainda for válido (clique há menos de 90 dias).
  * Formato: fb.<idx>.<creationTimeMs>.<fbclid>. Evita enviar fbclid expirado.
  */
-function getFreshFbc(): string | undefined {
+export function getFreshFbc(): string | undefined {
   const fbc = getCookie("_fbc")
   if (!fbc) return undefined
   const parts = fbc.split(".")

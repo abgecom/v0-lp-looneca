@@ -12,7 +12,7 @@ import Link from "next/link"
 import { processPayment } from "@/actions/payment-actions"
 import { exportOrderToShopify } from "@/actions/shopify-actions"
 import { calculatePaymentAmount } from "@/lib/payment-utils"
-import { trackFBEvent } from "@/components/facebook-pixel"
+import { trackFBEvent, getFreshFbc } from "@/components/facebook-pixel"
 import { ACCESSORY_PRICE, getAccessoryName } from "@/components/accessories-section"
 import { validateCoupon, calculateDiscount, isFreeShippingCoupon, type Coupon } from "@/lib/coupons"
 
@@ -347,7 +347,7 @@ export default function CheckoutPage() {
             first_name: formData.name.split(" ")[0] || "",
             last_name: formData.name.split(" ").slice(1).join(" ") || "",
             phone: formatPhone(formData.phone),
-            _fbc: getCookie("_fbc"),
+            _fbc: getFreshFbc(),
             _fbp: getCookie("_fbp"),
             fbclid: getFbclidFromUrl(),
           },
@@ -747,7 +747,7 @@ export default function CheckoutPage() {
               first_name: formData.name.split(" ")[0] || "",
               last_name: formData.name.split(" ").slice(1).join(" ") || "",
               phone: formatPhone(formData.phone),
-              _fbc: getCookie("_fbc"),
+              _fbc: getFreshFbc(),
               _fbp: getCookie("_fbp"),
               fbclid: getFbclidFromUrl(),
             },
