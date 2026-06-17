@@ -28,6 +28,28 @@ function hash(value?: string | null): string | undefined {
   return crypto.createHash("sha256").update(normalized).digest("hex")
 }
 
+/**
+ * Janela máxima de validade do fbc (clique do anúncio). O Meta rejeita / sinaliza
+ * fbc cujo fbclid foi gerado há mais de 90 dias ("expired fbclid in fbc").
+ */
+const FBC_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000
+
+/**
+ * Valida o parâmetro fbc antes de enviar.
+ * Formato esperado: `fb.<subdomainIndex>.<creationTimeMs>.<fbclid>`.
+ * Retorna `undefined` quando o formato é inválido ou o clique tem mais de 90
+ * dias — evitando o erro "valor fbclid expirado no parâmetro fbc".
+ */
+export function sanitizeFbc(fbc?: string | null): string | undefined {
+  if (!fbc) return undefined
+  const parts = fbc.split(".")
+  if (parts.length < 4 || parts[0] !== "fb") return undefined
+  const creationTime = Number(parts[2])
+  if (!Number.isFinite(creationTime) || creationTime <= 0) return undefined
+  if (Date.now() - creationTime > FBC_MAX_AGE_MS) return undefined
+  return fbc
+}
+
 /** Telefone: somente dígitos, com DDI, antes do hash. */
 function hashPhone(phone?: string | null): string | undefined {
   if (!phone) return undefined
@@ -87,7 +109,8 @@ export async function sendMetaEvent(params: SendMetaEventParams): Promise<{ succ
     st: hash(ud.state),
     zp: hash(ud.zip ? ud.zip.replace(/\D/g, "") : undefined),
     fbp: ud.fbp || undefined,
-    fbc: ud.fbc || undefined,
+    // Descarta fbc expirado/ inválido para não disparar o aviso do Meta
+    fbc: sanitizeFbc(ud.fbc),
     client_ip_address: ud.clientIpAddress || undefined,
     client_user_agent: ud.clientUserAgent || undefined,
   }

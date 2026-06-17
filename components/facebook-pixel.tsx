@@ -58,6 +58,22 @@ function getCookie(name: string): string | undefined {
   return match ? match[2] : undefined
 }
 
+/**
+ * Retorna o _fbc apenas se ainda for válido (clique há menos de 90 dias).
+ * Formato: fb.<idx>.<creationTimeMs>.<fbclid>. Evita enviar fbclid expirado.
+ */
+function getFreshFbc(): string | undefined {
+  const fbc = getCookie("_fbc")
+  if (!fbc) return undefined
+  const parts = fbc.split(".")
+  if (parts.length < 4 || parts[0] !== "fb") return undefined
+  const creationTime = Number(parts[2])
+  if (!Number.isFinite(creationTime) || creationTime <= 0) return undefined
+  const NINETY_DAYS = 90 * 24 * 60 * 60 * 1000
+  if (Date.now() - creationTime > NINETY_DAYS) return undefined
+  return fbc
+}
+
 export interface TrackUserData {
   email?: string
   phone?: string
@@ -99,7 +115,7 @@ export function trackFBEvent(event: string, params?: any, userData?: TrackUserDa
         userData: {
           ...userData,
           fbp: getCookie("_fbp"),
-          fbc: getCookie("_fbc"),
+          fbc: getFreshFbc(),
         },
       }),
     }).catch(() => {
