@@ -708,6 +708,18 @@ export default function CheckoutPage() {
           console.error("❌ [Shopify] Erro ao enviar pedido:", err)
         }
 
+        // Conversão do Google Ads (AW-11487232709). Disparada para cartão e PIX,
+        // preservando o comportamento que existia no GTM (removido). O
+        // transaction_id permite o Google deduplicar reenvios.
+        if (typeof window !== "undefined" && typeof window.gtag === "function") {
+          window.gtag("event", "conversion", {
+            send_to: "AW-11487232709/yTWuCMvFhpAZEMWFxeUq",
+            value: totalWithShipping,
+            currency: "BRL",
+            transaction_id: paymentResult.orderId || "",
+          })
+        }
+
         // Purchase é disparado client-side apenas para CARTÃO (aprovação síncrona).
         // Para PIX, o pagamento só é confirmado depois (via webhook charge.paid),
         // então o Purchase do PIX é enviado server-side pela Conversions API no

@@ -3,7 +3,6 @@ import "./globals.css"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { CartProvider } from "@/contexts/cart-context"
-import { GoogleAnalytics } from "@next/third-parties/google"
 import PixelTracker from "@/components/pixel-tracker"
 import { Suspense } from "react"
 import Script from "next/script"
@@ -44,12 +43,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             fbq('track', 'PageView', {}, { eventID: window.__fbPvEventId });
           `}
         </Script>
-        <Script id="google-tag-manager" strategy="afterInteractive">
-          {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-          new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-          j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-          'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-          })(window,document,'script','dataLayer','GTM-NMHNL73T');`}
+        {/*
+          GA4 + Google Ads nativos (gtag.js), substituindo o container GTM
+          (GTM-NMHNL73T) que foi removido. O GTM alimentava um container
+          server-side (api.petloo.com.br / Stape) que enviava CAPI do Facebook
+          com fbclid expirado. Sem o GTM, esse sender deixa de existir; o
+          Facebook agora é 100% nativo (pixel + Conversions API próprios).
+          GA4: G-CX4GKGS2GP | Google Ads: AW-11487232709
+        */}
+        <Script
+          id="gtag-src"
+          strategy="afterInteractive"
+          src="https://www.googletagmanager.com/gtag/js?id=G-CX4GKGS2GP"
+        />
+        <Script id="gtag-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-CX4GKGS2GP');
+            gtag('config', 'AW-11487232709');
+          `}
         </Script>
         <Script id="microsoft-clarity" strategy="afterInteractive">
           {`(function(c,l,a,r,i,t,y){
@@ -62,17 +76,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <noscript
           dangerouslySetInnerHTML={{
-            __html: `<iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NMHNL73T" height="0" width="0" style="display:none;visibility:hidden"></iframe>`,
-          }}
-        />
-        <noscript
-          dangerouslySetInnerHTML={{
             __html: `<img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=1650496555439267&ev=PageView&noscript=1" alt="" />`,
           }}
         />
         <Suspense fallback={null}>
           <CartProvider>{children}</CartProvider>
-          <GoogleAnalytics gaId="G-XXXXXXXXXX" />
           <PixelTracker />
           <Analytics />
         </Suspense>

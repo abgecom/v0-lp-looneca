@@ -14,6 +14,7 @@ declare global {
   interface Window {
     fbq: any
     _fbq: any
+    gtag?: (...args: any[]) => void
   }
 }
 
