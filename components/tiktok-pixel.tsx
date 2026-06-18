@@ -17,7 +17,7 @@ declare global {
  *   NEXT_PUBLIC_TIKTOK_PIXEL_ID = <ID do pixel do TikTok>
  * Sem o ID, o componente não renderiza nada (TikTok fica inativo, sem erro).
  */
-const TIKTOK_PIXEL_ID = process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID || ""
+const TIKTOK_PIXEL_ID = process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID || "C9BCUK3C77U63IDIED40"
 
 export default function TikTokPixel() {
   if (!TIKTOK_PIXEL_ID) return null

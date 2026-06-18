@@ -68,6 +68,10 @@ export interface MetaUserData {
   city?: string | null
   state?: string | null
   zip?: string | null
+  /** país (ex: "br") — hasheado */
+  country?: string | null
+  /** identificador estável do cliente/pedido — hasheado (melhora o match) */
+  externalId?: string | null
   /** cookie _fbp (NÃO é hasheado) */
   fbp?: string | null
   /** cookie _fbc / fbclid (NÃO é hasheado) */
@@ -108,6 +112,8 @@ export async function sendMetaEvent(params: SendMetaEventParams): Promise<{ succ
     ct: hash(ud.city),
     st: hash(ud.state),
     zp: hash(ud.zip ? ud.zip.replace(/\D/g, "") : undefined),
+    country: hash(ud.country),
+    external_id: hash(ud.externalId),
     fbp: ud.fbp || undefined,
     // Descarta fbc expirado/ inválido para não disparar o aviso do Meta
     fbc: sanitizeFbc(ud.fbc),

@@ -412,6 +412,8 @@ export async function POST(request: NextRequest) {
                   city: pedido.cidade_cliente,
                   state: pedido.estado_cliente,
                   zip: pedido.cep_cliente,
+                  country: "br",
+                  externalId: orderIdFromCharge,
                 },
                 customData: {
                   value: pedido.total_pago || 0,

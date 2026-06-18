@@ -827,6 +827,7 @@ export default function CheckoutPage() {
               city: formData.city,
               state: formData.state,
               zip: formData.cep,
+              externalId: transactionId,
             },
           )
         }

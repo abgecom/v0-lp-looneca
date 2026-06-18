@@ -41,6 +41,8 @@ export function getFreshFbc(): string | undefined {
   return fbc
 }
 
+const PIXEL_ID = "1650496555439267"
+
 export interface TrackUserData {
   email?: string
   phone?: string
@@ -49,6 +51,29 @@ export interface TrackUserData {
   city?: string
   state?: string
   zip?: string
+  /** identificador estável do cliente/pedido (melhora o match quality) */
+  externalId?: string
+}
+
+/**
+ * Atualiza o Advanced Matching do Pixel no navegador com os dados do cliente.
+ * Isso faz os eventos do browser carregarem em/ph/fn/ln/ct/st/zp/country —
+ * elevando a pontuação de correspondência (Event Match Quality) no Meta.
+ * O SDK do Pixel faz o hashing SHA-256 automaticamente.
+ */
+function setAdvancedMatching(userData?: TrackUserData) {
+  if (!userData || !window.fbq) return
+  const am: Record<string, string> = { country: "br" }
+  if (userData.email) am.em = userData.email
+  if (userData.phone) am.ph = userData.phone
+  if (userData.firstName) am.fn = userData.firstName
+  if (userData.lastName) am.ln = userData.lastName
+  if (userData.city) am.ct = userData.city
+  if (userData.state) am.st = userData.state
+  if (userData.zip) am.zp = userData.zip
+  if (userData.externalId) am.external_id = userData.externalId
+  // Re-inicializar com os dados atualiza o Advanced Matching (o Meta deduplica o init)
+  window.fbq("init", PIXEL_ID, am)
 }
 
 /**
@@ -59,8 +84,9 @@ export interface TrackUserData {
 export function trackFBEvent(event: string, params?: any, userData?: TrackUserData) {
   if (typeof window === "undefined") return
 
-  // 1) Pixel no navegador
+  // 1) Pixel no navegador (com Advanced Matching quando há dados do cliente)
   if (window.fbq) {
+    setAdvancedMatching(userData)
     window.fbq("track", event, params)
   }
 
@@ -81,6 +107,7 @@ export function trackFBEvent(event: string, params?: any, userData?: TrackUserDa
         customData,
         userData: {
           ...userData,
+          country: "br",
           fbp: getCookie("_fbp"),
           fbc: getFreshFbc(),
         },
