@@ -4,6 +4,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { CartProvider } from "@/contexts/cart-context"
 import { GoogleAnalytics } from "@next/third-parties/google"
+import PixelTracker from "@/components/pixel-tracker"
 import { Suspense } from "react"
 import Script from "next/script"
 import { Analytics } from "@vercel/analytics/react"
@@ -38,8 +39,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               t.src=v;s=b.getElementsByTagName(e)[0];
               s.parentNode.insertBefore(t,s)}(window, document,'script',
               'https://connect.facebook.net/en_US/fbevents.js');
+            window.__fbPvEventId = 'pv.' + Date.now() + '.' + Math.random().toString(36).slice(2, 10);
             fbq('init', '1650496555439267');
-            fbq('track', 'PageView');
+            fbq('track', 'PageView', {}, { eventID: window.__fbPvEventId });
           `}
         </Script>
         <Script id="google-tag-manager" strategy="afterInteractive">
@@ -71,6 +73,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Suspense fallback={null}>
           <CartProvider>{children}</CartProvider>
           <GoogleAnalytics gaId="G-XXXXXXXXXX" />
+          <PixelTracker />
           <Analytics />
         </Suspense>
       </body>
