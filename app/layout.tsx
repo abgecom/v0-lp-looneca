@@ -4,6 +4,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { CartProvider } from "@/contexts/cart-context"
 import PixelTracker from "@/components/pixel-tracker"
+import TikTokPixel from "@/components/tiktok-pixel"
 import { Suspense } from "react"
 import Script from "next/script"
 import { Analytics } from "@vercel/analytics/react"
@@ -72,6 +73,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
           })(window,document,"clarity","script","vmkpbtgz98");`}
         </Script>
+        <TikTokPixel />
       </head>
       <body className={inter.className}>
         <noscript

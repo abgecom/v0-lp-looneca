@@ -14,6 +14,8 @@ import { useCart } from "@/contexts/cart-context"
 import { useRouter } from "next/navigation"
 import { ACCESSORY_PRICE } from "@/components/accessories-section"
 import { trackFBEvent } from "@/components/facebook-pixel"
+import { trackTikTokEvent } from "@/components/tiktok-pixel"
+import { gtagEvent } from "@/lib/gtag"
 
 // Define a animação de flutuação
 const floatingAnimation = `
@@ -48,15 +50,32 @@ export default function Home() {
   const { addItem } = useCart()
   const viewContentTrackedRef = useRef(false)
 
-  // ViewContent: dispara uma vez ao abrir a página de produto (Pixel + CAPI)
+  // ViewContent / view_item: dispara uma vez ao abrir a página de produto
+  // Facebook (Pixel + CAPI) + GA4 + TikTok
   useEffect(() => {
     if (viewContentTrackedRef.current) return
     viewContentTrackedRef.current = true
+
+    const productName = "Caneca Personalizada Looneca Prisma"
+    const productValue = 169.9
+
     trackFBEvent("ViewContent", {
-      content_name: "Caneca Personalizada Looneca Prisma",
+      content_name: productName,
       content_type: "product",
       currency: "BRL",
       eventID: `${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
+    })
+
+    gtagEvent("view_item", {
+      currency: "BRL",
+      value: productValue,
+      items: [{ item_name: productName }],
+    })
+
+    trackTikTokEvent("ViewContent", {
+      contents: [{ content_name: productName, content_type: "product" }],
+      currency: "BRL",
+      value: productValue,
     })
   }, [])
 

@@ -13,6 +13,8 @@ import { processPayment } from "@/actions/payment-actions"
 import { exportOrderToShopify } from "@/actions/shopify-actions"
 import { calculatePaymentAmount } from "@/lib/payment-utils"
 import { trackFBEvent, getFreshFbc } from "@/components/facebook-pixel"
+import { trackTikTokEvent } from "@/components/tiktok-pixel"
+import { gtagEvent, ga4Items, googleAdsPurchase } from "@/lib/gtag"
 import { ACCESSORY_PRICE, getAccessoryName } from "@/components/accessories-section"
 import { validateCoupon, calculateDiscount, isFreeShippingCoupon, type Coupon } from "@/lib/coupons"
 
@@ -200,6 +202,23 @@ export default function CheckoutPage() {
         eventID: eventId,
       })
 
+      gtagEvent("begin_checkout", {
+        currency: "BRL",
+        value: cart.totalPrice,
+        items: ga4Items(cart.items),
+      })
+
+      trackTikTokEvent("InitiateCheckout", {
+        contents: cart.items.map((item) => ({
+          content_id: item.id,
+          content_name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+        currency: "BRL",
+        value: cart.totalPrice,
+      })
+
       checkoutEventTrackedRef.current = true
     }
   }, [cart.isInitialized, cart.totalPrice, cart.items])
@@ -364,6 +383,17 @@ export default function CheckoutPage() {
           lastName: formData.name.split(" ").slice(1).join(" ") || "",
         },
       )
+
+      gtagEvent("add_payment_info", {
+        currency: "BRL",
+        value: cart.totalPrice,
+        items: ga4Items(cart.items),
+      })
+
+      trackTikTokEvent("AddPaymentInfo", {
+        currency: "BRL",
+        value: cart.totalPrice,
+      })
     }
 
     // Se o usuário digitou o 8º dígito, validar e buscar o CEP automaticamente
@@ -708,17 +738,34 @@ export default function CheckoutPage() {
           console.error("❌ [Shopify] Erro ao enviar pedido:", err)
         }
 
-        // Conversão do Google Ads (AW-11487232709). Disparada para cartão e PIX,
-        // preservando o comportamento que existia no GTM (removido). O
-        // transaction_id permite o Google deduplicar reenvios.
-        if (typeof window !== "undefined" && typeof window.gtag === "function") {
-          window.gtag("event", "conversion", {
-            send_to: "AW-11487232709/yTWuCMvFhpAZEMWFxeUq",
-            value: totalWithShipping,
-            currency: "BRL",
-            transaction_id: paymentResult.orderId || "",
-          })
-        }
+        // Conversões de compra — disparadas para cartão e PIX, preservando o
+        // comportamento que existia no GTM (removido). transaction_id permite
+        // deduplicar reenvios no GA4/Google Ads.
+        const transactionId = paymentResult.orderId || ""
+
+        // Google Ads (conversão AW-11487232709)
+        googleAdsPurchase(totalWithShipping, transactionId)
+
+        // GA4 — purchase
+        gtagEvent("purchase", {
+          transaction_id: transactionId,
+          value: totalWithShipping,
+          currency: "BRL",
+          payment_type: paymentMethod,
+          items: ga4Items(cart.items),
+        })
+
+        // TikTok — CompletePayment
+        trackTikTokEvent("CompletePayment", {
+          contents: cart.items.map((item) => ({
+            content_id: item.id,
+            content_name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          currency: "BRL",
+          value: totalWithShipping,
+        })
 
         // Purchase é disparado client-side apenas para CARTÃO (aprovação síncrona).
         // Para PIX, o pagamento só é confirmado depois (via webhook charge.paid),
