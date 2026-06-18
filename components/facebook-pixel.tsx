@@ -1,6 +1,13 @@
 "use client"
 
-import Script from "next/script"
+/**
+ * Helpers do Meta Pixel (client-side).
+ *
+ * A INICIALIZAÇÃO do Pixel (init + PageView) fica direta no <head> do
+ * app/layout.tsx — assim o PageView dispara o quanto antes e o Meta conta a
+ * "Visualização de página de destino" (Landing Page View). Este arquivo contém
+ * apenas os utilitários para disparar eventos adicionais e espelhar na CAPI.
+ */
 
 // Definir o tipo para a função fbq global
 declare global {
@@ -8,47 +15,6 @@ declare global {
     fbq: any
     _fbq: any
   }
-}
-
-const PIXEL_ID = "1650496555439267"
-
-export default function FacebookPixel() {
-  return (
-    <>
-      {/*
-        Inicialização ÚNICA do Pixel (snippet padrão do Meta).
-        Antes havia também um useEffect chamando init + PageView, o que causava
-        PageView duplicado e redefinição de window.fbq. Removido.
-      */}
-      <Script
-        id="facebook-pixel"
-        strategy="afterInteractive"
-        dangerouslySetInnerHTML={{
-          __html: `
-            !function(f,b,e,v,n,t,s){
-              if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-              n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-              if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-              n.queue=[];t=b.createElement(e);t.async=!0;
-              t.src=v;s=b.getElementsByTagName(e)[0];
-              s.parentNode.insertBefore(t,s)}(window, document,'script',
-              'https://connect.facebook.net/en_US/fbevents.js');
-            fbq('init', '${PIXEL_ID}');
-            fbq('track', 'PageView');
-          `,
-        }}
-      />
-      <noscript>
-        <img
-          height="1"
-          width="1"
-          style={{ display: "none" }}
-          src={`https://www.facebook.com/tr?id=${PIXEL_ID}&ev=PageView&noscript=1`}
-          alt=""
-        />
-      </noscript>
-    </>
-  )
 }
 
 /** Lê um cookie pelo nome (client-side). */
