@@ -42,6 +42,7 @@ export interface CheckoutInput {
   paymentId?: string
   paymentStatus?: string
   dryRun?: boolean
+  dispositivo_os?: string | null
 }
 
 const DEFAULT_API_VERSION = "2025-01"
@@ -287,6 +288,7 @@ function buildOrderPayload(input: CheckoutInput, customerId: number) {
     { name: "Total de Canecas", value: String(totalMugs) },
     { name: "Resumo Raças", value: summaryRacas },
     { name: "Tag Rastreamento + App Petloo", value: input.recurringProducts?.appPetloo ? "Sim" : "Não" },
+    { name: "Dispositivo", value: input.dispositivo_os || "" },
   ]
 
   // Add angel wings summary to note_attributes if any item has it

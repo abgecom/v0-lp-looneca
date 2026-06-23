@@ -651,6 +651,11 @@ export default function CheckoutPage() {
           name: ORDER_BUMP_NAME,
           price: ORDER_BUMP_PRICE,
         } : null,
+
+        // Dispositivo do usuário (iOS/Android) — salvo na /carrinho
+        dispositivo_os: typeof window !== "undefined"
+          ? (localStorage.getItem("looneca-dispositivo-os") || null)
+          : null,
       }
 
       // Process payment
@@ -709,6 +714,9 @@ export default function CheckoutPage() {
             ...orderData,
             paymentId: paymentResult.orderId || "",
             paymentStatus: paymentResult.status || "pending",
+            dispositivo_os: typeof window !== "undefined"
+              ? (localStorage.getItem("looneca-dispositivo-os") || null)
+              : null,
           } as any)
           if (!shopifyData?.success) {
             console.error("❌ [Shopify] Falha ao criar pedido:", {
