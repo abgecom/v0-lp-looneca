@@ -12,7 +12,9 @@ import Link from "next/link"
 import { processPayment } from "@/actions/payment-actions"
 import { exportOrderToShopify } from "@/actions/shopify-actions"
 import { calculatePaymentAmount } from "@/lib/payment-utils"
-import { trackFBEvent } from "@/components/facebook-pixel"
+import { trackFBEvent, getFreshFbc } from "@/components/facebook-pixel"
+import { trackTikTokEvent } from "@/components/tiktok-pixel"
+import { gtagEvent, ga4Items, googleAdsPurchase } from "@/lib/gtag"
 import { ACCESSORY_PRICE, getAccessoryName } from "@/components/accessories-section"
 import { validateCoupon, calculateDiscount, isFreeShippingCoupon, type Coupon } from "@/lib/coupons"
 
@@ -47,7 +49,6 @@ export default function CheckoutPage() {
 
   // Refs para rastrear eventos do Facebook Pixel
   const cepInputTrackedRef = useRef(false)
-  const purchaseEventTrackedRef = useRef(false)
   const checkoutEventTrackedRef = useRef(false)
 
   // Shipping options state
@@ -201,26 +202,26 @@ export default function CheckoutPage() {
         eventID: eventId,
       })
 
+      gtagEvent("begin_checkout", {
+        currency: "BRL",
+        value: cart.totalPrice,
+        items: ga4Items(cart.items),
+      })
+
+      trackTikTokEvent("InitiateCheckout", {
+        contents: cart.items.map((item) => ({
+          content_id: item.id,
+          content_name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+        currency: "BRL",
+        value: cart.totalPrice,
+      })
+
       checkoutEventTrackedRef.current = true
     }
   }, [cart.isInitialized, cart.totalPrice, cart.items])
-
-  // Disparar evento Purchase quando o pagamento for bem-sucedido ou quando o QR Code do PIX for exibido
-  useEffect(() => {
-    if (!cart.isInitialized || purchaseEventTrackedRef.current) return
-
-    // Verificar se o pagamento foi bem-sucedido (cartão de crédito)
-    if (paymentSuccess) {
-      trackFBEvent("Purchase", { value: totalWithShipping, currency: "BRL" })
-      purchaseEventTrackedRef.current = true
-    }
-
-    // Verificar se o QR Code do PIX foi exibido
-    if (pixCode && pixQrCodeUrl) {
-      trackFBEvent("Purchase", { value: totalWithShipping, currency: "BRL" })
-      purchaseEventTrackedRef.current = true
-    }
-  }, [paymentSuccess, pixCode, pixQrCodeUrl, cart.isInitialized, totalWithShipping])
 
   // Gerar opções de parcelamento quando o total mudar
   useEffect(() => {
@@ -365,14 +366,34 @@ export default function CheckoutPage() {
             first_name: formData.name.split(" ")[0] || "",
             last_name: formData.name.split(" ").slice(1).join(" ") || "",
             phone: formatPhone(formData.phone),
-            _fbc: getCookie("_fbc"),
+            _fbc: getFreshFbc(),
             _fbp: getCookie("_fbp"),
             fbclid: getFbclidFromUrl(),
           },
         })
       }
 
-      trackFBEvent("AddPaymentInfo")
+      trackFBEvent(
+        "AddPaymentInfo",
+        { eventID: `${Date.now()}-${Math.floor(Math.random() * 1000000)}` },
+        {
+          email: formData.email,
+          phone: formData.phone,
+          firstName: formData.name.split(" ")[0] || "",
+          lastName: formData.name.split(" ").slice(1).join(" ") || "",
+        },
+      )
+
+      gtagEvent("add_payment_info", {
+        currency: "BRL",
+        value: cart.totalPrice,
+        items: ga4Items(cart.items),
+      })
+
+      trackTikTokEvent("AddPaymentInfo", {
+        currency: "BRL",
+        value: cart.totalPrice,
+      })
     }
 
     // Se o usuário digitou o 8º dígito, validar e buscar o CEP automaticamente
@@ -725,7 +746,40 @@ export default function CheckoutPage() {
           console.error("❌ [Shopify] Erro ao enviar pedido:", err)
         }
 
-        if (typeof window !== "undefined") {
+        // Conversões de compra — disparadas para cartão e PIX, preservando o
+        // comportamento que existia no GTM (removido). transaction_id permite
+        // deduplicar reenvios no GA4/Google Ads.
+        const transactionId = paymentResult.orderId || ""
+
+        // Google Ads (conversão AW-11487232709)
+        googleAdsPurchase(totalWithShipping, transactionId)
+
+        // GA4 — purchase
+        gtagEvent("purchase", {
+          transaction_id: transactionId,
+          value: totalWithShipping,
+          currency: "BRL",
+          payment_type: paymentMethod,
+          items: ga4Items(cart.items),
+        })
+
+        // TikTok — CompletePayment
+        trackTikTokEvent("CompletePayment", {
+          contents: cart.items.map((item) => ({
+            content_id: item.id,
+            content_name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          currency: "BRL",
+          value: totalWithShipping,
+        })
+
+        // Purchase é disparado client-side apenas para CARTÃO (aprovação síncrona).
+        // Para PIX, o pagamento só é confirmado depois (via webhook charge.paid),
+        // então o Purchase do PIX é enviado server-side pela Conversions API no
+        // webhook — evitando contar PIX gerado mas não pago.
+        if (typeof window !== "undefined" && paymentMethod === "credit_card") {
           const eventId = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`
 
           const getCookie = (name: string): string | undefined => {
@@ -760,17 +814,30 @@ export default function CheckoutPage() {
               first_name: formData.name.split(" ")[0] || "",
               last_name: formData.name.split(" ").slice(1).join(" ") || "",
               phone: formatPhone(formData.phone),
-              _fbc: getCookie("_fbc"),
+              _fbc: getFreshFbc(),
               _fbp: getCookie("_fbp"),
               fbclid: getFbclidFromUrl(),
             },
           })
 
-          trackFBEvent("Purchase", {
-            value: totalWithShipping,
-            currency: "BRL",
-            eventID: eventId,
-          })
+          trackFBEvent(
+            "Purchase",
+            {
+              value: totalWithShipping,
+              currency: "BRL",
+              eventID: eventId,
+            },
+            {
+              email: formData.email,
+              phone: formData.phone,
+              firstName: formData.name.split(" ")[0] || "",
+              lastName: formData.name.split(" ").slice(1).join(" ") || "",
+              city: formData.city,
+              state: formData.state,
+              zip: formData.cep,
+              externalId: transactionId,
+            },
+          )
         }
 
         if (paymentMethod === "pix") {

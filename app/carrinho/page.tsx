@@ -9,6 +9,8 @@ import Header from "@/components/header"
 import Footer from "@/components/footer"
 import { useCart } from "@/contexts/cart-context"
 import { trackFBEvent } from "@/components/facebook-pixel"
+import { trackTikTokEvent } from "@/components/tiktok-pixel"
+import { gtagEvent, ga4Items } from "@/lib/gtag"
 import { ACCESSORY_PRICE, getAccessoryName } from "@/components/accessories-section"
 
 // Adicionar interfaces para as ofertas adicionais
@@ -81,6 +83,23 @@ export default function CartPage() {
         value: cart.totalPrice,
         currency: "BRL",
         eventID: eventId,
+      })
+
+      gtagEvent("add_to_cart", {
+        currency: "BRL",
+        value: cart.totalPrice,
+        items: ga4Items(cart.items),
+      })
+
+      trackTikTokEvent("AddToCart", {
+        contents: cart.items.map((item) => ({
+          content_id: item.id,
+          content_name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+        currency: "BRL",
+        value: cart.totalPrice,
       })
 
       cartEventTrackedRef.current = true
