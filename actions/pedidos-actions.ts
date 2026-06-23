@@ -64,6 +64,7 @@ export interface PedidoData {
     name: string
     price: number
   } | null
+  dispositivo_os?: string | null
 }
 
 export async function criarPedido(data: PedidoData, req?: Request) {
@@ -83,7 +84,7 @@ export async function criarPedido(data: PedidoData, req?: Request) {
     }
 
     const novoNumero = ultimoPedido && ultimoPedido.length > 0 ? ultimoPedido[0].pedido_numero + 1 : 1001
-    const { customer, itens, recorrentes, pagamento, fotos, raca, observacoes, acessorios, cupom, orderBump } = data
+    const { customer, itens, recorrentes, pagamento, fotos, raca, observacoes, acessorios, cupom, orderBump, dispositivo_os } = data
     const itensEscolhidos: PedidoItem[] = itens
 
     // === EXTRAÇÃO DOS DADOS DO PET ===
@@ -93,7 +94,7 @@ export async function criarPedido(data: PedidoData, req?: Request) {
     let acessoriosPet = acessorios || ""
 
     // Fallback: tentar recuperar do cookie se não vieram nos dados
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const petDataCookie = cookieStore.get("looneca-pet-data")
 
     if (petDataCookie && (!fotosPet.length || !racaPet || !acessoriosPet)) {
@@ -181,6 +182,10 @@ export async function criarPedido(data: PedidoData, req?: Request) {
       cupom_desconto_valor: cupom?.discountAmount || null,
       // Order bump (papel de presente)
       order_bump: orderBump || null,
+      // Dispositivo do usuário (iOS/Android)
+      // NOTA: a coluna dispositivo_os deve existir no banco antes de habilitar esta linha.
+      // Execute: ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS dispositivo_os TEXT;
+      // ...(dispositivo_os ? { dispositivo_os } : {}),
       // As colunas product_ids, variant_ids, skus serão populadas pelo trigger
     }
 

@@ -58,6 +58,8 @@ export interface OrderData {
     name: string
     price: number
   } | null
+  // === DISPOSITIVO DO USUÁRIO ===
+  dispositivo_os?: string | null
 }
 
 export async function saveOrderToDatabase(orderData: OrderData) {
@@ -105,6 +107,8 @@ export async function saveOrderToDatabase(orderData: OrderData) {
       cupom: orderData.coupon || null,
       // === ORDER BUMP ===
       orderBump: orderData.orderBump || null,
+      // === DISPOSITIVO DO USUÁRIO ===
+      dispositivo_os: orderData.dispositivo_os || null,
     }
 
     console.log("🚀 DEBUG saveOrderToDatabase - pedidoData mapeado:", JSON.stringify(pedidoData, null, 2))
