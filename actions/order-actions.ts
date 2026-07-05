@@ -35,6 +35,7 @@ export interface OrderData {
   }>
   recurringProducts: {
     appPetloo: boolean
+    looTag: boolean
     loobook: boolean
   }
   paymentMethod: string
@@ -60,6 +61,9 @@ export interface OrderData {
   } | null
   // === DISPOSITIVO DO USUÁRIO ===
   dispositivo_os?: string | null
+  // === TOKENS PAGAR.ME (para cobranças 1-clique futuras, ex. upsell) ===
+  pagarmeCustomerId?: string | null
+  pagarmeCardId?: string | null
 }
 
 export async function saveOrderToDatabase(orderData: OrderData) {
@@ -109,6 +113,9 @@ export async function saveOrderToDatabase(orderData: OrderData) {
       orderBump: orderData.orderBump || null,
       // === DISPOSITIVO DO USUÁRIO ===
       dispositivo_os: orderData.dispositivo_os || null,
+      // === TOKENS PAGAR.ME ===
+      pagarmeCustomerId: orderData.pagarmeCustomerId || null,
+      pagarmeCardId: orderData.pagarmeCardId || null,
     }
 
     console.log("🚀 DEBUG saveOrderToDatabase - pedidoData mapeado:", JSON.stringify(pedidoData, null, 2))

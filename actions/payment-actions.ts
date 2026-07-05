@@ -42,6 +42,7 @@ export interface PaymentData {
   card?: PaymentCard
   recurringProducts: {
     appPetloo: boolean
+    looTag: boolean
     loobook: boolean
   }
 }
@@ -60,6 +61,8 @@ export interface PaymentResponse {
   installmentAmount?: number
   error?: string
   pedidoNumero?: string
+  pagarmeCustomerId?: string | null
+  pagarmeCardId?: string | null
 }
 
 export async function processPayment(data: PaymentData): Promise<PaymentResponse> {

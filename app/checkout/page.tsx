@@ -7,11 +7,12 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useCart } from "@/contexts/cart-context"
 import { saveOrderToDatabase } from "@/actions/order-actions"
+import { atualizarShopifyOrderId } from "@/actions/pedidos-actions"
 import { Loader2, Info, Check, Plus, Minus, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { processPayment } from "@/actions/payment-actions"
 import { exportOrderToShopify } from "@/actions/shopify-actions"
-import { calculatePaymentAmount } from "@/lib/payment-utils"
+import { calculatePaymentAmount, LOOTAG_PRICE, LOOTAG_NAME, LOOAPP_NAME } from "@/lib/payment-utils"
 import { trackFBEvent, getFreshFbc } from "@/components/facebook-pixel"
 import { trackTikTokEvent } from "@/components/tiktok-pixel"
 import { gtagEvent, ga4Items, googleAdsPurchase } from "@/lib/gtag"
@@ -131,7 +132,10 @@ export default function CheckoutPage() {
 
   // Calculate total with shipping - only if cart is initialized (agora usando subtotal com desconto + order bump)
   const orderBumpValue = orderBumpSelected ? ORDER_BUMP_PRICE : 0
-  const totalWithShipping = cart.isInitialized ? subtotalWithDiscount + (showShippingOptions ? getShippingPrice() : 0) + orderBumpValue : 0
+  const looTagValue = cart.recurringProducts.looTag ? LOOTAG_PRICE : 0
+  const totalWithShipping = cart.isInitialized
+    ? subtotalWithDiscount + (showShippingOptions ? getShippingPrice() : 0) + orderBumpValue + looTagValue
+    : 0
 
   // Format price for display
   const formatPrice = (price: number) => {
@@ -707,6 +711,8 @@ export default function CheckoutPage() {
           ...orderData, // orderData agora contém petPhotos, petTypeBreed, petNotes
           paymentId: paymentResult.orderId || "",
           paymentStatus: paymentResult.status || "pending",
+          pagarmeCustomerId: paymentResult.pagarmeCustomerId || null,
+          pagarmeCardId: paymentResult.pagarmeCardId || null,
         })
 
         try {
@@ -740,6 +746,14 @@ export default function CheckoutPage() {
               )
             } catch (err) {
               console.error("⚠️ SessionStorage error:", err)
+            }
+
+            // Grava o GID do pedido Shopify no pedido salvo, necessário para
+            // o Order Edit de upsells futuros (ex.: segunda Looneca com desconto).
+            if (shopifyData.shopifyOrderId && paymentResult.orderId) {
+              atualizarShopifyOrderId(paymentResult.orderId, shopifyData.shopifyOrderId).catch((err) => {
+                console.error("⚠️ Erro ao gravar shopify_order_id no pedido:", err)
+              })
             }
           }
         } catch (err) {
@@ -1093,24 +1107,49 @@ export default function CheckoutPage() {
                 </div>
               ))}
 
-              {cart.recurringProducts.appPetloo && (
+              {cart.recurringProducts.looTag && (
                 <div className="mb-4">
                   <div className="flex">
                     <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
                       <Image
                         src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Tag%20rastreamento/foto%20crossell.png"
-                        alt="Tag de Rastreamento + App Petloo"
+                        alt={LOOTAG_NAME}
                         width={80}
                         height={80}
                         className="w-full h-full object-cover"
                       />
                     </div>
                     <div className="ml-4 flex-grow">
-                      <h3 className="font-medium">Tag de Rastreamento + App Petloo</h3>
-                      <p className="text-xs text-gray-500">Assinatura mensal - 30 dias gratis</p>
+                      <h3 className="font-medium">{LOOTAG_NAME}</h3>
+                      <p className="text-xs text-gray-500">Cobrança única</p>
                       <div className="flex justify-between items-center mt-1">
-                        <span className="text-sm text-green-600 font-semibold">GRATIS</span>
-                        <span className="font-medium text-green-600">R$ 0,00</span>
+                        <span className="text-sm">Qtd: 1</span>
+                        <span className="font-medium">R$ {formatPrice(LOOTAG_PRICE)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {cart.recurringProducts.appPetloo && (
+                <div className="mb-4">
+                  <div className="flex">
+                    <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
+                      <Image
+                        src="https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Tag%20rastreamento/foto%20crossell.png"
+                        alt={LOOAPP_NAME}
+                        width={80}
+                        height={80}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="ml-4 flex-grow">
+                      <h3 className="font-medium">{LOOAPP_NAME}</h3>
+                      <p className="text-xs text-gray-500">
+                        Grátis no primeiro mês, depois R$ 90,15/trimestre
+                      </p>
+                      <div className="flex justify-between items-center mt-1">
+                        <span className="text-sm text-green-600 font-semibold">Grátis no 1º mês</span>
                       </div>
                     </div>
                   </div>
@@ -1257,6 +1296,14 @@ export default function CheckoutPage() {
                     ) : (
                       <span>R$ {formatPrice(getShippingPrice())}</span>
                     )}
+                  </div>
+                )}
+
+                {/* Exibir LooTag se selecionada (cobrança única) */}
+                {cart.recurringProducts.looTag && (
+                  <div className="flex justify-between mt-2 font-medium">
+                    <span>{LOOTAG_NAME}</span>
+                    <span>R$ {formatPrice(LOOTAG_PRICE)}</span>
                   </div>
                 )}
 

@@ -41,6 +41,7 @@ export interface PedidoData {
   itens: PedidoItem[]
   recorrentes: {
     appPetloo: boolean
+    looTag: boolean
     loobook: boolean
   }
   pagamento: {
@@ -65,6 +66,8 @@ export interface PedidoData {
     price: number
   } | null
   dispositivo_os?: string | null
+  pagarmeCustomerId?: string | null
+  pagarmeCardId?: string | null
 }
 
 export async function criarPedido(data: PedidoData, req?: Request) {
@@ -84,7 +87,21 @@ export async function criarPedido(data: PedidoData, req?: Request) {
     }
 
     const novoNumero = ultimoPedido && ultimoPedido.length > 0 ? ultimoPedido[0].pedido_numero + 1 : 1001
-    const { customer, itens, recorrentes, pagamento, fotos, raca, observacoes, acessorios, cupom, orderBump, dispositivo_os } = data
+    const {
+      customer,
+      itens,
+      recorrentes,
+      pagamento,
+      fotos,
+      raca,
+      observacoes,
+      acessorios,
+      cupom,
+      orderBump,
+      dispositivo_os,
+      pagarmeCustomerId,
+      pagarmeCardId,
+    } = data
     const itensEscolhidos: PedidoItem[] = itens
 
     // === EXTRAÇÃO DOS DADOS DO PET ===
@@ -186,6 +203,10 @@ export async function criarPedido(data: PedidoData, req?: Request) {
       // NOTA: a coluna dispositivo_os deve existir no banco antes de habilitar esta linha.
       // Execute: ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS dispositivo_os TEXT;
       // ...(dispositivo_os ? { dispositivo_os } : {}),
+      // Tokens Pagar.me (cobranças 1-clique futuras, ex. upsell)
+      // NOTA: rodar scripts/add-pagarme-token-columns.sql antes de habilitar em produção.
+      pagarme_customer_id: pagarmeCustomerId || null,
+      pagarme_card_id: pagarmeCardId || null,
       // As colunas product_ids, variant_ids, skus serão populadas pelo trigger
     }
 
@@ -195,7 +216,7 @@ export async function criarPedido(data: PedidoData, req?: Request) {
       .from("pedidos")
       .insert(dadosParaInserir)
       .select(
-        "id, pedido_numero, email_cliente, nome_cliente, telefone_cliente, cpf_cliente, cep_cliente, cidade_cliente, estado_cliente, endereco_cliente, numero_residencia_cliente, complemento_cliente, bairro_cliente, itens_escolhidos, produtos_recorrentes, metodo_pagamento, total_pago, id_pagamento, status_pagamento, data_pagamento, atualizacao_pagamento, fotos_pet, raca_pet, criado_em, custumer, product_ids, variant_ids, skus, Acessorios",
+        "id, pedido_numero, email_cliente, nome_cliente, telefone_cliente, cpf_cliente, cep_cliente, cidade_cliente, estado_cliente, endereco_cliente, numero_residencia_cliente, complemento_cliente, bairro_cliente, itens_escolhidos, produtos_recorrentes, metodo_pagamento, total_pago, id_pagamento, status_pagamento, data_pagamento, atualizacao_pagamento, fotos_pet, raca_pet, criado_em, custumer, product_ids, variant_ids, skus, Acessorios, pagarme_customer_id, pagarme_card_id, shopify_order_id",
       )
 
     if (insertError) {
@@ -269,5 +290,55 @@ export async function getPedidoByIdPagamento(idPagamento: string) {
   } catch (error) {
     console.error("Erro interno ao buscar pedido por ID de pagamento:", error)
     return { success: false, error: "Erro interno ao buscar pedido" }
+  }
+}
+
+/**
+ * Grava o GID GraphQL do pedido Shopify (admin_graphql_api_id) no pedido já
+ * criado. Roda depois da exportação para a Shopify (que acontece após o
+ * pedido já ter sido salvo), sem bloquear o fluxo de pagamento caso a
+ * exportação falhe. Necessário para o Order Edit de upsells futuros.
+ */
+export async function atualizarShopifyOrderId(idPagamento: string, shopifyOrderId: string) {
+  try {
+    const { error } = await supabase
+      .from("pedidos")
+      .update({ shopify_order_id: shopifyOrderId })
+      .eq("id_pagamento", idPagamento)
+
+    if (error) {
+      console.error("Erro ao atualizar shopify_order_id do pedido:", error)
+      return { success: false, error: "Erro ao atualizar shopify_order_id" }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error("Erro interno ao atualizar shopify_order_id:", error)
+    return { success: false, error: "Erro interno ao atualizar shopify_order_id" }
+  }
+}
+
+/**
+ * Grava os tokens Pagar.me (customer_id/card_id) num pedido que ainda não os
+ * tinha — caso do pedido original pago via PIX cujo cliente cadastrou um
+ * cartão no upsell pós-compra. Efeito colateral bom: uma futura compra de
+ * upsell por esse mesmo cliente já pode ser 1-clique de verdade.
+ */
+export async function atualizarPagarmeTokens(idPagamento: string, customerId: string, cardId: string) {
+  try {
+    const { error } = await supabase
+      .from("pedidos")
+      .update({ pagarme_customer_id: customerId, pagarme_card_id: cardId })
+      .eq("id_pagamento", idPagamento)
+
+    if (error) {
+      console.error("Erro ao atualizar tokens Pagar.me do pedido:", error)
+      return { success: false, error: "Erro ao atualizar tokens Pagar.me" }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error("Erro interno ao atualizar tokens Pagar.me:", error)
+    return { success: false, error: "Erro interno ao atualizar tokens Pagar.me" }
   }
 }
