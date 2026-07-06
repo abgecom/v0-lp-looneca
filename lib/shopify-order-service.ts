@@ -578,6 +578,11 @@ async function createFallbackUpsellOrder(
 
   if (!createOrder.ok || !createOrder.data?.order?.id) {
     const bodyText = await createOrder.raw.text().catch(() => "")
+    console.error("[Shopify Service] Falha ao criar pedido separado (fallback) do upsell:", {
+      status: createOrder.status,
+      body: bodyText || createOrder.data,
+      order,
+    })
     return { success: false, error: bodyText || "SHOPIFY_FALLBACK_ORDER_CREATE_FAILED" }
   }
 
