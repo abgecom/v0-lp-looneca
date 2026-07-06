@@ -17,6 +17,12 @@ export const INTEREST_RATES = {
 // Taxa para PIX (também sem juros para à vista)
 export const PIX_RATE = 0.0 // 0% para PIX
 
+// Cobrança fixa única pela LooTag (coleira de rastreamento) - antes entregue como brinde grátis.
+// A assinatura LooApp (recorrente) é independente e não tem cobrança imediata no checkout.
+export const LOOTAG_PRICE = 49.9
+export const LOOTAG_NAME = "LooTag - Coleira de Rastreamento"
+export const LOOAPP_NAME = "LooApp - Assinatura Petloo"
+
 // Função para formatar valor monetário
 export function formatCurrency(value: number): string {
   return value.toFixed(2).replace(".", ",")

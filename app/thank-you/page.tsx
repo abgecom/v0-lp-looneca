@@ -1,12 +1,37 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import type React from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { ChevronDown, ChevronUp, Check, ArrowRight, Smartphone } from "lucide-react"
+import { ChevronDown, ChevronUp, Check, ArrowRight, Smartphone, Gift, AlertCircle, Loader2, ShieldCheck } from "lucide-react"
 import { useCart } from "@/contexts/cart-context"
 import { getPedidoByIdPagamento } from "@/actions/pedidos-actions"
+import PetAutocomplete from "@/components/pet-autocomplete"
+import AccessoriesSection, { getAccessoryName } from "@/components/accessories-section"
+import UpsellImageUpload from "@/components/upsell-image-upload"
+import type { AngelWingsPet } from "@/components/angel-wings-modal"
+import { PRECOS, type PetCount } from "@/lib/pricing"
+import {
+  checkUpsellAlreadyUsed,
+  determineChargeMode,
+  chargeUpsellOrder,
+  type ChargeMode,
+} from "@/actions/upsell-charge-actions"
+
+const UPSELL_COLORS = ["Branco Prisma", "Rosa Prisma", "Roxo Prisma", "Azul Prisma"]
+
+function formatCardNumber(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 16)
+  return digits.replace(/(\d{4})(?=\d)/g, "$1 ")
+}
+
+function formatCardExpiry(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 4)
+  if (digits.length > 2) return `${digits.slice(0, 2)}/${digits.slice(2)}`
+  return digits
+}
 
 interface OrderData {
   pedido_numero: number
@@ -39,6 +64,29 @@ export default function ThankYouPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [hasInitialized, setHasInitialized] = useState(false)
 
+  // Linha bruta do pedido (todas as colunas), usada pela oferta de upsell
+  // logo abaixo — evita ter que buscar o pedido de novo numa página separada.
+  const [rawPedido, setRawPedido] = useState<any | null>(null)
+
+  // Oferta de upsell (segunda Looneca, 50% off) — exibida na sequência da confirmação
+  const upsellSubmittingRef = useRef(false)
+  const [upsellAlreadyUsed, setUpsellAlreadyUsed] = useState(false)
+  const [upsellChargeMode, setUpsellChargeMode] = useState<ChargeMode>("fresh_card")
+  const [upsellPetCount, setUpsellPetCount] = useState<PetCount>(1)
+  const [upsellColor, setUpsellColor] = useState(UPSELL_COLORS[0])
+  const [upsellBreeds, setUpsellBreeds] = useState<string[]>([""])
+  const [upsellPhotos, setUpsellPhotos] = useState<string[]>([])
+  const [upsellAccessories, setUpsellAccessories] = useState<string[]>([])
+  const [upsellAngelWingsPets, setUpsellAngelWingsPets] = useState<AngelWingsPet[]>([])
+  const [upsellNotes, setUpsellNotes] = useState("")
+  const [upsellCardNumber, setUpsellCardNumber] = useState("")
+  const [upsellCardName, setUpsellCardName] = useState("")
+  const [upsellCardExpiry, setUpsellCardExpiry] = useState("")
+  const [upsellCardCvv, setUpsellCardCvv] = useState("")
+  const [isUpsellSubmitting, setIsUpsellSubmitting] = useState(false)
+  const [upsellSubmitError, setUpsellSubmitError] = useState<string | null>(null)
+  const [upsellSuccess, setUpsellSuccess] = useState(false)
+
   // Capturar parâmetros da URL
   const orderNumber = searchParams.get("pedido") || searchParams.get("orderNumber")
   const idPagamento = searchParams.get("id_pagamento")
@@ -57,7 +105,7 @@ export default function ThankYouPage() {
     // Se temos id_pagamento, buscar dados reais do Supabase
     if (idPagamento) {
       getPedidoByIdPagamento(idPagamento)
-        .then((res) => {
+        .then(async (res) => {
           if (res.success && res.data) {
             setOrderData({
               pedido_numero: res.data.pedido_numero,
@@ -82,6 +130,16 @@ export default function ThankYouPage() {
             })
             // Limpar carrinho após pedido confirmado
             cart.clearCart()
+
+            // Preparar a oferta de upsell (segunda Looneca) com os dados já buscados
+            setRawPedido(res.data)
+            const usedCheck = await checkUpsellAlreadyUsed(res.data.pedido_numero)
+            setUpsellAlreadyUsed(usedCheck.alreadyUsed)
+            setUpsellChargeMode(await determineChargeMode(res.data))
+            const tier = (res.data.itens_escolhidos?.[0]?.petCount || 1) as PetCount
+            setUpsellPetCount(tier)
+            setUpsellColor(res.data.itens_escolhidos?.[0]?.color || UPSELL_COLORS[0])
+            setUpsellCardName((res.data.nome_cliente || "").toUpperCase())
           } else {
             console.error("Erro ao buscar pedido:", res.error)
             // Se não encontrar o pedido, usar dados mock como fallback
@@ -132,6 +190,85 @@ export default function ThankYouPage() {
     total_pago: 67.8,
     status_pagamento: "paid",
   })
+
+  useEffect(() => {
+    setUpsellBreeds((prev) => Array.from({ length: upsellPetCount }, (_, i) => prev[i] || ""))
+  }, [upsellPetCount])
+
+  const upsellOriginalPrice = PRECOS[upsellPetCount]
+  const upsellPrice = Math.round(upsellOriginalPrice * 0.5 * 100) / 100
+
+  const isUpsellPersonalizationValid =
+    upsellBreeds.slice(0, upsellPetCount).every((b) => b.trim() !== "") && upsellPhotos.length > 0
+
+  const isUpsellCardValid =
+    upsellChargeMode === "fresh_card"
+      ? upsellCardNumber.replace(/\s/g, "").length >= 16 &&
+        upsellCardName.trim() !== "" &&
+        /^\d{2}\/\d{2}$/.test(upsellCardExpiry) &&
+        upsellCardCvv.length >= 3
+      : true
+
+  const handleUpsellSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (upsellSubmittingRef.current) return
+
+    if (!isUpsellPersonalizationValid) {
+      setUpsellSubmitError("Preencha a raça e envie ao menos uma foto de cada pet.")
+      return
+    }
+    if (!isUpsellCardValid) {
+      setUpsellSubmitError("Confira os dados do cartão.")
+      return
+    }
+
+    upsellSubmittingRef.current = true
+    setIsUpsellSubmitting(true)
+    setUpsellSubmitError(null)
+
+    try {
+      const accessoryNames = upsellAccessories.map((id) => getAccessoryName(id))
+      const angelWingsNote =
+        upsellAngelWingsPets.length > 0
+          ? `Asas de Anjo: ${upsellAngelWingsPets.length === 2 ? "ambos os pets" : upsellAngelWingsPets[0]}`
+          : ""
+      const combinedNotes = [upsellNotes, angelWingsNote].filter(Boolean).join(" | ")
+
+      const result = await chargeUpsellOrder({
+        originalPedido: rawPedido,
+        chargeMode: upsellChargeMode,
+        card:
+          upsellChargeMode === "fresh_card"
+            ? {
+                number: upsellCardNumber,
+                holderName: upsellCardName,
+                expirationDate: upsellCardExpiry,
+                cvv: upsellCardCvv,
+              }
+            : undefined,
+        color: upsellColor,
+        petCount: upsellPetCount,
+        accessories: accessoryNames,
+        breeds: upsellBreeds.slice(0, upsellPetCount),
+        photos: upsellPhotos,
+        notes: combinedNotes,
+      })
+
+      if (!result.success) {
+        setUpsellSubmitError(result.error || "Não foi possível processar o pagamento. Tente novamente.")
+        setIsUpsellSubmitting(false)
+        upsellSubmittingRef.current = false
+        return
+      }
+
+      setUpsellSuccess(true)
+    } catch (error) {
+      console.error("Erro ao processar upsell:", error)
+      setUpsellSubmitError("Não foi possível processar o pagamento. Tente novamente.")
+      setIsUpsellSubmitting(false)
+      upsellSubmittingRef.current = false
+    }
+  }
 
   // Format price for display
   const formatPrice = (price: number) => {
@@ -264,6 +401,192 @@ export default function ThankYouPage() {
         <div className="bg-white rounded-lg p-4">
           <h2 className="font-medium text-gray-800 text-center">Seu pedido foi Confirmado</h2>
         </div>
+
+        {/* Upsell — segunda Looneca com 50% OFF, logo na sequência da confirmação */}
+        {!upsellAlreadyUsed && rawPedido && (
+          <div className="bg-white rounded-lg border border-[#F1542E]/20 overflow-hidden">
+            <div className="bg-[#FFF3F0] px-5 py-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#F1542E] flex items-center justify-center flex-shrink-0">
+                <Gift className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 text-sm leading-tight">
+                  Espera, {orderData.nome_cliente?.split(" ")[0] || ""}! Adicione mais uma Looneca com 50% OFF
+                </h3>
+                <p className="text-xs text-gray-600 mt-0.5">Oferta exclusiva, disponível só nesta página.</p>
+              </div>
+            </div>
+
+            {upsellSuccess ? (
+              <div className="px-5 py-6 text-center">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Check className="w-6 h-6 text-green-600" />
+                </div>
+                <h4 className="font-bold text-gray-900 mb-1">Segunda Looneca confirmada!</h4>
+                <p className="text-sm text-gray-600">
+                  Ela será produzida e enviada junto com o restante do seu pedido.
+                </p>
+              </div>
+            ) : (
+              <div className="px-5 py-4 space-y-5">
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-sm line-through text-gray-400">R$ {formatPrice(upsellOriginalPrice)}</span>
+                    <span className="text-2xl font-bold text-[#F1542E]">R$ {formatPrice(upsellPrice)}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Mesma quantidade de pets do seu pedido ({upsellPetCount} pet{upsellPetCount > 1 ? "s" : ""})
+                  </p>
+                </div>
+
+                {/* Cor */}
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">
+                    Cor da caneca: <span className="font-semibold">{upsellColor}</span>
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {UPSELL_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setUpsellColor(c)}
+                        className={`px-3 py-1.5 rounded-full border text-sm ${
+                          upsellColor === c
+                            ? "border-[#F1542E] bg-[#F1542E]/5 font-medium"
+                            : "border-gray-300 hover:border-gray-400"
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <form onSubmit={handleUpsellSubmit} className="space-y-5">
+                  {/* Raça por pet */}
+                  <div className="space-y-4">
+                    {Array.from({ length: upsellPetCount }).map((_, index) => (
+                      <PetAutocomplete
+                        key={index}
+                        id={`thankyou-upsell-raca-${index}`}
+                        value={upsellBreeds[index] || ""}
+                        onChange={(value) =>
+                          setUpsellBreeds((prev) => {
+                            const next = [...prev]
+                            next[index] = value
+                            return next
+                          })
+                        }
+                        required
+                        label={upsellPetCount === 1 ? "Tipo e raça do pet" : `Tipo e raça do pet ${index + 1}`}
+                        placeholder="Comece a digitar para buscar..."
+                      />
+                    ))}
+                  </div>
+
+                  {/* Fotos */}
+                  <UpsellImageUpload onImagesUploaded={setUpsellPhotos} quantidadePets={upsellPetCount} />
+
+                  {/* Acessórios — incluídos sem custo adicional nesta oferta */}
+                  <AccessoriesSection
+                    onSelectionChange={setUpsellAccessories}
+                    onAngelWingsChange={setUpsellAngelWingsPets}
+                    petCount={upsellPetCount}
+                  />
+                  {upsellAccessories.length > 0 && (
+                    <p className="text-sm text-green-600">Acessórios incluídos sem custo adicional nesta oferta.</p>
+                  )}
+
+                  {/* Observações */}
+                  <div>
+                    <label htmlFor="upsell-notes" className="block text-sm font-medium text-gray-700 mb-1">
+                      Observações (opcional)
+                    </label>
+                    <textarea
+                      id="upsell-notes"
+                      value={upsellNotes}
+                      onChange={(e) => setUpsellNotes(e.target.value)}
+                      rows={3}
+                      placeholder="Alguma informação adicional sobre o seu pet..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]"
+                    />
+                  </div>
+
+                  {/* Pagamento */}
+                  {upsellChargeMode === "fresh_card" && (
+                    <div className="space-y-3 border-t border-gray-100 pt-4">
+                      <p className="text-sm font-medium text-gray-700">Dados do cartão</p>
+                      <input
+                        type="text"
+                        value={upsellCardNumber}
+                        onChange={(e) => setUpsellCardNumber(formatCardNumber(e.target.value))}
+                        placeholder="Número do cartão"
+                        maxLength={19}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]"
+                      />
+                      <input
+                        type="text"
+                        value={upsellCardName}
+                        onChange={(e) => setUpsellCardName(e.target.value.toUpperCase())}
+                        placeholder="Nome como está no cartão"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]"
+                      />
+                      <div className="grid grid-cols-2 gap-3">
+                        <input
+                          type="text"
+                          value={upsellCardExpiry}
+                          onChange={(e) => setUpsellCardExpiry(formatCardExpiry(e.target.value))}
+                          placeholder="MM/AA"
+                          maxLength={5}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]"
+                        />
+                        <input
+                          type="text"
+                          value={upsellCardCvv}
+                          onChange={(e) => setUpsellCardCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                          placeholder="CVV"
+                          maxLength={4}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[#F1542E] focus:border-[#F1542E]"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {upsellSubmitError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-start">
+                      <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+                      <span>{upsellSubmitError}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isUpsellSubmitting}
+                    className="w-full bg-[#F1542E] text-white py-3.5 rounded-full font-bold hover:bg-[#e04020] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+                  >
+                    {isUpsellSubmitting ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Processando...
+                      </>
+                    ) : upsellChargeMode === "one_click" ? (
+                      `Sim! Adicionar por R$ ${formatPrice(upsellPrice)}`
+                    ) : (
+                      `Finalizar minha segunda Looneca por R$ ${formatPrice(upsellPrice)}`
+                    )}
+                  </button>
+
+                  <p className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    {upsellChargeMode === "one_click"
+                      ? "Cobrado no mesmo cartão da sua compra — sem precisar digitar nada."
+                      : "Pagamento seguro processado pela Pagar.me."}
+                  </p>
+                </form>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Petloo App Download CTA */}
         <div className="bg-white rounded-lg border border-[#F1542E]/20 overflow-hidden">

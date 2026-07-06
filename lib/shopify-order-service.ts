@@ -32,7 +32,7 @@ export interface CheckoutInput {
     price: number
   }
   items: CheckoutItem[]
-  recurringProducts?: { appPetloo?: boolean; loobook?: boolean }
+  recurringProducts?: { appPetloo?: boolean; looTag?: boolean; loobook?: boolean }
   paymentMethod: PaymentMethod
   totalAmount: number
   installments?: number
@@ -48,6 +48,7 @@ export interface CheckoutInput {
 const DEFAULT_API_VERSION = "2025-01"
 const RATE_LIMIT_MS = 550
 import { ACCESSORY_PRICE, getAccessoryName } from "@/lib/accessories"
+import { LOOTAG_PRICE, LOOTAG_NAME } from "@/lib/payment-utils"
 
 function getEnv(key: string, fallback?: string) {
   const v = process.env[key]
@@ -242,7 +243,7 @@ function buildLineItemProperties(item: CheckoutItem, index: number, input: Check
 function buildOrderPayload(input: CheckoutInput, customerId: number) {
   const financial_status = determineFinancialStatus(input.paymentMethod, input.paymentStatus)
   const { first_name, last_name } = splitName(input.customer.name)
-  const line_items = input.items.map((item, idx) => ({
+  const line_items: any[] = input.items.map((item, idx) => ({
     variant_id: Number(item.variantId),
     quantity: item.quantity,
     price: (() => {
@@ -253,6 +254,26 @@ function buildOrderPayload(input: CheckoutInput, customerId: number) {
     })(),
     properties: buildLineItemProperties(item as CheckoutItem, idx, input),
   }))
+
+  // LooTag é cobrada no checkout (Pagar.me) mas não tinha item correspondente no pedido
+  // Shopify, o que deixava o valor do pedido menor que o efetivamente cobrado.
+  // Usa a variante Crossell (R$49,90) do produto "Tag Rastreamento Petloo" já cadastrado
+  // na Shopify — assim o pedido mantém rastreio de estoque/catálogo. SHOPIFY_LOOTAG_VARIANT_ID
+  // permite trocar a variante sem alterar código, caso o produto seja recriado.
+  if (input.recurringProducts?.looTag) {
+    const tagVariantId = getEnv("SHOPIFY_LOOTAG_VARIANT_ID", "54953762947394")
+    line_items.push(
+      tagVariantId
+        ? { variant_id: Number(tagVariantId), quantity: 1, price: LOOTAG_PRICE.toFixed(2) }
+        : {
+            title: LOOTAG_NAME,
+            quantity: 1,
+            price: LOOTAG_PRICE.toFixed(2),
+            requires_shipping: false,
+            taxable: false,
+          },
+    )
+  }
   const shipping_address = {
     first_name,
     last_name,
@@ -287,7 +308,8 @@ function buildOrderPayload(input: CheckoutInput, customerId: number) {
     { name: "Parcelas", value: String(input.installments || 1) },
     { name: "Total de Canecas", value: String(totalMugs) },
     { name: "Resumo Raças", value: summaryRacas },
-    { name: "Tag Rastreamento + App Petloo", value: input.recurringProducts?.appPetloo ? "Sim" : "Não" },
+    { name: "LooTag (cobrada)", value: input.recurringProducts?.looTag ? "Sim" : "Não" },
+    { name: "LooApp (assinatura)", value: input.recurringProducts?.appPetloo ? "Sim" : "Não" },
     { name: "Dispositivo", value: input.dispositivo_os || "" },
   ]
 
@@ -308,8 +330,11 @@ function buildOrderPayload(input: CheckoutInput, customerId: number) {
     note_attributes.push({ name: "Asas de Anjo", value: angelWingsItems.join(" | ") })
   }
   const tagParts = [`looneca`, `supabase`, `importado`, input.paymentMethod]
+  if (input.recurringProducts?.looTag) {
+    tagParts.push("tag-rastreamento", "lootag-cobrada")
+  }
   if (input.recurringProducts?.appPetloo) {
-    tagParts.push("tag-rastreamento", "app-petloo", "app-petloo-sim")
+    tagParts.push("app-petloo", "app-petloo-sim")
   }
   const tags = tagParts.join(",")
   const order = {
@@ -371,5 +396,219 @@ export async function exportShopifyOrder(input: CheckoutInput) {
     orderId: order.id,
     shopifyOrderId: order.admin_graphql_api_id,
     orderNumber: order.order_number,
+  }
+}
+
+// ============================================================
+// Upsell pós-compra (segunda Looneca, 50% off)
+// ============================================================
+// Tenta anexar o item de upsell ao pedido Shopify original via Order Edit
+// (GraphQL). Se não houver GID do pedido original ou a mutação falhar,
+// cria um pedido Shopify separado como fallback — a venda nunca é bloqueada
+// por uma falha na integração Shopify.
+
+async function shopifyGraphQLFetch<T>(
+  query: string,
+  variables: Record<string, any>,
+): Promise<{ ok: boolean; data?: T; errors?: any[] }> {
+  const apiVersion = getEnv("SHOPIFY_API_VERSION", DEFAULT_API_VERSION) || DEFAULT_API_VERSION
+  let baseUrl = getEnv("SHOPIFY_STORE_URL") || getEnv("SHOPIFY_STORE") || `https://f1ef0b-3.myshopify.com`
+  if (baseUrl && !/^https?:\/\//i.test(baseUrl)) baseUrl = `https://${baseUrl}`
+  baseUrl = baseUrl.replace(/\/+$/g, "")
+  const token = getEnv("SHOPIFY_ACCESS_TOKEN")
+
+  if (!token) {
+    console.error("[Shopify Service] SHOPIFY_ACCESS_TOKEN ausente (GraphQL)")
+    return { ok: false, errors: [{ message: "SHOPIFY_ACCESS_TOKEN ausente" }] }
+  }
+
+  const res = await fetch(`${baseUrl}/admin/api/${apiVersion}/graphql.json`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": token,
+    },
+    body: JSON.stringify({ query, variables }),
+  })
+
+  const json = await res.json().catch(() => ({}))
+
+  if (!res.ok || json.errors) {
+    console.error("[Shopify Service] Erro GraphQL:", { status: res.status, errors: json.errors })
+    return { ok: false, errors: json.errors }
+  }
+
+  return { ok: true, data: json.data as T }
+}
+
+interface UpsellShopifyParams {
+  originalShopifyOrderId: string | null // GID GraphQL, ex: gid://shopify/Order/123
+  originalPedidoNumero: number
+  customer: { name: string; email: string; phone: string }
+  title: string
+  price: number // em reais
+  quantity: number
+  properties?: Array<{ name: string; value: string }>
+}
+
+/**
+ * Anexa o item de upsell ao pedido Shopify original via Order Edit.
+ * Usa orderEditAddCustomItem (não orderEditAddVariant) porque o preço é o
+ * de 50% off, diferente do preço de catálogo da variante.
+ */
+async function appendUpsellLineItemToOrder(
+  params: UpsellShopifyParams,
+): Promise<{ success: boolean; error?: string }> {
+  const { originalShopifyOrderId, title, price, quantity, properties } = params
+
+  if (!originalShopifyOrderId) {
+    return { success: false, error: "Pedido original sem shopify_order_id" }
+  }
+
+  const beginResult = await shopifyGraphQLFetch<{
+    orderEditBegin: { calculatedOrder?: { id: string }; userErrors: Array<{ message: string }> }
+  }>(
+    `mutation orderEditBegin($id: ID!) {
+      orderEditBegin(id: $id) {
+        calculatedOrder { id }
+        userErrors { field message }
+      }
+    }`,
+    { id: originalShopifyOrderId },
+  )
+
+  const calculatedOrderId = beginResult.data?.orderEditBegin?.calculatedOrder?.id
+  const beginErrors = beginResult.data?.orderEditBegin?.userErrors
+  if (!beginResult.ok || !calculatedOrderId || (beginErrors && beginErrors.length > 0)) {
+    return { success: false, error: `orderEditBegin falhou: ${JSON.stringify(beginErrors || beginResult.errors)}` }
+  }
+
+  await sleep(RATE_LIMIT_MS)
+
+  const addItemResult = await shopifyGraphQLFetch<{
+    orderEditAddCustomItem: { calculatedOrder?: { id: string }; userErrors: Array<{ message: string }> }
+  }>(
+    `mutation orderEditAddCustomItem($id: ID!, $title: String!, $price: MoneyInput!, $quantity: Int!) {
+      orderEditAddCustomItem(id: $id, title: $title, price: $price, quantity: $quantity) {
+        calculatedOrder { id }
+        userErrors { field message }
+      }
+    }`,
+    {
+      id: calculatedOrderId,
+      title,
+      price: { amount: price.toFixed(2), currencyCode: "BRL" },
+      quantity,
+    },
+  )
+
+  const addItemErrors = addItemResult.data?.orderEditAddCustomItem?.userErrors
+  if (!addItemResult.ok || (addItemErrors && addItemErrors.length > 0)) {
+    return { success: false, error: `orderEditAddCustomItem falhou: ${JSON.stringify(addItemErrors || addItemResult.errors)}` }
+  }
+
+  await sleep(RATE_LIMIT_MS)
+
+  const commitResult = await shopifyGraphQLFetch<{
+    orderEditCommit: { order?: { id: string }; userErrors: Array<{ message: string }> }
+  }>(
+    `mutation orderEditCommit($id: ID!, $notifyCustomer: Boolean, $staffNote: String) {
+      orderEditCommit(id: $id, notifyCustomer: $notifyCustomer, staffNote: $staffNote) {
+        order { id name }
+        userErrors { field message }
+      }
+    }`,
+    {
+      id: calculatedOrderId,
+      notifyCustomer: false,
+      // orderEditAddCustomItem não aceita "properties" (isso é um recurso só do line
+      // item REST) — guardamos a personalização no staffNote para não perder a
+      // informação quando o upsell é anexado ao pedido original via Order Edit.
+      staffNote: [
+        `Upsell pós-compra: ${title} (pedido original #${params.originalPedidoNumero})`,
+        ...(properties || []).map((p) => `${p.name}: ${p.value}`),
+      ].join(" | "),
+    },
+  )
+
+  const commitErrors = commitResult.data?.orderEditCommit?.userErrors
+  if (!commitResult.ok || !commitResult.data?.orderEditCommit?.order || (commitErrors && commitErrors.length > 0)) {
+    return { success: false, error: `orderEditCommit falhou: ${JSON.stringify(commitErrors || commitResult.errors)}` }
+  }
+
+  return { success: true }
+}
+
+/**
+ * Fallback: cria um pedido Shopify separado para o item de upsell, tagueado
+ * e anotado com o número do pedido original. Usado quando o pedido original
+ * não tem shopify_order_id (pedidos antigos) ou o Order Edit falha.
+ */
+async function createFallbackUpsellOrder(
+  params: UpsellShopifyParams,
+): Promise<{ success: boolean; shopifyOrderId?: string; error?: string }> {
+  const { customer, originalPedidoNumero, title, price, quantity, properties } = params
+
+  const { first_name, last_name } = splitName(customer.name)
+  const order = {
+    email: customer.email,
+    financial_status: "paid",
+    line_items: [
+      {
+        title,
+        quantity,
+        price: price.toFixed(2),
+        properties: properties || [],
+      },
+    ],
+    customer: { first_name, last_name, email: customer.email, phone: customer.phone },
+    note_attributes: [{ name: "Pedido Original", value: String(originalPedidoNumero) }],
+    tags: `looneca,upsell,linked-to-${originalPedidoNumero}`,
+  }
+
+  const createOrder = await shopifyFetch<{ order: any }>(`/orders.json`, {
+    method: "POST",
+    body: JSON.stringify({ order }),
+  })
+
+  if (!createOrder.ok || !createOrder.data?.order?.id) {
+    const bodyText = await createOrder.raw.text().catch(() => "")
+    return { success: false, error: bodyText || "SHOPIFY_FALLBACK_ORDER_CREATE_FAILED" }
+  }
+
+  return { success: true, shopifyOrderId: createOrder.data.order.admin_graphql_api_id }
+}
+
+/**
+ * Ponto de entrada único usado pelo fluxo de cobrança do upsell: tenta o
+ * Order Edit no pedido original; se não for possível, cria o pedido
+ * separado como fallback. Nunca lança erro — a venda já foi cobrada na
+ * Pagar.me antes disso, então uma falha aqui não pode bloquear o fluxo.
+ */
+export async function attachUpsellToShopify(
+  params: UpsellShopifyParams,
+): Promise<{ success: boolean; shopifyOrderId?: string; method: "order_edit" | "fallback_order"; error?: string }> {
+  try {
+    if (params.originalShopifyOrderId) {
+      const editResult = await appendUpsellLineItemToOrder(params)
+      if (editResult.success) {
+        return { success: true, shopifyOrderId: params.originalShopifyOrderId, method: "order_edit" }
+      }
+      console.error("[Shopify Service] Order Edit falhou, usando fallback:", editResult.error)
+    }
+
+    const fallbackResult = await createFallbackUpsellOrder(params)
+    return {
+      success: fallbackResult.success,
+      shopifyOrderId: fallbackResult.shopifyOrderId,
+      method: "fallback_order",
+      error: fallbackResult.error,
+    }
+  } catch (error) {
+    return {
+      success: false,
+      method: "fallback_order",
+      error: error instanceof Error ? error.message : "Erro desconhecido na integração Shopify do upsell",
+    }
   }
 }

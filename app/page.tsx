@@ -16,6 +16,7 @@ import { ACCESSORY_PRICE } from "@/components/accessories-section"
 import { trackFBEvent } from "@/components/facebook-pixel"
 import { trackTikTokEvent } from "@/components/tiktok-pixel"
 import { gtagEvent } from "@/lib/gtag"
+import { PRECOS, PRECOS_ORIGINAIS } from "@/lib/pricing"
 
 // Define a animação de flutuação
 const floatingAnimation = `
@@ -79,19 +80,6 @@ export default function Home() {
     })
   }, [])
 
-  // Preços base por quantidade de pets
-  const PRECOS = {
-    1: 169.9,
-    2: 197.8,
-    3: 225.7,
-  }
-
-  // Preços originais (riscados) por quantidade de pets
-  const PRECOS_ORIGINAIS = {
-    1: 229.0,
-    2: 267.0,
-    3: 305.0,
-  }
 
   const formRef = useRef<{ handleSubmit: () => Promise<boolean> } | null>(null)
 

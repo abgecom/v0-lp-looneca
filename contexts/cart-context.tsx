@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
+import { getVariantInfo } from "@/lib/variant-map"
 
 export interface CartItem {
   id: string
@@ -30,45 +31,15 @@ interface CartContextType {
   isInitialized: boolean
   recurringProducts: {
     appPetloo: boolean
+    looTag: boolean
     loobook: boolean
   }
-  toggleRecurringProduct: (product: "appPetloo" | "loobook") => void
+  toggleRecurringProduct: (product: "appPetloo" | "looTag" | "loobook") => void
   // Propriedades para fotos e raça do pet
   petPhotos: string[]
   petTypeBreed: string
   petNotes: string
   setPetData: (photos: string[], typeBreed: string, notes: string) => void
-}
-
-function getVariantInfo(color: string, petCount: number) {
-  // Remove " Prisma" se existir e ajusta "Branco" para "Branca"
-  let normalizedColor = color.replace(" Prisma", "").trim()
-  if (normalizedColor === "Branco") normalizedColor = "Branca"
-
-  const map = {
-    Branca: {
-      1: { variantId: "49929335341378", sku: "LOONEBRANCA" },
-      2: { variantId: "49929335374146", sku: "LOONEBRANCA" },
-      3: { variantId: "49929335406914", sku: "LOONEBRANCA" },
-    },
-    Rosa: {
-      1: { variantId: "50000505209154", sku: "LOONEROSA" },
-      2: { variantId: "50000506782018", sku: "LOONEROSA" },
-      3: { variantId: "50000507142466", sku: "LOONEROSA" },
-    },
-    Roxo: {
-      1: { variantId: "50000508158274", sku: "LOONEROXO" },
-      2: { variantId: "50000508518722", sku: "LOONEROXO" },
-      3: { variantId: "50000508617026", sku: "LOONEROXO" },
-    },
-    Azul: {
-      1: { variantId: "50000509108546", sku: "LOONEAZUL" },
-      2: { variantId: "50000509239618", sku: "LOONEAZUL" },
-      3: { variantId: "50000509337922", sku: "LOONEAZUL" },
-    },
-  }
-
-  return map[normalizedColor]?.[petCount] || { variantId: "", sku: "" }
 }
 
 // Valor inicial do contexto
@@ -84,6 +55,7 @@ const initialCartContext: CartContextType = {
   isInitialized: false,
   recurringProducts: {
     appPetloo: true,
+    looTag: true,
     loobook: false,
   },
   toggleRecurringProduct: () => {},
@@ -100,6 +72,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isInitialized, setIsInitialized] = useState(false)
   const [recurringProducts, setRecurringProducts] = useState({
     appPetloo: true,
+    looTag: true,
     loobook: false,
   })
   // Estados para fotos e raça do pet
@@ -215,11 +188,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [petPhotos, petTypeBreed, petNotes, isInitialized])
 
   // Função para alternar produtos recorrentes
-  const toggleRecurringProduct = (product: "appPetloo" | "loobook") => {
-    setRecurringProducts((prev) => ({
-      ...prev,
-      [product]: !prev[product],
-    }))
+  // Regra de negócio: a LooTag depende da assinatura LooApp.
+  // - Desmarcar o LooApp desmarca a LooTag junto (não é possível ter tag sem app).
+  // - Marcar a LooTag força o LooApp a ficar marcado também.
+  const toggleRecurringProduct = (product: "appPetloo" | "looTag" | "loobook") => {
+    setRecurringProducts((prev) => {
+      if (product === "appPetloo") {
+        const next = !prev.appPetloo
+        return { ...prev, appPetloo: next, looTag: next ? prev.looTag : false }
+      }
+      if (product === "looTag") {
+        const next = !prev.looTag
+        return { ...prev, looTag: next, appPetloo: next ? true : prev.appPetloo }
+      }
+      return { ...prev, [product]: !prev[product] }
+    })
   }
 
   // Função para definir os dados do pet

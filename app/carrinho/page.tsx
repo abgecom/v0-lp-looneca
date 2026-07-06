@@ -12,17 +12,7 @@ import { trackFBEvent } from "@/components/facebook-pixel"
 import { trackTikTokEvent } from "@/components/tiktok-pixel"
 import { gtagEvent, ga4Items } from "@/lib/gtag"
 import { ACCESSORY_PRICE, getAccessoryName } from "@/components/accessories-section"
-
-// Adicionar interfaces para as ofertas adicionais
-interface AdditionalOffer {
-  id: string
-  name: string
-  description: string
-  benefits: string[]
-  originalPrice: number
-  currentPrice: number
-  imageSrc: string
-}
+import { LOOTAG_PRICE, LOOTAG_NAME, LOOAPP_NAME } from "@/lib/payment-utils"
 
 export default function CartPage() {
   const router = useRouter()
@@ -47,16 +37,6 @@ export default function CartPage() {
   useEffect(() => {
     setIsClient(true)
   }, [])
-
-  // Exibir modal de dispositivo se ainda não selecionado
-  useEffect(() => {
-    if (isClient) {
-      const saved = localStorage.getItem("looneca-dispositivo-os")
-      if (!saved) {
-        setShowDeviceModal(true)
-      }
-    }
-  }, [isClient])
 
   // Disparar evento AddToCart quando a página carregar
   useEffect(() => {
@@ -115,33 +95,14 @@ export default function CartPage() {
     }
   }, [isClient, cart.items, cart.totalPrice, cart.totalItems])
 
-  // Dados das ofertas adicionais (apenas tag de rastreamento Petloo ativa)
-  const additionalOffers: AdditionalOffer[] = [
-    {
-      id: "app-petloo",
-      name: "LooTag + LooApp",
-      description: "Coleira de rastreamento e Aplicativo completo para cuidar do seu pet",
-      benefits: [
-        "Rastreamento GPS",
-        "Cartão de vacina digital",
-        "Descontos exclusivos",
-        "Registro do pet",
-      ],
-      originalPrice: 30.0,
-      currentPrice: 0,
-      imageSrc: "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Tag%20rastreamento/foto%20crossell.png",
-    },
-  ]
+  // Imagem compartilhada pelos cards de LooTag e LooApp
+  const OFFER_IMAGE_SRC =
+    "https://5txjuxzqkryxsbyq.public.blob.vercel-storage.com/LP%20looneca/Tag%20rastreamento/foto%20crossell.png"
 
-  const handleCheckout = () => {
+  const looTagValue = cart.recurringProducts.looTag ? LOOTAG_PRICE : 0
+
+  const goToCheckout = () => {
     setIsProcessing(true)
-
-    // Verificar se o carrinho tem itens
-    if (cartItems.length === 0) {
-      setIsProcessing(false)
-      alert("Seu carrinho está vazio. Adicione produtos antes de finalizar a compra.")
-      return
-    }
 
     // Salvar o estado do carrinho no localStorage para garantir que esteja disponível na página de checkout
     localStorage.setItem("looneca-cart", JSON.stringify(cartItems))
@@ -153,20 +114,46 @@ export default function CartPage() {
     }, 500)
   }
 
-  // Atualizar a função toggleOffer para usar o contexto do carrinho
-  const toggleOffer = (offerId: string) => {
-    if (offerId === "app-petloo") {
+  const handleCheckout = () => {
+    // Verificar se o carrinho tem itens
+    if (cartItems.length === 0) {
+      alert("Seu carrinho está vazio. Adicione produtos antes de finalizar a compra.")
+      return
+    }
+
+    // O modal de dispositivo só é necessário quando a LooTag ou o LooApp estão
+    // marcados (o app precisa saber se é iOS ou Android). Se nenhum dos dois
+    // estiver selecionado, ou se o usuário já respondeu antes, vai direto pro checkout.
+    const needsDeviceInfo = cart.recurringProducts.looTag || cart.recurringProducts.appPetloo
+    const alreadyAnswered = !!localStorage.getItem("looneca-dispositivo-os")
+
+    if (needsDeviceInfo && !alreadyAnswered) {
+      setShowDeviceModal(true)
+      return
+    }
+
+    goToCheckout()
+  }
+
+  // Alterna as ofertas de LooTag/LooApp através do contexto do carrinho.
+  // A regra de acoplamento (tag exige app; desmarcar app desmarca a tag)
+  // é resolvida centralmente em cart.toggleRecurringProduct.
+  const toggleOffer = (offerId: "loo-tag" | "loo-app" | "loobook") => {
+    if (offerId === "loo-tag") {
+      cart.toggleRecurringProduct("looTag")
+    } else if (offerId === "loo-app") {
       cart.toggleRecurringProduct("appPetloo")
     } else if (offerId === "loobook") {
       cart.toggleRecurringProduct("loobook")
     }
   }
 
-  // Confirmar seleção de dispositivo
+  // Confirmar seleção de dispositivo e prosseguir para o checkout
   const confirmDevice = () => {
     if (!deviceSelection) return
     localStorage.setItem("looneca-dispositivo-os", deviceSelection)
     setShowDeviceModal(false)
+    goToCheckout()
   }
 
   // Formatar preço para o padrão brasileiro
@@ -370,33 +357,27 @@ export default function CartPage() {
                       <span>R$ {formatPrice(cartTotalPrice)}</span>
                     </div>
 
-                    {ENABLE_SUBSCRIPTION_OFFERS &&
-                      additionalOffers.map((offer) => {
-                        const isSelected =
-                          offer.id === "app-petloo"
-                            ? cart.recurringProducts.appPetloo
-                            : offer.id === "loobook"
-                              ? cart.recurringProducts.loobook
-                              : false
+                    {ENABLE_SUBSCRIPTION_OFFERS && cart.recurringProducts.looTag && (
+                      <div className="flex justify-between text-sm">
+                        <span>{LOOTAG_NAME}</span>
+                        <span>R$ {formatPrice(LOOTAG_PRICE)}</span>
+                      </div>
+                    )}
 
-                        if (isSelected) {
-                          return (
-                            <div key={offer.id} className="flex justify-between text-sm">
-                              <span>{offer.name}</span>
-                              <span className="text-green-600">Grátis</span>
-                            </div>
-                          )
-                        }
-                        return null
-                      })}
+                    {ENABLE_SUBSCRIPTION_OFFERS && cart.recurringProducts.appPetloo && (
+                      <div className="flex justify-between text-sm">
+                        <span>{LOOAPP_NAME}</span>
+                        <span className="text-green-600">Grátis no 1º mês</span>
+                      </div>
+                    )}
 
                     <div className="border-t border-gray-200 pt-3 mt-3">
                       <div className="flex justify-between font-bold">
                         <span>Total</span>
-                        <span>R$ {formatPrice(cartTotalPrice)}</span>
+                        <span>R$ {formatPrice(cartTotalPrice + looTagValue)}</span>
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
-                        Em até 12x de R$ {formatPrice(cartTotalPrice / 12)}*
+                        Em até 12x de R$ {formatPrice((cartTotalPrice + looTagValue) / 12)}*
                       </div>
                     </div>
                   </div>
@@ -447,86 +428,126 @@ export default function CartPage() {
               {/* Bônus — mobile: order-2 (acima do resumo); desktop: order-2 (meio) */}
               {ENABLE_SUBSCRIPTION_OFFERS && (
                 <div className="order-2 lg:w-3/12 lg:order-2 space-y-4">
-                  <h2 className="text-xl font-bold">Parabéns, você ganhou dois bônus grátis</h2>
+                  <h2 className="text-xl font-bold">Proteja seu pet com a LooTag e o LooApp</h2>
                   <p className="text-[#4A4A4A] text-[0.9rem] mb-4">
-                    Você terá acesso vip ao App Petloo, onde você encontrará funcionalidades exclusivas 100% gratuitas e
-                    também receberá o nosso Loobook, um guia sobre alimentação, hábitos, saúde e comportamento do seu
-                    pet.
+                    Adicione a LooTag com desconto exclusivo desta página e ganhe o primeiro mês do LooApp grátis.
                   </p>
 
-                  {additionalOffers.map((offer) => {
-                    const isSelected =
-                      (offer.id === "app-petloo" && cart.recurringProducts.appPetloo) ||
-                      (offer.id === "loobook" && cart.recurringProducts.loobook)
-
-                    return (
-                      <div
-                        key={offer.id}
-                        className={`bg-white rounded-lg shadow-md overflow-hidden transition-all duration-200 ${
-                          isSelected ? "border-2 border-green-500" : "border border-gray-200"
-                        }`}
-                      >
-                        <div className="p-4">
-                          {/* Header: imagem + info + botao */}
-                          <div className="flex items-start gap-3">
-                            <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
-                              <Image
-                                src={offer.imageSrc || "/placeholder.svg"}
-                                alt={offer.name}
-                                width={64}
-                                height={64}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                            <div className="flex-grow min-w-0">
-                              <h3 className="font-semibold text-sm leading-tight">{offer.name}</h3>
-                              <p className="text-xs text-gray-600 mt-0.5 leading-snug">{offer.description}</p>
-                              {/* Preços empilhados: LooTag e LooApp */}
-                              <div className="mt-1 space-y-0.5">
-                                <div className="flex items-center gap-1 flex-wrap">
-                                  <span className="text-xs text-gray-500 font-medium">LooTag:</span>
-                                  <span className="line-through text-gray-400 text-xs">R$149,87</span>
-                                  <span className="font-bold text-green-600 text-sm">Grátis</span>
-                                </div>
-                                <div className="flex items-center gap-1 flex-wrap">
-                                  <span className="text-xs text-gray-500 font-medium">LooApp:</span>
-                                  <span className="line-through text-gray-400 text-xs">R$30,90/mês</span>
-                                  <span className="font-bold text-green-600 text-sm">Grátis</span>
-                                  <span className="text-xs text-gray-400">no primeiro mês</span>
-                                </div>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => toggleOffer(offer.id)}
-                              className={`flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-150 ease-in-out hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                                isSelected
-                                  ? "bg-green-500 hover:bg-green-600 text-white focus:ring-green-500"
-                                  : "bg-gray-200 hover:bg-gray-300 text-gray-600 focus:ring-gray-400"
-                              } cursor-pointer`}
-                              aria-label={isSelected ? "Remover oferta" : "Adicionar oferta"}
-                            >
-                              {isSelected ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-                            </button>
-                          </div>
-
-                          {/* Beneficios */}
-                          <ul className="mt-3 space-y-1">
-                            {offer.benefits.map((benefit, index) => (
-                              <li key={index} className="flex items-start">
-                                <Check className="w-3.5 h-3.5 text-green-500 mt-0.5 mr-1.5 flex-shrink-0" />
-                                <span className="text-xs leading-snug">{benefit}</span>
-                              </li>
-                            ))}
-                          </ul>
+                  {/* Quadrante A — LooTag */}
+                  <div
+                    className={`bg-white rounded-lg shadow-md overflow-hidden transition-all duration-200 ${
+                      cart.recurringProducts.looTag ? "border-2 border-green-500" : "border border-gray-200"
+                    }`}
+                  >
+                    <div className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
+                          <Image
+                            src={OFFER_IMAGE_SRC}
+                            alt="LooTag"
+                            width={64}
+                            height={64}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
+                        <div className="flex-grow min-w-0">
+                          <h3 className="font-semibold text-sm leading-tight">LooTag</h3>
+                          <p className="text-xs text-gray-600 mt-0.5 leading-snug">
+                            Coleira de rastreamento com chip por satélite em tempo real. Sem bateria pra carregar, sem
+                            complicação.
+                          </p>
+                          <div className="mt-1 flex items-center gap-1 flex-wrap">
+                            <span className="line-through text-gray-400 text-xs">R$149,87</span>
+                            <span className="text-gray-700 text-sm">R$49,90</span>
+                            <span className="font-bold text-green-600 text-xs">apenas nessa página</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => toggleOffer("loo-tag")}
+                          className={`flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-150 ease-in-out hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                            cart.recurringProducts.looTag
+                              ? "bg-green-500 hover:bg-green-600 text-white focus:ring-green-500"
+                              : "bg-gray-200 hover:bg-gray-300 text-gray-600 focus:ring-gray-400"
+                          } cursor-pointer`}
+                          aria-label={cart.recurringProducts.looTag ? "Remover LooTag" : "Adicionar LooTag"}
+                        >
+                          {cart.recurringProducts.looTag ? (
+                            <Check className="w-5 h-5" />
+                          ) : (
+                            <Plus className="w-5 h-5" />
+                          )}
+                        </button>
                       </div>
-                    )
-                  })}
+                    </div>
+                  </div>
+
+                  {/* Quadrante B — LooApp */}
+                  <div
+                    className={`bg-white rounded-lg shadow-md overflow-hidden transition-all duration-200 ${
+                      cart.recurringProducts.appPetloo ? "border-2 border-green-500" : "border border-gray-200"
+                    }`}
+                  >
+                    <div className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
+                          <Image
+                            src={OFFER_IMAGE_SRC}
+                            alt="LooApp"
+                            width={64}
+                            height={64}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="flex-grow min-w-0">
+                          <h3 className="font-semibold text-sm leading-tight">LooApp</h3>
+                          <p className="text-xs text-gray-600 mt-0.5 leading-snug">
+                            Saiba onde seu pet está. A qualquer hora, em qualquer lugar com a localização exata no seu
+                            celular.
+                          </p>
+                          <div className="mt-1 flex items-center gap-1 flex-wrap">
+                            <span className="line-through text-gray-400 text-xs">R$90,15/trimestre</span>
+                            <span className="font-bold text-green-600 text-sm">Grátis</span>
+                            <span className="text-xs text-gray-400">no primeiro mês</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => toggleOffer("loo-app")}
+                          className={`flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-150 ease-in-out hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                            cart.recurringProducts.appPetloo
+                              ? "bg-green-500 hover:bg-green-600 text-white focus:ring-green-500"
+                              : "bg-gray-200 hover:bg-gray-300 text-gray-600 focus:ring-gray-400"
+                          } cursor-pointer`}
+                          aria-label={cart.recurringProducts.appPetloo ? "Remover LooApp" : "Adicionar LooApp"}
+                        >
+                          {cart.recurringProducts.appPetloo ? (
+                            <Check className="w-5 h-5" />
+                          ) : (
+                            <Plus className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Beneficios */}
+                      <ul className="mt-3 space-y-1">
+                        {[
+                          "Registro do pet",
+                          "Rastreamento GPS",
+                          "Cartão de vacina digital",
+                          "Petloo Club: Benefícios e Descontos Exclusivos",
+                        ].map((benefit, index) => (
+                          <li key={index} className="flex items-start">
+                            <Check className="w-3.5 h-3.5 text-green-500 mt-0.5 mr-1.5 flex-shrink-0" />
+                            <span className="text-xs leading-snug">{benefit}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
 
                   {/* Disclaimer */}
                   {cart.recurringProducts.appPetloo && (
                     <p className="hidden lg:block text-[10px] leading-tight text-gray-400 mt-3">
-                      {"Após o primeiro mês de teste grátis a assinatura do aplicativo será ativada no valor de R$30,90/mês com cobranças trimestrais. Cancele a qualquer momento."}
+                      {"Após o primeiro mês grátis, a assinatura do LooApp será cobrada no valor de R$90,15/trimestre. Cancele a qualquer momento."}
                     </p>
                   )}
                 </div>
@@ -536,13 +557,7 @@ export default function CartPage() {
         </div>
       </div>
 
-      <Footer
-        topDisclaimer={
-          ENABLE_SUBSCRIPTION_OFFERS && cart.recurringProducts.appPetloo
-            ? "Após o primeiro mês de teste grátis a assinatura do aplicativo será ativada no valor de R$30,90/mês com cobranças trimestrais. Cancele a qualquer momento."
-            : undefined
-        }
-      />
+      <Footer />
     </main>
   )
 }
