@@ -54,8 +54,10 @@ export async function createLooAppSubscription(params: {
   shipping: SubscriptionShipping
   card: SubscriptionCard
   orderId: string
+  amount?: number
+  installments?: number
 }): Promise<CreateLooAppSubscriptionResult> {
-  const { customer, shipping, card, orderId } = params
+  const { customer, shipping, card, orderId, amount = 0, installments = 1 } = params
 
   try {
     // Step 1: Criar customer na Pagar.me
@@ -161,6 +163,8 @@ export async function createLooAppSubscription(params: {
       order_id: orderId,
       subscription_id: subscriptionId,
       plan_id: PAGARME_CONFIG.subscription.planId,
+      amount,
+      installments,
       status: subscriptionResult.data.status || "active",
       customer_data: {
         name: customer.name,

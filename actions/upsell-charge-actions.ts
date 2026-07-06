@@ -336,6 +336,8 @@ export async function chargeUpsellOrder(params: ChargeUpsellParams): Promise<Cha
               shipping: shippingFields,
               card: card as UpsellCard,
               orderId: originalPedido.id_pagamento,
+              amount: Math.round((originalPedido.total_pago || 0) * 100),
+              installments: 1,
             })
 
             if (subscriptionResult.success) {

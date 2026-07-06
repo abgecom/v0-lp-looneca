@@ -376,6 +376,11 @@ export async function exportShopifyOrder(input: CheckoutInput) {
   })
   if (!createOrder.ok || !createOrder.data?.order?.id) {
     const bodyText = await createOrder.raw.text().catch(() => "")
+    console.error("[Shopify Service] Falha ao criar pedido:", {
+      status: createOrder.status,
+      body: bodyText || createOrder.data,
+      line_items: payload.order.line_items,
+    })
     return {
       success: false,
       status: createOrder.status,

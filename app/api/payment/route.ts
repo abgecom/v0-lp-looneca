@@ -411,6 +411,8 @@ export async function POST(request: NextRequest) {
         shipping,
         card,
         orderId: pagarmeOrderId,
+        amount: finalAmountCents,
+        installments,
       })
 
       if (subscriptionResult.success) {
