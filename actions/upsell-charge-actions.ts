@@ -194,10 +194,13 @@ export async function chargeUpsellOrder(params: ChargeUpsellParams): Promise<Cha
     ]
 
     let paymentObj: any
-    let orderCustomer: any
+    // Pagar.me distingue "customer_id" (referência a um customer já existente,
+    // campo de nível raiz do pedido) de "customer" (objeto inline que cria um
+    // customer novo) — não é a mesma coisa que `customer: { id: ... }`.
+    let customerRef: { customer_id: string } | { customer: any }
 
     if (chargeMode === "one_click") {
-      orderCustomer = { id: originalPedido.pagarme_customer_id }
+      customerRef = { customer_id: originalPedido.pagarme_customer_id }
       paymentObj = {
         payment_method: "credit_card",
         credit_card: {
@@ -210,14 +213,16 @@ export async function chargeUpsellOrder(params: ChargeUpsellParams): Promise<Cha
         throw new Error("Dados do cartão são obrigatórios para este pedido")
       }
       const [expMonth, expYear] = card.expirationDate.split("/")
-      orderCustomer = {
-        name: customerFields.name,
-        email: customerFields.email,
-        document: formatDocumentForPagarme(customerFields.cpf),
-        document_type: "CPF",
-        type: "individual",
-        phones: { mobile_phone: formatPhoneForPagarme(customerFields.phone) },
-        address: pagarmeShippingAddress,
+      customerRef = {
+        customer: {
+          name: customerFields.name,
+          email: customerFields.email,
+          document: formatDocumentForPagarme(customerFields.cpf),
+          document_type: "CPF",
+          type: "individual",
+          phones: { mobile_phone: formatPhoneForPagarme(customerFields.phone) },
+          address: pagarmeShippingAddress,
+        },
       }
       paymentObj = {
         payment_method: "credit_card",
@@ -240,8 +245,8 @@ export async function chargeUpsellOrder(params: ChargeUpsellParams): Promise<Cha
     }
 
     const orderPayload = {
+      ...customerRef,
       items: orderItems,
-      customer: orderCustomer,
       shipping: { amount: 0, description: "Reenvio junto ao pedido original", address: pagarmeShippingAddress },
       payments: [{ ...paymentObj, amount: priceCents }],
     }
