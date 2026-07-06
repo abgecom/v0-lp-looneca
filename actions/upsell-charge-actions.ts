@@ -298,7 +298,9 @@ export async function chargeUpsellOrder(params: ChargeUpsellParams): Promise<Cha
         properties: [
           { name: "Cor", value: color },
           { name: "Quantidade de Pets", value: String(petCount) },
+          { name: "Fotos", value: photos.join(", ") },
           { name: "Raça(s)", value: breeds.join(", ") },
+          { name: "Observações", value: notes || "" },
           { name: "Acessórios", value: accessories.join(", ") || "Nenhum" },
           { name: "SKU Referência", value: sku || "" },
         ],
