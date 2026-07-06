@@ -370,6 +370,7 @@ export async function exportShopifyOrder(input: CheckoutInput) {
     return { success: true, dryRun: true, preview: payload }
   }
   console.log("[Shopify Service] Criar pedido na Shopify")
+  console.log("[Shopify Service] Payload enviado:", JSON.stringify(payload))
   const createOrder = await shopifyFetch<{ order: any }>(`/orders.json`, {
     method: "POST",
     body: JSON.stringify(payload),
@@ -578,6 +579,11 @@ async function createFallbackUpsellOrder(
 
   if (!createOrder.ok || !createOrder.data?.order?.id) {
     const bodyText = await createOrder.raw.text().catch(() => "")
+    console.error("[Shopify Service] Falha ao criar pedido separado (fallback) do upsell:", {
+      status: createOrder.status,
+      body: bodyText || createOrder.data,
+      order,
+    })
     return { success: false, error: bodyText || "SHOPIFY_FALLBACK_ORDER_CREATE_FAILED" }
   }
 
